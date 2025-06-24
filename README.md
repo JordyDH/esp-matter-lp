@@ -1,11 +1,19 @@
-# Espressif's SDK for Matter
+# Espressif's SDK for Matter - Low Power Edition
 
 [![Docker Image](https://github.com/espressif/esp-matter/actions/workflows/docker-image.yml/badge.svg)](https://github.com/espressif/esp-matter/actions/workflows/docker-image.yml)
 [![Launchpad Deployment](https://github.com/espressif/esp-matter/actions/workflows/pages.yml/badge.svg)](https://github.com/espressif/esp-matter/actions/workflows/pages.yml)
 
 ## Introduction
 
-Espressif's SDK for Matter is the official Matter development framework for ESP32 series SoCs. It is built on top of the [open source Matter SDK](https://github.com/project-chip/connectedhomeip/), and provides simplified APIs, commonly used peripherals, tools and utilities for security, manufacturing and production accompanied by exhaustive documentation. It includes rich production references, aimed to simplify the development process of Matter products and enable the users to go to production in the shortest possible time.
+This is a customized fork of Espressif's SDK for Matter, specifically optimized for low power operation on ESP32 series SoCs. It builds upon the [original Espressif Matter SDK](https://github.com/espressif/esp-matter/) and the [open source Matter SDK](https://github.com/project-chip/connectedhomeip/), while introducing power-saving features and optimizations suitable for battery-powered and energy-efficient Matter products.
+
+The low power optimizations in this fork include:
+- Enhanced sleep modes management
+- Reduced wake-up frequency
+- Optimized network communication patterns
+- Power-efficient peripheral handling
+
+Like the original SDK, it provides simplified APIs, commonly used peripherals, tools and utilities for security, manufacturing, and production, accompanied by exhaustive documentation. It includes rich production references aimed to simplify the development of energy-efficient Matter products.
 
 [Supported Device Types](SUPPORTED_DEVICE_TYPES.md)
 
@@ -22,20 +30,31 @@ Espressif's SDK for Matter is the official Matter development framework for ESP3
 
 ## Getting the repositories
 
-For efficient cloning of the ESP-Matter repository, please refer
-[Getting the Repositories](https://docs.espressif.com/projects/esp-matter/en/latest/esp32/developing.html#getting-the-repositories)
-section in the ESP-Matter Programming Guide.
+This repository has been modified to include all necessary submodule content directly in the main repository, eliminating the need for submodule initialization. Simply clone this repository:
 
-## Supported ESP-IDF and connectedhomeip versions
+```bash
+git clone <repository-url>
+cd esp-matter
+```
 
-- This SDK currently works with commit [f6c3c83820](https://github.com/project-chip/connectedhomeip/tree/326cabf99c) of connectedhomeip.
+## Supported ESP-IDF versions
+
 - For Matter projects development with this SDK, it is recommended to utilize ESP-IDF [v5.4.1](https://github.com/espressif/esp-idf/tree/v5.4.1).
+
+## Low Power Implementation Details
+
+This fork introduces several key changes to optimize for low power operation:
+
+1. **Sleep Mode Optimization**: Enhanced deep sleep integration with Matter protocol handling
+2. **Duty Cycle Management**: Configurable active/sleep cycles to balance responsiveness and power consumption
+3. **Efficient Network Stack**: Modified networking components to minimize power consumption during connectivity
+4. **Example Applications**: Provided reference implementations for common low-power device types
 
 ## Documentation
 
 For a simplified explanation of Matter concepts and internals, please check out the [Espressif's Matter blog series](https://blog.espressif.com/matter-38ccf1d60bcd).
 
-Refer the [Programming Guide](https://docs.espressif.com/projects/esp-matter/en/latest/) for the latest version of the documentation.
+Refer to the [Programming Guide](https://docs.espressif.com/projects/esp-matter/en/latest/) for the original ESP-Matter documentation. Additional documentation specific to low-power operation can be found in the [docs/low-power](docs/low-power) directory.
 
 ## Matter Specifications
 Download the Matter specification from [CSA's official site](https://csa-iot.org/developer-resource/specifications-download-request/)
