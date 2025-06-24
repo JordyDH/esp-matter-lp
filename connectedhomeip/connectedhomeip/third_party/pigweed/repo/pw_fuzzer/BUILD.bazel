@@ -1,0 +1,109 @@
+# Copyright 2021 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_python//sphinxdocs:sphinx_docs_library.bzl", "sphinx_docs_library")
+load("//pw_build:compatibility.bzl", "incompatible_with_mcu")
+
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])
+
+################################################################################
+# FuzzTest support
+#
+# Create FuzzTest-style fuzzers by adding a dep on //pw_fuzzer:fuzztest
+
+# Identifies when upstream FuzzTest is being used.
+config_setting(
+    name = "use_fuzztest",
+    testonly = True,
+    flag_values = {
+        "//pw_fuzzer:fuzztest_backend": "@com_google_fuzztest//fuzztest:fuzztest_core",
+    },
+)
+
+cc_library(
+    name = "fuzztest",
+    testonly = True,
+    hdrs = ["public/pw_fuzzer/fuzztest.h"] + select({
+        ":use_fuzztest": ["private/pw_fuzzer/internal/fuzztest.h"],
+        "//conditions:default": [],
+    }),
+    includes = ["public"] + select({
+        ":use_fuzztest": ["private"],
+        "//conditions:default": [],
+    }),
+    deps = [
+        ":fuzztest_backend",
+        "//pw_containers:flat_map",
+        "//pw_containers:inline_deque",
+        "//pw_containers:inline_queue",
+        "//pw_containers:intrusive_list",
+        "//pw_containers:vector",
+        "//pw_result",
+        "//pw_status",
+        "//pw_string",
+    ],
+)
+
+label_flag(
+    name = "fuzztest_backend",
+    build_setting_default = ":fuzztest_stub",
+)
+
+cc_library(
+    name = "fuzztest_stub",
+    testonly = True,
+    hdrs = [
+        "private_overrides/pw_fuzzer/internal/fuzztest.h",
+        "public_overrides/fuzztest/fuzztest.h",
+    ],
+    includes = [
+        "private_overrides",
+        "public_overrides",
+    ],
+    tags = ["noclangtidy"],
+    deps = ["//pw_unit_test"],
+)
+
+################################################################################
+# libFuzzer support
+#
+# Create libFuzzer-style fuzzers by using the `pw_fuzzer` template from
+# fuzzer.gni.
+
+cc_library(
+    name = "libfuzzer",
+    hdrs = [
+        "public/pw_fuzzer/asan_interface.h",
+        "public/pw_fuzzer/fuzzed_data_provider.h",
+    ],
+    strip_include_prefix = "public",
+)
+
+sphinx_docs_library(
+    name = "docs",
+    srcs = [
+        "concepts.rst",
+        "docs.rst",
+        "guides/fuzztest.rst",
+        "guides/index.rst",
+        "guides/libfuzzer.rst",
+        "guides/reproducing_oss_fuzz_bugs.rst",
+        "//pw_fuzzer/examples/fuzztest:docs",
+    ],
+    prefix = "pw_fuzzer/",
+    target_compatible_with = incompatible_with_mcu(),
+)

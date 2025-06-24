@@ -1,0 +1,390 @@
+# Copyright 2023 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+import("//build_overrides/pigweed.gni")
+
+import("$dir_pw_async2/backend.gni")
+import("$dir_pw_build/facade.gni")
+import("$dir_pw_build/module_config.gni")
+import("$dir_pw_build/target_types.gni")
+import("$dir_pw_chrono/backend.gni")
+import("$dir_pw_docgen/docs.gni")
+import("$dir_pw_sync/backend.gni")
+import("$dir_pw_thread/backend.gni")
+import("$dir_pw_toolchain/traits.gni")
+import("$dir_pw_unit_test/test.gni")
+
+declare_args() {
+  # The build target that overrides the default configuration options for this
+  # module. This should point to a source set that provides defines through a
+  # public config (which may -include a file or add defines directly).
+  pw_async2_CONFIG = pw_build_DEFAULT_MODULE_CONFIG
+}
+
+config("public_include_path") {
+  include_dirs = [ "public" ]
+}
+
+pw_source_set("poll") {
+  public_configs = [ ":public_include_path" ]
+  public = [
+    "public/pw_async2/internal/poll_internal.h",
+    "public/pw_async2/poll.h",
+    "public/pw_async2/try.h",
+  ]
+  public_deps = [
+    "$dir_pw_string:to_string",
+    "$dir_pw_third_party/fuchsia:stdcompat",
+    dir_pw_polyfill,
+  ]
+}
+
+pw_test("poll_test") {
+  deps = [
+    ":poll",
+    "$dir_pw_result",
+  ]
+  sources = [ "poll_test.cc" ]
+}
+
+pw_facade("dispatcher") {
+  backend = pw_async2_DISPATCHER_BACKEND
+  public_configs = [ ":public_include_path" ]
+  public = [
+    "public/pw_async2/context.h",
+    "public/pw_async2/dispatcher.h",
+    "public/pw_async2/dispatcher_base.h",
+    "public/pw_async2/lock.h",
+    "public/pw_async2/task.h",
+    "public/pw_async2/waker.h",
+  ]
+  public_deps = [
+    ":poll",
+    "$dir_pw_assert",
+    "$dir_pw_chrono:system_clock",
+    "$dir_pw_sync:interrupt_spin_lock",
+    "$dir_pw_sync:lock_annotations",
+    "$dir_pw_sync:mutex",
+    "$dir_pw_toolchain:no_destructor",
+    dir_pw_metric,
+  ]
+  deps = [
+    ":config",
+    "$dir_pw_assert:check",
+    dir_pw_log,
+  ]
+  sources = [ "dispatcher_base.cc" ]
+}
+
+pw_source_set("config") {
+  sources = [ "public/pw_async2/internal/config.h" ]
+  public_configs = [ ":public_include_path" ]
+  public_deps = [ pw_async2_CONFIG ]
+  visibility = [ "./*" ]
+  friend = [ "./*" ]
+}
+
+pw_test("dispatcher_test") {
+  enable_if = pw_async2_DISPATCHER_BACKEND != "" &&
+              pw_chrono_SYSTEM_CLOCK_BACKEND != "" &&
+              pw_sync_INTERRUPT_SPIN_LOCK_BACKEND != "" &&
+              pw_sync_TIMED_THREAD_NOTIFICATION_BACKEND != ""
+  deps = [
+    ":dispatcher",
+    "$dir_pw_containers:vector",
+  ]
+  sources = [ "dispatcher_test.cc" ]
+}
+
+pw_test("dispatcher_thread_test") {
+  enable_if = pw_async2_DISPATCHER_BACKEND != "" &&
+              pw_chrono_SYSTEM_CLOCK_BACKEND != "" &&
+              pw_sync_INTERRUPT_SPIN_LOCK_BACKEND != "" &&
+              pw_thread_THREAD_BACKEND == "$dir_pw_thread_stl:thread"
+  deps = [
+    ":dispatcher",
+    "$dir_pw_thread:sleep",
+    "$dir_pw_thread:thread",
+    "$dir_pw_thread_stl:thread",
+    dir_pw_function,
+  ]
+  sources = [ "dispatcher_thread_test.cc" ]
+}
+
+pw_source_set("pend_func_task") {
+  public_configs = [ ":public_include_path" ]
+  public = [ "public/pw_async2/pend_func_task.h" ]
+  public_deps = [
+    ":dispatcher",
+    dir_pw_function,
+  ]
+}
+
+pw_test("pend_func_task_test") {
+  enable_if = pw_async2_DISPATCHER_BACKEND != ""
+  deps = [
+    ":dispatcher",
+    ":pend_func_task",
+  ]
+  sources = [ "pend_func_task_test.cc" ]
+}
+
+pw_source_set("pendable_as_task") {
+  public_configs = [ ":public_include_path" ]
+  public = [ "public/pw_async2/pendable_as_task.h" ]
+  public_deps = [ ":dispatcher" ]
+}
+
+pw_test("pendable_as_task_test") {
+  enable_if = pw_async2_DISPATCHER_BACKEND != ""
+  deps = [
+    ":dispatcher",
+    ":pendable_as_task",
+  ]
+  sources = [ "pendable_as_task_test.cc" ]
+}
+
+pw_source_set("allocate_task") {
+  public_configs = [ ":public_include_path" ]
+  public = [ "public/pw_async2/allocate_task.h" ]
+  public_deps = [
+    ":dispatcher",
+    "$dir_pw_allocator:allocator",
+  ]
+}
+
+pw_test("allocate_task_test") {
+  enable_if = pw_async2_DISPATCHER_BACKEND != ""
+  deps = [
+    ":allocate_task",
+    "$dir_pw_allocator:testing",
+  ]
+  sources = [ "allocate_task_test.cc" ]
+}
+
+pw_source_set("once_sender") {
+  public_configs = [ ":public_include_path" ]
+  public = [ "public/pw_async2/once_sender.h" ]
+  public_deps = [
+    ":dispatcher",
+    "$dir_pw_function",
+  ]
+}
+
+pw_test("once_sender_test") {
+  enable_if = pw_async2_DISPATCHER_BACKEND != ""
+  deps = [
+    ":once_sender",
+    "$dir_pw_containers:vector",
+  ]
+  sources = [ "once_sender_test.cc" ]
+}
+
+if (pw_toolchain_CXX_STANDARD >= pw_toolchain_STANDARD.CXX20) {
+  pw_source_set("coro") {
+    public_configs = [ ":public_include_path" ]
+    public = [ "public/pw_async2/coro.h" ]
+    public_deps = [
+      ":dispatcher",
+      "$dir_pw_allocator:allocator",
+      dir_pw_function,
+    ]
+    deps = [ dir_pw_log ]
+    sources = [ "coro.cc" ]
+  }
+
+  pw_test("coro_test") {
+    enable_if = pw_async2_DISPATCHER_BACKEND != ""
+    deps = [
+      ":coro",
+      ":dispatcher",
+      "$dir_pw_allocator:null_allocator",
+      "$dir_pw_allocator:testing",
+    ]
+    sources = [ "coro_test.cc" ]
+  }
+
+  pw_source_set("coro_or_else_task") {
+    public_configs = [ ":public_include_path" ]
+    public = [ "public/pw_async2/coro_or_else_task.h" ]
+    public_deps = [
+      ":coro",
+      ":dispatcher",
+      "$dir_pw_function",
+    ]
+  }
+
+  pw_test("coro_or_else_task_test") {
+    enable_if = pw_async2_DISPATCHER_BACKEND != ""
+    sources = [ "coro_or_else_task_test.cc" ]
+    deps = [
+      ":coro",
+      ":coro_or_else_task",
+      ":dispatcher",
+      "$dir_pw_allocator:null_allocator",
+      "$dir_pw_allocator:testing",
+    ]
+  }
+
+  pw_source_set("pend_func_awaitable") {
+    public_configs = [ ":public_include_path" ]
+    public = [ "public/pw_async2/pend_func_awaitable.h" ]
+    public_deps = [
+      ":dispatcher",
+      ":poll",
+      dir_pw_function,
+    ]
+  }
+
+  pw_test("pend_func_awaitable_test") {
+    enable_if = pw_async2_DISPATCHER_BACKEND != ""
+    deps = [
+      ":coro",
+      ":coro_or_else_task",
+      ":dispatcher",
+      ":pend_func_awaitable",
+      ":poll",
+      "$dir_pw_allocator:testing",
+      dir_pw_function,
+    ]
+    sources = [ "pend_func_awaitable_test.cc" ]
+  }
+}
+
+pw_source_set("time_provider") {
+  public = [ "public/pw_async2/time_provider.h" ]
+  sources = [ "time_provider.cc" ]
+  public_configs = [ ":public_include_path" ]
+  public_deps = [
+    ":dispatcher",
+    "$dir_pw_containers:intrusive_list",
+    "$dir_pw_sync:interrupt_spin_lock",
+    "$dir_pw_toolchain:no_destructor",
+  ]
+}
+
+pw_source_set("system_time_provider") {
+  public = [ "public/pw_async2/system_time_provider.h" ]
+  public_configs = [ ":public_include_path" ]
+  public_deps = [
+    ":time_provider",
+    "$dir_pw_chrono:system_clock",
+  ]
+  sources = [ "system_time_provider.cc" ]
+  deps = [
+    "$dir_pw_chrono:system_timer",
+    "$dir_pw_toolchain:no_destructor",
+  ]
+}
+
+pw_test("system_time_provider_test") {
+  enable_if =
+      pw_async2_DISPATCHER_BACKEND != "" &&
+      pw_chrono_SYSTEM_CLOCK_BACKEND != "" &&
+      pw_sync_INTERRUPT_SPIN_LOCK_BACKEND != "" && pw_thread_YIELD_BACKEND != ""
+  sources = [ "system_time_provider_test.cc" ]
+  deps = [ ":system_time_provider" ]
+}
+
+pw_source_set("simulated_time_provider") {
+  public = [ "public/pw_async2/simulated_time_provider.h" ]
+  public_configs = [ ":public_include_path" ]
+  public_deps = [
+    ":time_provider",
+    "$dir_pw_sync:interrupt_spin_lock",
+  ]
+}
+
+pw_test("simulated_time_provider_test") {
+  enable_if =
+      pw_async2_DISPATCHER_BACKEND != "" &&
+      pw_chrono_SYSTEM_CLOCK_BACKEND != "" &&
+      pw_sync_INTERRUPT_SPIN_LOCK_BACKEND != "" && pw_thread_YIELD_BACKEND != ""
+  sources = [ "simulated_time_provider_test.cc" ]
+  deps = [
+    ":simulated_time_provider",
+    "$dir_pw_chrono:system_clock",
+  ]
+}
+
+pw_source_set("enqueue_heap_func") {
+  public = [ "public/pw_async2/enqueue_heap_func.h" ]
+  public_configs = [ ":public_include_path" ]
+  public_deps = [ ":dispatcher" ]
+}
+
+pw_test("enqueue_heap_func_test") {
+  enable_if = pw_async2_DISPATCHER_BACKEND != ""
+  sources = [ "enqueue_heap_func_test.cc" ]
+  deps = [
+    ":dispatcher",
+    ":enqueue_heap_func",
+  ]
+}
+
+pw_source_set("join") {
+  public = [ "public/pw_async2/join.h" ]
+  public_configs = [ ":public_include_path" ]
+  public_deps = [ ":dispatcher" ]
+}
+
+pw_test("join_test") {
+  enable_if = pw_async2_DISPATCHER_BACKEND != ""
+  sources = [ "join_test.cc" ]
+  deps = [
+    ":dispatcher",
+    ":join",
+  ]
+}
+
+pw_test_group("tests") {
+  tests = [
+    ":allocate_task_test",
+    ":dispatcher_test",
+    ":dispatcher_thread_test",
+    ":enqueue_heap_func_test",
+    ":join_test",
+    ":poll_test",
+    ":pend_func_task_test",
+    ":pendable_as_task_test",
+    ":once_sender_test",
+    ":simulated_time_provider_test",
+    ":system_time_provider_test",
+  ]
+  if (pw_toolchain_CXX_STANDARD >= pw_toolchain_STANDARD.CXX20) {
+    tests += [
+      ":coro_test",
+      ":coro_or_else_task_test",
+      ":pend_func_awaitable_test",
+    ]
+  }
+  group_deps = [ "examples" ]
+}
+
+pw_doc_group("docs") {
+  inputs = [
+    "examples/BUILD.bazel",
+    "examples/BUILD.gn",
+    "examples/basic.cc",
+    "examples/once_send_recv.cc",
+  ]
+  report_deps = [ "size_report:full_size_report" ]
+  sources = [
+    "backends.rst",
+    "code_size.rst",
+    "docs.rst",
+    "guides.rst",
+    "reference.rst",
+  ]
+}

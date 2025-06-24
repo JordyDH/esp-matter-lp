@@ -1,0 +1,211 @@
+{
+  "packages": [
+    {
+      "path": "gn/gn/${platform}",
+      "platforms": [
+        "linux-amd64",
+        "linux-arm64",
+        "mac-amd64",
+        "mac-arm64",
+        "windows-amd64"
+      ],
+      "tags": [
+        "git_revision:6e8e0d6d4a151ab2ed9b4a35366e630c55888444"
+      ],
+      "version_file": ".versions/gn.cipd_version"
+    },
+    {
+      "path": "fuchsia/third_party/ninja/${platform}",
+      "platforms": [
+        "linux-amd64",
+        "linux-arm64",
+        "mac-amd64",
+        "mac-arm64",
+        "windows-amd64"
+      ],
+      "tags": [
+        "git_revision:8453aed19e7f819fb1e2c328dc915f69eb859298"
+      ]
+    },
+    {
+      "path": "fuchsia/third_party/bloaty/${platform}",
+      "platforms": [
+        "linux-amd64",
+        "mac-amd64"
+      ],
+      "tags": [
+        "git_revision:c057ba4f43db0506d4ba8c096925b054b02a8bd3"
+      ],
+      "version_file": ".versions/bloaty.cipd_version"
+    },
+    {
+      "path": "fuchsia/third_party/bloaty/mac-amd64",
+      "platforms": [
+        "mac-arm64"
+      ],
+      "tags": [
+        "git_revision:c057ba4f43db0506d4ba8c096925b054b02a8bd3"
+      ],
+      "version_file": ".versions/bloaty.cipd_version"
+    },
+    {
+      "path": "infra/3pp/tools/protoc/${platform}",
+      "platforms": [
+        "linux-amd64",
+        "linux-arm64",
+        "mac-amd64",
+        "mac-arm64",
+        "windows-amd64"
+      ],
+      "tags": [
+        "version:3@28.2"
+      ]
+    },
+    {
+      "path": "fuchsia/third_party/clang/${platform}",
+      "platforms": [
+        "linux-amd64",
+        "linux-arm64",
+        "mac-amd64",
+        "mac-arm64",
+        "windows-amd64"
+      ],
+      "tags": [
+        "git_revision:553da9634dc4bae215e6c850d2de3186d09f9da5"
+      ],
+      "version_file": ".versions/clang.cipd_version"
+    },
+    {
+      "path": "fuchsia/third_party/rust/host/${platform}",
+      "platforms": [
+        "linux-amd64",
+        "linux-arm64",
+        "mac-amd64",
+        "mac-arm64"
+      ],
+      "subdir": "rust",
+      "tags": [
+        "git_revision:612796c42077605fdd3c6f7dda05745d8f4dc4d8"
+      ]
+    },
+    {
+      "path": "fuchsia/third_party/rust/target/aarch64-unknown-linux-gnu",
+      "platforms": [
+        "linux-arm64"
+      ],
+      "subdir": "rust",
+      "tags": [
+        "git_revision:612796c42077605fdd3c6f7dda05745d8f4dc4d8"
+      ]
+    },
+    {
+      "path": "fuchsia/third_party/rust/target/x86_64-unknown-linux-gnu",
+      "platforms": [
+        "linux-amd64"
+      ],
+      "subdir": "rust",
+      "tags": [
+        "git_revision:612796c42077605fdd3c6f7dda05745d8f4dc4d8"
+      ]
+    },
+    {
+      "path": "fuchsia/third_party/rust/target/aarch64-apple-darwin",
+      "platforms": [
+        "mac-arm64"
+      ],
+      "subdir": "rust",
+      "tags": [
+        "git_revision:612796c42077605fdd3c6f7dda05745d8f4dc4d8"
+      ]
+    },
+    {
+      "path": "fuchsia/third_party/rust/target/x86_64-apple-darwin",
+      "platforms": [
+        "mac-amd64"
+      ],
+      "subdir": "rust",
+      "tags": [
+        "git_revision:612796c42077605fdd3c6f7dda05745d8f4dc4d8"
+      ]
+    },
+    {
+      "path": "fuchsia/third_party/rust/target/thumbv7m-none-eabi",
+      "platforms": [
+        "linux-amd64",
+        "linux-arm64",
+        "mac-amd64",
+        "mac-arm64"
+      ],
+      "subdir": "rust",
+      "tags": [
+        "git_revision:612796c42077605fdd3c6f7dda05745d8f4dc4d8"
+      ]
+    },
+    {
+      "path": "fuchsia/third_party/rust_bindgen/${platform}",
+      "platforms": [
+        "linux-amd64",
+        "mac-amd64",
+        "mac-arm64"
+      ],
+      "subdir": "rust_bindgen",
+      "tags": [
+        "git_revision:f518815cc14a7f8c292964bb37179a1070d7e18a"
+      ]
+    },
+    {
+      "path": "infra/3pp/tools/openocd/${platform}",
+      "platforms": [
+        "linux-amd64",
+        "linux-arm64",
+        "mac-amd64",
+        "mac-arm64"
+      ],
+      "tags": [
+        "version:2@0.12.0-2"
+      ]
+    },
+    {
+      "path": "pigweed/third_party/mingw64-x86_64-win32-seh/${platform}",
+      "platforms": [
+        "windows-amd64"
+      ],
+      "tags": [
+        "version:10.2.0-11"
+      ]
+    },
+    {
+      "path": "fuchsia/third_party/qemu/${platform}",
+      "platforms": [
+        "linux-amd64",
+        "linux-arm64",
+        "mac-amd64",
+        "mac-arm64"
+      ],
+      "tags": [
+        "git_revision:ae35f033b874c627d81d51070187fbf55f0bf1a7"
+      ],
+      "version_file": ".versions/qemu.cipd_version"
+    },
+    {
+      "path": "fuchsia/third_party/sysroot/bionic",
+      "platforms": [
+        "linux-amd64",
+        "linux-arm64"
+      ],
+      "subdir": "clang_sysroot",
+      "tags": [
+        "git_revision:702eb9654703a7cec1cadf93a7e3aa269d053943"
+      ]
+    },
+    {
+      "path": "infra/3pp/tools/renode/${platform}",
+      "platforms": [
+        "linux-amd64"
+      ],
+      "tags": [
+        "version:2@1.14.0+20240213git9ffe8a98a"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,114 @@
+# Copyright 2020 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_python//sphinxdocs:sphinx_docs_library.bzl", "sphinx_docs_library")
+load("//pw_build:compatibility.bzl", "incompatible_with_mcu")
+load("//pw_build:pw_facade.bzl", "pw_facade")
+
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])
+
+# Note: to avoid circular dependencies, this target only includes the headers
+# for pw_assert_basic. The source file and its dependencies are in the separate
+# ":impl" target.
+#
+# If you point //pw_assert:backend to //pw_assert_basic, then
+# //pw_assert:backend_impl should point to //pw_assert_basic:impl.
+cc_library(
+    name = "pw_assert_basic",
+    hdrs = [
+        "public_overrides/pw_assert_backend/check_backend.h",
+    ],
+    strip_include_prefix = "public_overrides",
+    deps = [
+        ":pw_assert_basic_impl",
+    ],
+)
+
+cc_library(
+    name = "pw_assert_basic_impl",
+    hdrs = [
+        "public/pw_assert_basic/assert_basic.h",
+    ],
+    strip_include_prefix = "public",
+    visibility = ["//visibility:private"],
+    deps = [
+        ":handler.facade",
+        "//pw_assert:assert_compatibility_backend",
+        "//pw_preprocessor",
+    ],
+)
+
+pw_facade(
+    name = "handler",
+    hdrs = [
+        "public/pw_assert_basic/handler.h",
+    ],
+    backend = ":handler_backend",
+    strip_include_prefix = "public",
+    deps = [
+        "//pw_preprocessor",
+    ],
+)
+
+label_flag(
+    name = "handler_backend",
+    build_setting_default = ":pw_assert_basic_handler",
+)
+
+cc_library(
+    name = "impl",
+    srcs = [
+        "assert_basic.cc",
+    ],
+    deps = [
+        ":handler",
+        ":pw_assert_basic",
+        "//pw_assert:check.facade",
+        "//pw_assert:config",
+        "//pw_preprocessor",
+    ],
+    # Other libraries may not always depend on this library, even if it is
+    # necessary at link time.
+    alwayslink = 1,
+)
+
+cc_library(
+    name = "pw_assert_basic_handler",
+    srcs = [
+        "basic_handler.cc",
+    ],
+    implementation_deps = [
+        "//pw_assert:config",
+        "//pw_preprocessor",
+        "//pw_string:builder",
+        "//pw_sys_io",
+        "//pw_toolchain:infinite_loop",
+    ],
+    deps = [":handler.facade"],
+    # Other libraries may not always depend on this library, even if it is
+    # necessary at link time.
+    alwayslink = 1,
+)
+
+sphinx_docs_library(
+    name = "docs",
+    srcs = [
+        "docs.rst",
+    ],
+    prefix = "pw_assert_basic/",
+    target_compatible_with = incompatible_with_mcu(),
+)

@@ -1,0 +1,88 @@
+# Copyright 2022 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_python//sphinxdocs:sphinx_docs_library.bzl", "sphinx_docs_library")
+load("//pw_build:compatibility.bzl", "incompatible_with_mcu")
+load("//pw_unit_test:pw_cc_test.bzl", "pw_cc_test")
+
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])
+
+cc_library(
+    name = "pw_i2c_mcuxpresso",
+    srcs = ["initiator.cc"],
+    hdrs = ["public/pw_i2c_mcuxpresso/initiator.h"],
+    strip_include_prefix = "public",
+    deps = [
+        "//pw_chrono:system_clock",
+        "//pw_i2c:address",
+        "//pw_i2c:initiator",
+        "//pw_log",
+        "//pw_status",
+        "//pw_sync:interrupt_spin_lock",
+        "//pw_sync:lock_annotations",
+        "//pw_sync:mutex",
+        "//pw_sync:timed_thread_notification",
+        "//targets:mcuxpresso_sdk",
+    ],
+)
+
+pw_cc_test(
+    name = "initiator_test",
+    srcs = ["initiator_test.cc"],
+    deps = [":pw_i2c_mcuxpresso"],
+)
+
+cc_library(
+    name = "i3c_ccc",
+    hdrs = [
+        "public/pw_i2c_mcuxpresso/i3c_ccc.h",
+    ],
+    strip_include_prefix = "public",
+)
+
+cc_library(
+    name = "i3c_initiator",
+    srcs = ["i3c_initiator.cc"],
+    hdrs = [
+        "public/pw_i2c_mcuxpresso/i3c_initiator.h",
+    ],
+    strip_include_prefix = "public",
+    deps = [
+        ":i3c_ccc",
+        "//pw_bytes",
+        "//pw_chrono:system_clock",
+        "//pw_containers:vector",
+        "//pw_i2c:address",
+        "//pw_i2c:initiator",
+        "//pw_log",
+        "//pw_result",
+        "//pw_status",
+        "//pw_sync:mutex",
+        "//pw_sync:timed_thread_notification",
+        "//targets:mcuxpresso_sdk",
+        "//third_party/fuchsia:stdcompat",
+    ],
+)
+
+sphinx_docs_library(
+    name = "docs",
+    srcs = [
+        "docs.rst",
+    ],
+    prefix = "pw_i2c_mcuxpresso/",
+    target_compatible_with = incompatible_with_mcu(),
+)

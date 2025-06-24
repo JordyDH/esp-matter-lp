@@ -1,0 +1,548 @@
+# Copyright 2019 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_python//python:proto.bzl", "py_proto_library")
+load("@rules_python//sphinxdocs:sphinx_docs_library.bzl", "sphinx_docs_library")
+load("//pw_build:compatibility.bzl", "incompatible_with_mcu")
+load("//pw_build:pw_cc_binary.bzl", "pw_cc_binary")
+load("//pw_build:pw_facade.bzl", "pw_facade")
+load(
+    "//pw_protobuf_compiler:pw_proto_library.bzl",
+    "pwpb_proto_library",
+    "raw_rpc_proto_library",
+)
+load("//pw_unit_test:pw_cc_test.bzl", "pw_cc_test")
+
+package(
+    default_visibility = ["//visibility:public"],
+    features = ["-layering_check"],
+)
+
+licenses(["notice"])
+
+label_flag(
+    name = "main",
+    build_setting_default = ":simple_printing_main",
+)
+
+cc_library(
+    name = "config",
+    hdrs = ["public/pw_unit_test/config.h"],
+    strip_include_prefix = "public",
+    deps = [
+        ":config_override",
+        "//pw_polyfill",
+    ],
+)
+
+label_flag(
+    name = "config_override",
+    build_setting_default = "//pw_build:default_module_config",
+)
+
+pw_facade(
+    name = "pw_unit_test",
+    testonly = True,
+    hdrs = ["public/pw_unit_test/framework.h"],
+    backend = ":backend",
+    strip_include_prefix = "public",
+    deps = [":status_macros"],
+)
+
+# TODO: https://pwbug.dev/390709187 - Remove this alias once no pw_cc_test has
+# an explicit direct dependency on //pw_unit_test.
+alias(
+    name = "pw_unit_test_alias_for_migration_only",
+    actual = "pw_unit_test",
+)
+
+label_flag(
+    name = "backend",
+    build_setting_default = ":light",
+)
+
+config_setting(
+    name = "backend_is_googletest",
+    testonly = True,
+    flag_values = {
+        ":backend": ":googletest",
+    },
+)
+
+cc_library(
+    name = "light",
+    testonly = True,
+    srcs = ["framework_light.cc"],
+    hdrs = [
+        "light_public_overrides/pw_unit_test/framework_backend.h",
+        "public_overrides/gtest/gtest.h",
+    ],
+    implementation_deps = ["//pw_assert:check"],
+    includes = [
+        "light_public_overrides",
+        "public_overrides",
+    ],
+    deps = [
+        ":config",
+        ":event_handler",
+        ":pw_unit_test.facade",
+        "//pw_bytes:alignment",
+        "//pw_polyfill",
+        "//pw_preprocessor",
+        "//pw_span",
+        "//pw_status",
+        "//pw_string:builder",
+    ],
+)
+
+cc_library(
+    name = "googletest",
+    testonly = True,
+    hdrs = [
+        "googletest_public_overrides/pw_unit_test/framework_backend.h",
+    ],
+    includes = ["googletest_public_overrides"],
+    # TODO: b/310957361 - gtest not supported on device
+    target_compatible_with = incompatible_with_mcu(),
+    deps = [
+        ":googletest_handler_adapter",
+        ":pw_unit_test.facade",
+        "//pw_result",
+        "//pw_status",
+        "@com_google_googletest//:gtest",
+    ],
+)
+
+# Identifies when the light framework is being used.
+config_setting(
+    name = "light_setting",
+    testonly = True,
+    flag_values = {
+        "//pw_unit_test:backend": "//pw_unit_test:light",
+    },
+    # Do not depend on this config_setting outside upstream Pigweed. Config
+    # settings based on label flags are unreliable. See
+    # https://github.com/bazelbuild/bazel/issues/21189.
+    visibility = ["//:__subpackages__"],
+)
+
+config_setting(
+    name = "gtest_setting",
+    testonly = True,
+    flag_values = {
+        "//pw_unit_test:backend": "//pw_unit_test:googletest",
+    },
+    # Do not depend on this config_setting outside upstream Pigweed. Config
+    # settings based on label flags are unreliable. See
+    # https://github.com/bazelbuild/bazel/issues/21189.
+    visibility = ["//:__subpackages__"],
+)
+
+cc_library(
+    name = "event_handler",
+    hdrs = ["public/pw_unit_test/event_handler.h"],
+    strip_include_prefix = "public",
+)
+
+cc_library(
+    name = "status_macros",
+    testonly = True,
+    hdrs = ["public/pw_unit_test/status_macros.h"],
+    strip_include_prefix = "public",
+    deps = [
+        "//pw_status",
+        "//third_party/fuchsia:stdcompat",
+    ],
+)
+
+cc_library(
+    name = "googletest_style_event_handler",
+    srcs = ["googletest_style_event_handler.cc"],
+    hdrs = ["public/pw_unit_test/googletest_style_event_handler.h"],
+    strip_include_prefix = "public",
+    deps = [
+        ":event_handler",
+        "//pw_preprocessor",
+    ],
+)
+
+cc_library(
+    name = "googletest_handler_adapter",
+    testonly = True,
+    srcs = ["googletest_handler_adapter.cc"],
+    hdrs = ["public/pw_unit_test/googletest_handler_adapter.h"],
+    strip_include_prefix = "public",
+    # TODO: b/310957361 - gtest not supported on device
+    target_compatible_with = incompatible_with_mcu(),
+    deps = [
+        ":event_handler",
+        "//pw_preprocessor",
+        "@com_google_googletest//:gtest",
+    ],
+)
+
+cc_library(
+    name = "googletest_test_matchers",
+    testonly = True,
+    hdrs = ["public/pw_unit_test/googletest_test_matchers.h"],
+    strip_include_prefix = "public",
+    # TODO: b/310957361 - gtest not supported on device
+    target_compatible_with = incompatible_with_mcu(),
+    deps = [
+        "//pw_result",
+        "//pw_status",
+        "@com_google_googletest//:gtest",
+    ],
+)
+
+pw_cc_test(
+    name = "googletest_test_matchers_test",
+    srcs = ["googletest_test_matchers_test.cc"],
+    deps = [
+        ":googletest_test_matchers",
+    ],
+)
+
+cc_library(
+    name = "simple_printing_event_handler",
+    testonly = True,
+    srcs = ["simple_printing_event_handler.cc"],
+    hdrs = [
+        "public/pw_unit_test/simple_printing_event_handler.h",
+    ],
+    strip_include_prefix = "public",
+    deps = [
+        ":event_handler",
+        ":googletest_style_event_handler",
+        "//pw_preprocessor",
+    ],
+)
+
+cc_library(
+    name = "simple_printing_main",
+    testonly = True,
+    srcs = [
+        "simple_printing_main.cc",
+    ],
+    deps = [
+        ":pw_unit_test",
+        ":simple_printing_event_handler",
+        "//pw_span",
+        "//pw_sys_io",
+    ],
+)
+
+cc_library(
+    name = "printf_event_handler",
+    testonly = True,
+    hdrs = ["public/pw_unit_test/printf_event_handler.h"],
+    strip_include_prefix = "public",
+    deps = [
+        ":googletest_style_event_handler",
+        "//pw_preprocessor",
+    ],
+)
+
+cc_library(
+    name = "printf_main",
+    testonly = True,
+    srcs = ["printf_main.cc"],
+    deps = [
+        ":printf_event_handler",
+        ":pw_unit_test",
+    ],
+)
+
+# TODO: b/324116813 - Remove this alias once no downstream project depends on
+# it.
+alias(
+    name = "logging_event_handler",
+    actual = "logging",
+)
+
+cc_library(
+    name = "logging",
+    testonly = True,
+    srcs = [
+        "logging_event_handler.cc",
+    ],
+    hdrs = [
+        "public/pw_unit_test/logging_event_handler.h",
+    ],
+    strip_include_prefix = "public",
+    deps = [
+        ":googletest_style_event_handler",
+        "//pw_log",
+    ],
+)
+
+pw_cc_binary(
+    name = "logging_main",
+    testonly = True,
+    srcs = [
+        "logging_main.cc",
+    ],
+    # TODO: b/353588407 - Won't build on RP2040 until //pw_libcxx is added to link_extra_lib.
+    target_compatible_with = select({
+        "//pw_build/constraints/chipset:rp2040": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
+    deps = [
+        ":logging",
+        "//pw_unit_test",
+    ],
+)
+
+cc_library(
+    name = "constexpr",
+    hdrs = ["public/pw_unit_test/constexpr.h"],
+    includes = ["public"],
+    deps = [
+        "//pw_preprocessor",
+        "//third_party/fuchsia:stdcompat",
+    ],
+)
+
+pw_cc_test(
+    name = "constexpr_test",
+    srcs = ["constexpr_test.cc"],
+    deps = [
+        ":constexpr",
+        "//pw_compilation_testing:negative_compilation_testing",
+    ],
+)
+
+cc_library(
+    name = "multi_event_handler",
+    testonly = True,
+    hdrs = [
+        "public/pw_unit_test/multi_event_handler.h",
+    ],
+    strip_include_prefix = "public",
+    deps = [
+        ":event_handler",
+    ],
+)
+
+pw_cc_test(
+    name = "multi_event_handler_test",
+    srcs = ["multi_event_handler_test.cc"],
+    deps = [":multi_event_handler"],
+)
+
+cc_library(
+    name = "test_record_event_handler",
+    testonly = True,
+    hdrs = [
+        "public/pw_unit_test/internal/test_record_trie.h",
+        "public/pw_unit_test/test_record_event_handler.h",
+    ],
+    strip_include_prefix = "public",
+    deps = [
+        ":event_handler",
+        "//pw_assert:check",
+        "//pw_json:builder",
+    ],
+)
+
+pw_cc_test(
+    name = "test_record_event_handler_test",
+    srcs = ["test_record_event_handler_test.cc"],
+    features = ["-conversion_warnings"],
+    deps = [
+        ":test_record_event_handler",
+        "//pw_assert:assert",
+    ],
+)
+
+proto_library(
+    name = "unit_test_proto",
+    srcs = ["pw_unit_test_proto/unit_test.proto"],
+    strip_import_prefix = "/pw_unit_test",
+)
+
+py_proto_library(
+    name = "unit_test_py_pb2",
+    deps = [":unit_test_proto"],
+)
+
+pwpb_proto_library(
+    name = "unit_test_pwpb",
+    deps = [":unit_test_proto"],
+)
+
+raw_rpc_proto_library(
+    name = "unit_test_raw_rpc",
+    deps = [":unit_test_proto"],
+)
+
+cc_library(
+    name = "rpc_service",
+    testonly = True,
+    srcs = ["unit_test_service.cc"] + select({
+        ":light_setting": ["rpc_light_event_handler.cc"],
+        "//conditions:default": [":rpc_gtest_event_handler.cc"],
+    }),
+    hdrs = [
+        "public/pw_unit_test/config.h",
+        "public/pw_unit_test/unit_test_service.h",
+    ] + select({
+        ":light_setting": [
+            "rpc_light_public/pw_unit_test/internal/rpc_event_handler.h",
+        ],
+        "//conditions:default": [
+            "rpc_gtest_public/pw_unit_test/internal/rpc_event_handler.h",
+        ],
+    }),
+    features = ["-conversion_warnings"],
+    includes = ["public"] + select({
+        ":light_setting": ["rpc_light_public"],
+        "//conditions:default": ["rpc_gtest_public"],
+    }),
+    deps = [
+        ":config",
+        ":event_handler",
+        ":pw_unit_test",
+        ":unit_test_pwpb",
+        ":unit_test_raw_rpc",
+        "//pw_log",
+        "//pw_span",
+    ],
+)
+
+cc_library(
+    name = "rpc_main",
+    testonly = True,
+    srcs = [
+        "rpc_main.cc",
+    ],
+    features = ["-conversion_warnings"],
+    implementation_deps = ["//pw_assert:check"],
+    deps = [
+        ":pw_unit_test",
+        ":rpc_service",
+        "//pw_hdlc:default_addresses",
+        "//pw_log",
+        "//pw_rpc",
+        "//pw_rpc/system_server",
+    ],
+)
+
+cc_library(
+    name = "static_library_support",
+    testonly = True,
+    srcs = ["static_library_support.cc"],
+    hdrs = ["public/pw_unit_test/static_library_support.h"],
+    strip_include_prefix = "public",
+    # This library only works with the light backend
+    target_compatible_with = select({
+        ":light_setting": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    deps = [":pw_unit_test"],
+)
+
+cc_library(
+    name = "tests_in_archive",
+    testonly = True,
+    srcs = [
+        "static_library_archived_tests.cc",
+        "static_library_missing_archived_tests.cc",
+    ],
+    linkstatic = True,
+    visibility = ["//visibility:private"],
+    deps = [":pw_unit_test"],
+)
+
+pw_cc_test(
+    name = "static_library_support_test",
+    srcs = ["static_library_support_test.cc"],
+    deps = [
+        ":static_library_support",
+        ":tests_in_archive",
+        "//pw_assert:check",
+    ],
+)
+
+pw_cc_test(
+    name = "framework_test",
+    srcs = ["framework_test.cc"],
+    features = ["-conversion_warnings"],
+    # TODO: https://pwbug.dev/325509758 - Passes but hangs on cleanup.
+    target_compatible_with = select({
+        "//pw_build/constraints/chipset:rp2040": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
+    deps = [
+        "//pw_assert:check",
+        "//pw_result",
+        "//pw_status",
+    ],
+)
+
+pw_cc_test(
+    name = "framework_light_test",
+    srcs = ["framework_light_test.cc"],
+    target_compatible_with = select({
+        ":light_setting": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    deps = [
+        "//pw_status",
+        "//pw_string",
+    ],
+)
+
+# TODO(hepler): Build this as a cc_binary and use it in integration tests.
+filegroup(
+    name = "test_rpc_server",
+    srcs = ["test_rpc_server.cc"],
+    # deps = [
+    #     ":pw_unit_test",
+    #     ":rpc_service",
+    #     "//pw_log",
+    #     "//pw_rpc/system_server",
+    # ],
+)
+
+filegroup(
+    name = "doxygen",
+    srcs = [
+        "light_public_overrides/pw_unit_test/framework_backend.h",
+        "public/pw_unit_test/config.h",
+        "public/pw_unit_test/constexpr.h",
+        "public/pw_unit_test/event_handler.h",
+        "public/pw_unit_test/googletest_handler_adapter.h",
+        "public/pw_unit_test/googletest_style_event_handler.h",
+        "public/pw_unit_test/logging_event_handler.h",
+        "public/pw_unit_test/multi_event_handler.h",
+        "public/pw_unit_test/printf_event_handler.h",
+        "public/pw_unit_test/simple_printing_event_handler.h",
+        "public/pw_unit_test/static_library_support.h",
+        "public/pw_unit_test/status_macros.h",
+        "public/pw_unit_test/test_record_event_handler.h",
+    ],
+)
+
+sphinx_docs_library(
+    name = "docs",
+    srcs = [
+        "constexpr_test.cc",
+        "docs.rst",
+    ],
+    prefix = "pw_unit_test/",
+    target_compatible_with = incompatible_with_mcu(),
+)

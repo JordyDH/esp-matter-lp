@@ -1,0 +1,64 @@
+# Copyright 2023 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+import("//build_overrides/pigweed.gni")
+
+import("$dir_pw_build/rust_library.gni")
+import("$dir_pw_toolchain/toolchain_args.gni")
+
+# Note: In general, prefer to import target_types.gni rather than this file.
+#
+# A wrapper for GN's built-in rust_proc_macro target, this template wraps a
+# configurable target type specified by the current toolchain to be used for all
+# pw_rust_proc_macro targets.
+#
+# Compiling procedural macros is... a bit awkward.
+#
+# Even though they're provided to crates that use them as if they were normal
+# external crates, they're actually '.so'/'.dylib's that are compiled for the
+# host machine and then linked into the compiler, so they and all their
+# dependencies should be built for the host target.
+#
+# For more information on the features provided by this template, see the full
+# docs at https://pigweed.dev/pw_build/?highlight=pw_rust_proc_macro.
+template("pw_rust_proc_macro") {
+  if (defined(pw_toolchain_SCOPE.rustc_macro_toolchain_name)) {
+    group(target_name) {
+      public_deps =
+          [ ":$target_name(${pw_toolchain_SCOPE.rustc_macro_toolchain_name})" ]
+    }
+    not_needed(invoker, "*")
+  } else if (defined(pw_toolchain_SCOPE.is_host_toolchain) &&
+             pw_toolchain_SCOPE.is_host_toolchain) {
+    pw_rust_library(target_name) {
+      forward_variables_from(invoker, "*")
+
+      if (!defined(rustflags)) {
+        rustflags = []
+      }
+
+      rustflags += [
+        "--extern",
+        "proc_macro",
+      ]
+      underlying_target_type = "rust_proc_macro"
+    }
+  } else {
+    assert(
+        false,
+        "proc_macro target ${target_name}(${pw_toolchain_SCOPE.name}) is not " +
+            "a host target, please specify a host toolchain through " +
+            "`rustc_macro_toolchain_name` for it to be compiled.")
+  }
+}

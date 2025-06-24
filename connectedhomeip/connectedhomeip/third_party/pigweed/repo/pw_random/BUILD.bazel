@@ -1,0 +1,80 @@
+# Copyright 2020 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_python//sphinxdocs:sphinx_docs_library.bzl", "sphinx_docs_library")
+load("//pw_build:compatibility.bzl", "incompatible_with_mcu")
+load("//pw_unit_test:pw_cc_test.bzl", "pw_cc_test")
+
+package(
+    default_visibility = ["//visibility:public"],
+)
+
+licenses(["notice"])
+
+cc_library(
+    name = "pw_random",
+    hdrs = [
+        "public/pw_random/random.h",
+        "public/pw_random/xor_shift.h",
+    ],
+    strip_include_prefix = "public",
+    deps = [
+        "//pw_assert:assert",
+        "//pw_assert:check",
+        "//pw_bytes",
+        "//pw_span",
+        "//pw_status",
+    ],
+)
+
+cc_library(
+    name = "fuzzer_generator",
+    hdrs = ["public/pw_random/fuzzer.h"],
+    strip_include_prefix = "public",
+    deps = [
+        ":pw_random",
+        "//pw_bytes",
+        "//pw_fuzzer:libfuzzer",
+    ],
+)
+
+pw_cc_test(
+    name = "xor_shift_test",
+    srcs = ["xor_shift_test.cc"],
+    features = ["-conversion_warnings"],
+    deps = [
+        ":pw_random",
+        "//pw_assert:config",
+        "//pw_bytes",
+    ],
+)
+
+filegroup(
+    name = "doxygen",
+    srcs = [
+        "public/pw_random/random.h",
+        "public/pw_random/xor_shift.h",
+    ],
+)
+
+sphinx_docs_library(
+    name = "docs",
+    srcs = [
+        "backends.rst",
+        "docs.rst",
+    ],
+    prefix = "pw_random/",
+    target_compatible_with = incompatible_with_mcu(),
+)

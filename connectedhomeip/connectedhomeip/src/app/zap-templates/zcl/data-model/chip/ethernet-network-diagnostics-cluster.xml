@@ -1,0 +1,96 @@
+<?xml version="1.0"?>
+<!--
+Copyright (c) 2021 Project CHIP Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+<configurator>
+  <domain name="CHIP"/>
+  <enum name="PHYRateEnum" type="enum8">
+    <cluster code="0x0037"/>
+    <item name="Rate10M" value="0x00"/>
+    <item name="Rate100M" value="0x01"/>
+    <item name="Rate1G" value="0x02"/>
+    <item name="Rate2_5G" value="0x03"/>
+    <item name="Rate5G" value="0x04"/>
+    <item name="Rate10G" value="0x05"/>
+    <item name="Rate40G" value="0x06"/>
+    <item name="Rate100G" value="0x07"/>
+    <item name="Rate200G" value="0x08"/>
+    <item name="Rate400G" value="0x09"/>
+  </enum>
+  <cluster>
+    <domain>General</domain>
+    <name>Ethernet Network Diagnostics</name>
+    <code>0x0037</code>
+    <define>ETHERNET_NETWORK_DIAGNOSTICS_CLUSTER</define>
+    <description>The Ethernet Network Diagnostics Cluster provides a means to acquire standardized diagnostics metrics that MAY be used by a Node to assist a user or Administrative Node in diagnosing potential problems.</description>
+
+    <features>
+      <feature bit="0" code="PKTCNT" name="PacketCounts" summary="Node makes available the counts for the number of received and transmitted packets on the ethernet interface.">
+        <optionalConform/>
+      </feature>
+      <feature bit="1" code="ERRCNT" name="ErrorCounts" summary="Node makes available the counts for the number of errors that have occurred during the reception and transmission of packets on the ethernet interface.">
+        <optionalConform/>
+      </feature>
+    </features>
+    
+    <attribute side="server" code="0x00" name="PHYRate" define="PHY_RATE" type="PHYRateEnum" isNullable="true" optional="true">
+      <optionalConform/>
+    </attribute>
+    <attribute side="server" code="0x01" name="FullDuplex" define="FULL_DUPLEX" type="boolean" min="0x00" max="0x01" isNullable="true" optional="true">
+      <optionalConform/>
+    </attribute>
+    <attribute side="server" code="0x02" name="PacketRxCount" define="PACKET_RX_COUNT" type="int64u" default="0x0000000000000000" optional="true">
+      <mandatoryConform>
+        <feature name="PKTCNT"/>
+      </mandatoryConform>
+    </attribute>
+    <attribute side="server" code="0x03" name="PacketTxCount" define="PACKET_TX_COUNT" type="int64u" default="0x0000000000000000" optional="true">
+      <mandatoryConform>
+        <feature name="PKTCNT"/>
+      </mandatoryConform>
+    </attribute>
+    <attribute side="server" code="0x04" name="TxErrCount" define="TX_ERR_COUNT" type="int64u" default="0x0000000000000000" optional="true">
+      <mandatoryConform>
+        <feature name="ERRCNT"/>
+      </mandatoryConform>
+    </attribute>
+    <attribute side="server" code="0x05" name="CollisionCount" define="COLLISION_COUNT" type="int64u" default="0x0000000000000000" optional="true">
+      <mandatoryConform>
+        <feature name="ERRCNT"/>
+      </mandatoryConform>
+    </attribute>
+    <attribute side="server" code="0x06" name="OverrunCount" define="ETHERNET_OVERRUN_COUNT" type="int64u" default="0x0000000000000000" optional="true">
+      <mandatoryConform>
+        <feature name="ERRCNT"/>
+      </mandatoryConform>
+    </attribute>
+    <attribute side="server" code="0x07" name="CarrierDetect" define="CARRIER_DETECT" type="boolean" min="0x00" max="0x01" isNullable="true" optional="true">
+      <optionalConform/>
+    </attribute>
+    <attribute side="server" code="0x08" name="TimeSinceReset" define="TIME_SINCE_RESET" type="int64u" default="0x0000000000000000" optional="true">
+      <optionalConform/>
+    </attribute>
+    <command source="client" code="0x00" name="ResetCounts" optional="true" cli="chip ethernet_network_diagnostics resetcounts">
+      <description>Reception of this command SHALL reset the attributes: PacketRxCount, PacketTxCount, TxErrCount, CollisionCount, OverrunCount to 0</description>
+      <access op="invoke" role="manage"/>
+      <mandatoryConform>
+        <orTerm>
+          <feature name="PKTCNT"/>
+          <feature name="ERRCNT"/>
+        </orTerm>
+      </mandatoryConform>
+    </command>
+  </cluster>
+</configurator>

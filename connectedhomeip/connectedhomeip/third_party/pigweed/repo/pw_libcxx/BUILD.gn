@@ -1,0 +1,58 @@
+# Copyright 2023 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+import("//build_overrides/pigweed.gni")
+import("$dir_pw_build/cc_library.gni")
+import("$dir_pw_docgen/docs.gni")
+import("$dir_pw_third_party/llvm_libcxx/llvm_libcxx.gni")
+import("$dir_pw_unit_test/test.gni")
+
+if (dir_pw_third_party_llvm_libcxx != "") {
+  config("pw_libcxx_config") {
+    include_dirs = [
+      "include",
+      "$dir_pw_third_party_llvm_libcxx/include",
+    ]
+  }
+
+  pw_static_library("pw_libcxx") {
+    complete_static_lib = true
+    add_global_link_deps = false
+    public_configs = [ ":pw_libcxx_config" ]
+    sources = [
+      "__cxa_deleted_virtual.cc",
+      "__cxa_pure_virtual.cc",
+      "operator_delete.cc",
+      "operator_new.cc",
+      "verbose_abort.cc",
+    ]
+    remove_public_deps = [ dir_pw_libcxx ]
+  }
+
+  pw_test("operator_new_test") {
+    sources = [ "operator_new_test.cc" ]
+  }
+} else {
+  pw_static_library("pw_libcxx") {
+    add_global_link_deps = false
+    remove_public_deps = [ dir_pw_libcxx ]
+  }
+}
+
+pw_test_group("tests") {
+}
+
+pw_doc_group("docs") {
+  sources = [ "docs.rst" ]
+}

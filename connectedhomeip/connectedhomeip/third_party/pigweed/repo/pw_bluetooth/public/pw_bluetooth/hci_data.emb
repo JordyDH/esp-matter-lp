@@ -1,0 +1,213 @@
+# Copyright 2024 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+# This file contains Emboss definitions for Host Controller Interface packets
+# and types found in the Bluetooth Core Specification. The Emboss compiler is
+# used to generate a C++ header from this file.
+
+[$default byte_order: "LittleEndian"]
+[(cpp) namespace: "pw::bluetooth::emboss"]
+# =========================== HCI Data Definitions ===========================
+
+
+enum AclDataPacketBoundaryFlag:
+  -- Options for the Packet_Boundary_Flag field in an ACL Data frame header.
+
+  [maximum_bits: 2]
+
+  FIRST_NON_FLUSHABLE = 0b00
+    -- First non-automatically-flushable packet of a higher layer message (start
+    -- of a nonautomatically-flushable L2CAP PDU) from Host to Controller.
+
+  CONTINUING_FRAGMENT = 0b01
+    -- Continuing fragment of a higher layer message.
+
+  FIRST_FLUSHABLE     = 0b10
+    -- First automatically flushable packet of a higher layer message (start of
+    -- an automatically-flushable L2CAP PDU).
+
+
+enum AclDataPacketBroadcastFlag:
+  -- Options for the Broadcast_Flag field in an ACL Data frame header.
+  [maximum_bits: 2]
+  POINT_TO_POINT = 0b00
+    -- ACL-U or LE-U
+
+  BROADCAST      = 0b01
+    -- BR/EDR broadcast (APB-U)
+
+
+struct AclDataFrameHeader:
+  -- HCI ACL Data packet frame header
+  -- Core Spec v5.4, Vol 4, Part E, Section 5.4.2
+  0     [+2]  bits:
+    0     [+12]      UInt                        handle
+      -- Connection_Handle to be used for transmitting a data packet or segment
+      -- over a Controller.
+      -- [requires: 0x0000 <= this <= 0x0EFF]
+
+    $next [+2]       AclDataPacketBoundaryFlag   packet_boundary_flag
+    $next [+2]       AclDataPacketBroadcastFlag  broadcast_flag
+
+  $next [+2]         UInt                        data_total_length
+    -- Length of data measured in octets.
+
+
+struct AclDataFrame:
+  -- HCI ACL Data packet frame
+  -- Core Spec v5.4, Vol 4, Part E, Section 5.4.2
+  0     [+AclDataFrameHeader.$size_in_bytes]  AclDataFrameHeader         header
+  let data_total_length = header.data_total_length
+  $next [+data_total_length]                  UInt:8[data_total_length]  payload
+
+
+enum TsFlag:
+  -- Options for the ts_flag field in an Isochronous Data packet header.
+  [maximum_bits: 1]
+  TIMESTAMP_NOT_PRESENT = 0b0
+    -- The Time_Stamp field is not present in the packet.
+
+  TIMESTAMP_PRESENT     = 0b1
+    -- The Time_Stamp field is present in the packet.
+
+
+enum IsoDataPbFlag:
+  -- Options for the pb_flag field in an Isochronous Data packet header.
+
+  [maximum_bits: 2]
+
+  FIRST_FRAGMENT        = 0b00
+    -- The ISO_SDU_Fragment field contains the first fragment of a
+    -- fragmented SDU.
+
+  INTERMEDIATE_FRAGMENT = 0b01
+    -- The ISO_SDU_Fragment field contains an intermediate fragment of an
+    -- SDU.
+
+  COMPLETE_SDU          = 0b10
+    -- The ISO_SDU_Fragment field contains a complete SDU.
+
+  LAST_FRAGMENT         = 0b11
+    -- The ISO_SDU_Fragment field contains the last fragment of an SDU.
+
+
+enum IsoDataPacketStatus:
+  -- Options for the packet_status_flag field in an Isochronous Data packet header.
+
+  [maximum_bits: 2]
+
+  VALID_DATA            = 0b00
+    -- Valid data. The complete SDU was received correctly.
+
+  POSSIBLY_INVALID_DATA = 0b01
+    -- The contents of the ISO_SDU_Fragment may contain errors or part of
+    -- the SDU may be missing. This is reported as "data with possible
+    -- errors".
+
+  LOST_DATA             = 0b10
+    -- Part(s) of the SDU were not received correctly. This is reported
+    -- as "lost data".
+
+
+struct IsoDataFrameHeader:
+  -- HCI Iso Data Packet Header
+  -- Core Spec v5.4, Vol 4, Part E, Section 5.4.5
+  -- Bits 15, 30, and 31 are reserved for future use (RFU)
+  0  [+4]  bits:
+    0  [+12]      UInt           connection_handle
+      -- Connection handle to be used for transmitting an ISO SUD or fragment.
+      [requires: 0x0000 <= this <= 0x0EFF]
+
+    12 [+2]       IsoDataPbFlag  pb_flag
+      -- Describes packet fragmentation
+
+    14 [+1]       TsFlag         ts_flag
+      -- Describes whether or not a timestamp is present
+
+    16 [+14]      UInt           data_total_length
+      -- Length of the packet, excluding the packet header, in octets.
+
+
+struct IsoDataFramePacket:
+  -- HCI Iso Data Packet
+  -- Core Spec v5.4, Vol 4, Part E, Section 5.4.5
+  -- Bits 28, and 29 are reserved for future use (RFU)
+  let hdr_size = IsoDataFrameHeader.$size_in_bytes
+  0                   [+hdr_size]           IsoDataFrameHeader         header
+  if header.ts_flag == TsFlag.TIMESTAMP_PRESENT:
+    hdr_size            [+4]                UInt                       time_stamp
+      -- A time in microseconds.
+
+  let ts_size = (header.ts_flag == TsFlag.TIMESTAMP_PRESENT) ? 4 : 0
+  let sdu_hdr_offset = hdr_size+ts_size
+  if header.pb_flag == IsoDataPbFlag.FIRST_FRAGMENT || header.pb_flag == IsoDataPbFlag.COMPLETE_SDU:
+    sdu_hdr_offset      [+4]  bits:
+      0                   [+16]             UInt                       packet_sequence_number
+        -- The sequence number of the SDU.
+
+      16                  [+12]             UInt                       iso_sdu_length
+        -- The total length of the SDU (and not of any individual fragments),
+        -- in octets.
+
+      30                  [+2]              IsoDataPacketStatus        packet_status_flag
+        -- Packet status, only for frames sent by the controller.
+
+  let sdu_hdr_size = (header.pb_flag == IsoDataPbFlag.FIRST_FRAGMENT || header.pb_flag == IsoDataPbFlag.COMPLETE_SDU) ? 4 : 0
+  let sdu_fragment_offset = hdr_size+ts_size+sdu_hdr_size
+  let sdu_fragment_size = header.data_total_length-(ts_size+sdu_hdr_size)
+  sdu_fragment_offset [+sdu_fragment_size]  UInt:8[sdu_fragment_size]  iso_sdu_fragment
+    -- Isochronous data (the SDU or fragment of the SDU)
+
+
+enum ScoDataPacketStatus:
+  -- Options for the packet_status_flag field in an Synchronous Data packet
+  -- header.
+
+  [maximum_bits: 2]
+
+  CORRECTLY_RECEIVED_DATA = 0b00
+    -- The payload data belongs to received eSCO or SCO packets that the
+    -- Baseband marked as “good data”.
+
+  POSSIBLY_INVALID_DATA   = 0b01
+    -- At least one eSCO packet has been marked by the Baseband as “data with
+    -- possible errors” and all others have been marked as “good data” in the
+    -- eSCO interval(s) corresponding to the HCI Synchronous Data packet.
+
+  NO_DATA_RECEIVE         = 0b10
+    -- All data from the Baseband received during the (e)SCO interval(s)
+    -- corresponding to the HCI Synchronous Data packet have been marked as
+    -- "lost data" by the Baseband. The Payload data octets shall be set to 0.
+
+  DATA_PARTIALLY_LOST     = 0b11
+    -- Not all, but at least one (e)SCO packet has been marked as “lost data”
+    -- by the Baseband in the (e)SCO intervals corresponding to the HCI
+    -- Synchronous Data packet. The payload data octets corresponding to the
+    -- missing (e)SCO packets shall be set to 0.
+
+
+struct ScoDataHeader:
+  -- HCI Synchronous Data packets
+  -- Core Spec v5.4, Vol 4, Part E, Section 5.4.3
+  -- Bits 14, and 15 are reserved for future use (RFU)
+  0  [+3]  bits:
+    0  [+12]      UInt                 connection_handle
+      -- Connection handle to be used for transmitting an ISO SUD or fragment.
+      [requires: 0x0000 <= this <= 0x0EFF]
+
+    12 [+2]       ScoDataPacketStatus  packet_status_flag
+      -- Packet status, only for frames sent by the controller.
+
+    16 [+8]       UInt                 data_total_length
+      -- Length of the packet, excluding the packet header, in octets.

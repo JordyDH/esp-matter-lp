@@ -1,0 +1,251 @@
+{
+  "title": "Descriptor output from pw_sensor.main",
+  "description": "Fully resolved definitions of multiple sensors",
+  "type": "object",
+  "properties": {
+    "attributes": {
+      "type": "object",
+      "description": "All supported attributes",
+      "patternProperties": {
+        "^[a-zA-Z_]\\w*$": {
+          "type": "object",
+          "description": "A supported attribute",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "A name override for the attribute"
+            },
+            "description": {
+              "type": "string",
+              "description": "A description override for the attribute"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "name",
+            "description"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "channels": {
+      "type": "object",
+      "description": "All supported channels",
+      "patternProperties": {
+        "^[a-zA-Z_]\\w*$": {
+          "type": "object",
+          "description": "A supported channel",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "A name override for the channel"
+            },
+            "description": {
+              "type": "string",
+              "description": "A description override for the channel"
+            },
+            "units": {
+              "type": "string",
+              "description": "The units used to measure this channel"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "name",
+            "description",
+            "units"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "triggers": {
+      "type": "object",
+      "description": "A mapping of triggers to their definitions",
+      "patternProperties": {
+        "^[a-zA-Z_]\\w*$": {
+          "type": "object",
+          "description": "A trigger definition",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "The name of the trigger"
+            },
+            "description": {
+              "type": "string",
+              "description": "The description of the trigger"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "name",
+            "description"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "units": {
+      "type": "object",
+      "description": "A mapping of units to their definitions",
+      "patternProperties": {
+        "^[a-zA-Z_]\\w*$": {
+          "type": "object",
+          "description": "A unit definition",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "A user friendly name for the units"
+            },
+            "description": {
+              "type": "string",
+              "description": "Details about the units."
+            },
+            "symbol": {
+              "type": "string",
+              "description": "The units used to represent the value"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "name",
+            "description",
+            "symbol"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "sensors": {
+      "type": "object",
+      "description": "Set of sensors using their compatible string as a key in the format 'org','part'",
+      "patternProperties": {
+        "^[a-zA-Z0-9_\\-]*,?[a-zA-Z_][a-zA-Z0-9_\\-]*$": {
+          "type": "object",
+          "description": "A single sensor definition",
+          "properties": {
+            "compatible": {
+              "type": "object",
+              "description": "A unique identifier of the sensor",
+              "properties": {
+                "org": {
+                  "type": "string",
+                  "description": "The organization that developed the sensor"
+                },
+                "part": {
+                  "type": "string",
+                  "description": "The part number or identifier"
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "part"
+              ]
+            },
+            "description": {
+              "type": "string",
+              "description": "A description of the sensor"
+            },
+            "supported-buses": {
+              "type": "array",
+              "description": "One or more buses which this sensor driver supports",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "description": "The name of the bus. This value will be converted to all lower case."
+              }
+            },
+            "channels": {
+              "type": "object",
+              "description": "A map of channels supported by this sensor",
+              "patternProperties": {
+                "^[a-zA-Z_]\\w*$": {
+                  "type": "array",
+                  "description": "A list specifying each instance of this channel",
+                  "items": {
+                    "type": "object",
+                    "description": "A single instance of a sensor channel",
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "description": "A name override for the channel instance"
+                      },
+                      "description": {
+                        "type": "string",
+                        "description": "A description override for the channel instance"
+                      },
+                      "units": {
+                        "type": "string",
+                        "description": "The units of the channel"
+                      }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                      "name",
+                      "description",
+                      "units"
+                    ]
+                  }
+                }
+              }
+            },
+            "attributes": {
+              "type": "array",
+              "description": "A set of attribute/channel pairs supported by this sensor",
+              "items": {
+                "type": "object",
+                "description": "Pair of supported attribute and channel",
+                "properties": {
+                  "attribute": {
+                    "type": "string",
+                    "description": "Name of the attribute"
+                  },
+                  "channel": {
+                    "type": "string",
+                    "description": "Name of the channel"
+                  },
+                  "trigger": {
+                    "type": "string",
+                    "description": "Name of the trigger"
+                  },
+                  "units": {
+                    "type": "string",
+                    "description": "Name of the units"
+                  }
+                },
+                "additionalProperties": false,
+                "required": [
+                  "attribute",
+                  "units"
+                ]
+              }
+            },
+            "triggers": {
+              "type": "array",
+              "description": "A set of triggers supported by this sensor",
+              "items": {
+                "type": "string",
+                "description": "Name of a supported trigger"
+              }
+            },
+            "extras": {
+              "type": "object",
+              "description": "Any extra data that is useful to the downstream user",
+              "additionalProperties": true
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "sensors",
+    "attributes",
+    "channels",
+    "triggers",
+    "units"
+  ]
+}

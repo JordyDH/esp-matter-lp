@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "target": "es2020",
+    "lib": [
+      "es2020"
+    ],
+    "outDir": "out",
+    "esModuleInterop": true,
+    "sourceMap": true,
+    "rootDir": ".",
+    "types": [
+      "node",
+      "mocha"
+    ],
+    "typeRoots": [
+      "./node_modules/@types",
+      "./src/types"
+    ]
+  },
+  "include": [
+    "**/*.e2e.test.ts"
+  ]
+}

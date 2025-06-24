@@ -1,0 +1,337 @@
+# Copyright 2023 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_python//sphinxdocs:sphinx_docs_library.bzl", "sphinx_docs_library")
+load("//pw_bloat:pw_cc_size_binary.bzl", "pw_cc_size_binary")
+load("//pw_build:compatibility.bzl", "incompatible_with_mcu")
+
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])
+
+cc_library(
+    name = "hardening_none",
+    defines = ["PW_ALLOCATOR_HARDENING=0"],
+)
+
+# Size reporting support libraries.
+
+cc_library(
+    name = "size_report",
+    srcs = ["size_report.cc"],
+    hdrs = ["public/pw_allocator/size_report/size_report.h"],
+    implementation_deps = ["//pw_bytes:alignment"],
+    strip_include_prefix = "public",
+    deps = [
+        "//pw_allocator",
+        "//pw_allocator:block_allocator",
+        "//pw_allocator/block:small_block",
+        "//pw_bloat:bloat_this_binary",
+        "//pw_bytes",
+    ],
+)
+
+_size_report_deps = [
+    ":hardening_none",
+    ":size_report",
+    "//pw_bloat:bloat_this_binary",
+]
+
+# Baseline executables for size reporting.
+
+pw_cc_size_binary(
+    name = "base",
+    srcs = ["base.cc"],
+    deps = _size_report_deps,
+)
+
+# Block binaries to be measured for code size.
+
+pw_cc_size_binary(
+    name = "detailed_block",
+    srcs = ["detailed_block.cc"],
+    features = ["-conversion_warnings"],
+    deps = _size_report_deps + [
+        "//pw_allocator/block:detailed_block",
+        "//pw_allocator/bucket:fast_sorted",
+    ],
+)
+
+_small_block_deps = [
+    ":size_report",
+    "//pw_allocator/block:small_block",
+    "//pw_bloat:bloat_this_binary",
+]
+
+pw_cc_size_binary(
+    name = "small_block",
+    srcs = ["small_block.cc"],
+    deps = _small_block_deps + [":hardening_none"],
+)
+
+pw_cc_size_binary(
+    name = "small_alignable_block",
+    srcs = ["small_alignable_block.cc"],
+    deps = _size_report_deps + ["//pw_allocator/block:small_alignable_block"],
+)
+
+pw_cc_size_binary(
+    name = "tiny_block",
+    srcs = ["tiny_block.cc"],
+    deps = _size_report_deps + ["//pw_allocator/block:tiny_block"],
+)
+
+pw_cc_size_binary(
+    name = "small_block_basic",
+    srcs = ["small_block.cc"],
+    deps = _small_block_deps + ["//pw_allocator:hardening_basic"],
+)
+
+pw_cc_size_binary(
+    name = "small_block_robust",
+    srcs = ["small_block.cc"],
+    deps = _small_block_deps + ["//pw_allocator:hardening_robust"],
+)
+
+pw_cc_size_binary(
+    name = "small_block_debug",
+    srcs = ["small_block.cc"],
+    deps = _small_block_deps + ["//pw_allocator:hardening_debug"],
+)
+
+# Bucket binaries to be measured for code size.
+
+_fast_sorted_deps = _size_report_deps + [
+    "//pw_allocator/bucket:fast_sorted",
+    "//pw_containers/size_report:intrusive_multimap",
+    "//pw_containers/size_report:size_report",
+]
+
+pw_cc_size_binary(
+    name = "fast_sorted_base",
+    srcs = ["fast_sorted_bucket.cc"],
+    defines = ["PW_ALLOCATOR_SIZE_REPORT_BASE"],
+    features = ["-conversion_warnings"],
+    deps = _fast_sorted_deps,
+)
+
+pw_cc_size_binary(
+    name = "fast_sorted",
+    srcs = ["fast_sorted_bucket.cc"],
+    features = ["-conversion_warnings"],
+    deps = _fast_sorted_deps,
+)
+
+_sequenced_deps = _size_report_deps + [
+    "//pw_allocator/bucket:sequenced",
+    "//pw_containers/size_report:intrusive_list",
+    "//pw_containers/size_report:size_report",
+]
+
+pw_cc_size_binary(
+    name = "sequenced_base",
+    srcs = ["sequenced_bucket.cc"],
+    defines = ["PW_ALLOCATOR_SIZE_REPORT_BASE"],
+    deps = _sequenced_deps,
+)
+
+pw_cc_size_binary(
+    name = "sequenced",
+    srcs = ["sequenced_bucket.cc"],
+    deps = _sequenced_deps,
+)
+
+_sorted_deps = _size_report_deps + [
+    "//pw_allocator/bucket:sorted",
+    "//pw_containers/size_report:intrusive_forward_list",
+    "//pw_containers/size_report:size_report",
+]
+
+pw_cc_size_binary(
+    name = "sorted_base",
+    srcs = ["sorted_bucket.cc"],
+    defines = ["PW_ALLOCATOR_SIZE_REPORT_BASE"],
+    deps = _sorted_deps,
+)
+
+pw_cc_size_binary(
+    name = "sorted",
+    srcs = ["sorted_bucket.cc"],
+    deps = _sorted_deps,
+)
+
+_unordered_deps = _size_report_deps + [
+    "//pw_allocator/bucket:unordered",
+    "//pw_containers/size_report:intrusive_forward_list",
+    "//pw_containers/size_report:size_report",
+]
+
+pw_cc_size_binary(
+    name = "unordered_base",
+    srcs = ["unordered_bucket.cc"],
+    defines = ["PW_ALLOCATOR_SIZE_REPORT_BASE"],
+    deps = _unordered_deps,
+)
+
+pw_cc_size_binary(
+    name = "unordered",
+    srcs = ["unordered_bucket.cc"],
+    deps = _unordered_deps,
+)
+
+# Concrete allocator binaries to be measured for code size.
+
+pw_cc_size_binary(
+    name = "best_fit",
+    srcs = ["best_fit.cc"],
+    deps = _size_report_deps + ["//pw_allocator:best_fit"],
+)
+
+pw_cc_size_binary(
+    name = "bucket_allocator",
+    srcs = ["bucket_allocator.cc"],
+    deps = _size_report_deps + ["//pw_allocator:bucket_allocator"],
+)
+
+pw_cc_size_binary(
+    name = "buddy_allocator",
+    srcs = ["buddy_allocator.cc"],
+    deps = _size_report_deps + [
+        "//pw_allocator:buddy_allocator",
+        "//pw_status",
+    ],
+)
+
+pw_cc_size_binary(
+    name = "bump_allocator",
+    srcs = ["bump_allocator.cc"],
+    deps = _size_report_deps + ["//pw_allocator:bump_allocator"],
+)
+
+pw_cc_size_binary(
+    name = "dl_allocator",
+    srcs = ["dl_allocator.cc"],
+    features = ["-conversion_warnings"],
+    deps = _size_report_deps + ["//pw_allocator:dl_allocator"],
+)
+
+pw_cc_size_binary(
+    name = "first_fit",
+    srcs = ["first_fit.cc"],
+    deps = _size_report_deps + ["//pw_allocator:first_fit"],
+)
+
+pw_cc_size_binary(
+    name = "libc_allocator",
+    srcs = ["libc_allocator.cc"],
+    deps = _size_report_deps + ["//pw_allocator:libc_allocator"],
+)
+
+pw_cc_size_binary(
+    name = "null_allocator",
+    srcs = ["null_allocator.cc"],
+    deps = _size_report_deps + ["//pw_allocator:null_allocator"],
+)
+
+pw_cc_size_binary(
+    name = "tlsf_allocator",
+    srcs = ["tlsf_allocator.cc"],
+    features = ["-conversion_warnings"],
+    deps = _size_report_deps + ["//pw_allocator:tlsf_allocator"],
+)
+
+pw_cc_size_binary(
+    name = "worst_fit",
+    srcs = ["worst_fit.cc"],
+    deps = _size_report_deps + ["//pw_allocator:worst_fit"],
+)
+
+# Forwarding allocator binaries to be measured for code size.
+
+pw_cc_size_binary(
+    name = "fallback_allocator",
+    srcs = ["fallback_allocator.cc"],
+    deps = _size_report_deps + [
+        "//pw_allocator:best_fit",
+        "//pw_allocator:fallback_allocator",
+        "//pw_bytes",
+    ],
+)
+
+_pmr_allocator_base_deps = _size_report_deps + [
+    "//pw_allocator:best_fit",
+    "//pw_allocator/block:detailed_block",
+]
+
+pw_cc_size_binary(
+    name = "pmr_allocator_base",
+    srcs = ["pmr_allocator.cc"],
+    defines = ["PW_ALLOCATOR_SIZE_REPORT_BASE"],
+    features = ["-conversion_warnings"],
+    deps = _pmr_allocator_base_deps,
+)
+
+pw_cc_size_binary(
+    name = "pmr_allocator",
+    srcs = ["pmr_allocator.cc"],
+    deps = _pmr_allocator_base_deps + ["//pw_allocator:pmr_allocator"],
+)
+
+_synchronized_allocator_deps = _size_report_deps + [
+    "//pw_allocator:best_fit",
+    "//pw_allocator:synchronized_allocator",
+]
+
+pw_cc_size_binary(
+    name = "synchronized_allocator_isl",
+    srcs = ["synchronized_allocator_isl.cc"],
+    deps = _synchronized_allocator_deps + ["//pw_sync:interrupt_spin_lock"],
+)
+
+pw_cc_size_binary(
+    name = "synchronized_allocator_mutex",
+    srcs = ["synchronized_allocator_mutex.cc"],
+    deps = _synchronized_allocator_deps + ["//pw_sync:mutex"],
+)
+
+_tracking_allocator_deps = _size_report_deps + [
+    "//pw_allocator:best_fit",
+    "//pw_allocator:metrics",
+    "//pw_allocator:tracking_allocator",
+    "//pw_allocator/block:detailed_block",
+]
+
+pw_cc_size_binary(
+    name = "tracking_allocator_all_metrics",
+    srcs = ["tracking_allocator_all_metrics.cc"],
+    deps = _tracking_allocator_deps,
+)
+
+pw_cc_size_binary(
+    name = "tracking_allocator_no_metrics",
+    srcs = ["tracking_allocator_no_metrics.cc"],
+    deps = _tracking_allocator_deps,
+)
+
+filegroup(
+    name = "doxygen",
+    srcs = ["public/pw_allocator/size_report/size_report.h"],
+)
+
+sphinx_docs_library(
+    name = "docs",
+    prefix = "pw_allocator/size_report/",
+    target_compatible_with = incompatible_with_mcu(),
+)

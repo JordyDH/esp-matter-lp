@@ -1,0 +1,88 @@
+# Copyright 2023 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+import("//build_overrides/pigweed.gni")
+import("$dir_pw_unit_test/test.gni")
+
+config("public_include_path") {
+  include_dirs = [ "public" ]
+}
+
+# Basic target with protocol definitions and no logic, suitable for test
+# emulation.
+pw_source_set("definitions") {
+  sources = [ "packet.cc" ]
+  public = [
+    "public/pw_bluetooth_sapphire/internal/host/att/att.h",
+    "public/pw_bluetooth_sapphire/internal/host/att/packet.h",
+  ]
+  public_configs = [ ":public_include_path" ]
+  public_deps = [
+    "$dir_pw_bluetooth_sapphire/host/common",
+    "$dir_pw_bluetooth_sapphire/host/hci-spec",
+    "$dir_pw_bluetooth_sapphire/host/l2cap:definitions",
+  ]
+}
+
+pw_source_set("att") {
+  sources = [
+    "attribute.cc",
+    "bearer.cc",
+    "database.cc",
+    "error.cc",
+    "permissions.cc",
+    "write_queue.cc",
+  ]
+  public = [
+    "public/pw_bluetooth_sapphire/internal/host/att/attribute.h",
+    "public/pw_bluetooth_sapphire/internal/host/att/bearer.h",
+    "public/pw_bluetooth_sapphire/internal/host/att/database.h",
+    "public/pw_bluetooth_sapphire/internal/host/att/error.h",
+    "public/pw_bluetooth_sapphire/internal/host/att/permissions.h",
+    "public/pw_bluetooth_sapphire/internal/host/att/write_queue.h",
+  ]
+  public_configs = [ ":public_include_path" ]
+  public_deps = [
+    ":definitions",
+    "$dir_pw_async:dispatcher",
+    "$dir_pw_bluetooth_sapphire/host/common",
+    "$dir_pw_bluetooth_sapphire/host/l2cap",
+    "$dir_pw_bluetooth_sapphire/host/sm:definitions",
+    "$dir_pw_third_party/fuchsia:fit",
+  ]
+  deps = [
+    dir_pw_preprocessor,
+    dir_pw_string,
+  ]
+}
+
+pw_test("att_test") {
+  sources = [
+    "attribute_test.cc",
+    "bearer_test.cc",
+    "database_test.cc",
+    "error_test.cc",
+    "permissions_test.cc",
+  ]
+  test_main = "$dir_pw_bluetooth_sapphire/host/testing:gtest_main"
+  deps = [
+    ":att",
+    "$dir_pw_bluetooth_sapphire/host/l2cap:testing",
+    "$dir_pw_bluetooth_sapphire/host/testing:test_helpers",
+  ]
+}
+
+pw_test_group("tests") {
+  tests = [ ":att_test" ]
+}

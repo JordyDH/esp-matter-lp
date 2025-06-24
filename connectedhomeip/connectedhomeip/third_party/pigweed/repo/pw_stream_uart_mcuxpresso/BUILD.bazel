@@ -1,0 +1,98 @@
+# Copyright 2023 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_python//sphinxdocs:sphinx_docs_library.bzl", "sphinx_docs_library")
+load("//pw_build:compatibility.bzl", "boolean_constraint_value", "incompatible_with_mcu")
+load("//pw_unit_test:pw_cc_test.bzl", "pw_cc_test")
+
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])
+
+boolean_constraint_value(
+    name = "compatible",
+)
+
+cc_library(
+    name = "pw_stream_uart_mcuxpresso",
+    srcs = ["stream.cc"],
+    hdrs = ["public/pw_stream_uart_mcuxpresso/stream.h"],
+    strip_include_prefix = "public",
+    target_compatible_with = [
+        ":compatible",
+    ],
+    deps = [
+        "//pw_clock_tree",
+        "//pw_preprocessor",
+        "//pw_stream",
+        "//targets:mcuxpresso_sdk",
+    ],
+)
+
+cc_library(
+    name = "interrupt_safe_writer",
+    srcs = ["interrupt_safe_writer.cc"],
+    hdrs = ["public/pw_stream_uart_mcuxpresso/interrupt_safe_writer.h"],
+    strip_include_prefix = "public",
+    target_compatible_with = [
+        ":compatible",
+    ],
+    deps = [
+        "//pw_clock_tree",
+        "//pw_status",
+        "//pw_stream",
+        "//targets:mcuxpresso_sdk",
+    ],
+)
+
+pw_cc_test(
+    name = "stream_test",
+    srcs = ["stream_test.cc"],
+    target_compatible_with = [
+        ":compatible",
+    ],
+    deps = [":pw_stream_uart_mcuxpresso"],
+)
+
+pw_cc_test(
+    name = "stream_example",
+    srcs = ["stream_example.cc"],
+    target_compatible_with = [
+        ":compatible",
+    ],
+    deps = [":pw_stream_uart_mcuxpresso"],
+)
+
+pw_cc_test(
+    name = "interrupt_safe_writer_example",
+    srcs = ["interrupt_safe_writer_example.cc"],
+    target_compatible_with = [
+        ":compatible",
+    ],
+    deps = [
+        ":interrupt_safe_writer",
+    ],
+)
+
+sphinx_docs_library(
+    name = "docs",
+    srcs = [
+        "docs.rst",
+        "interrupt_safe_writer_example.cc",
+        "stream_example.cc",
+    ],
+    prefix = "pw_stream_uart_mcuxpresso/",
+    target_compatible_with = incompatible_with_mcu(),
+)

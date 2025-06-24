@@ -1,0 +1,254 @@
+# Copyright 2021 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+#
+
+# Standard flags required for all Pigweed projects.
+import %workspace%/pw_build/pigweed.bazelrc
+import %workspace%/pw_build/pigweed_recommended.bazelrc
+
+# TODO: https://pwbug.dev/258836641 - Only until bzlmod migration is done.
+common --enable_workspace
+
+# Default build_tag_filters and test_tag_filters
+# ==============================================
+# Skip building any targets tagged do_not_build.
+build --build_tag_filters=-do_not_build,-kernel
+
+# Exclude integration tests from the default build. The test_tag_filters flag
+# doesn't accumulate (https://github.com/bazelbuild/bazel/issues/7322): we have
+# to specify it only once, setting all the exclusions in a comma-separated
+# list.
+test --test_tag_filters=-integration,-do_not_build,-do_not_run_test,-kernel
+
+# C++ related flags
+# =================
+# Picotool needs to build with exceptions and RTTI enabled.
+common --per_file_copt=external.*picotool.*@-fexceptions,-frtti
+common --host_per_file_copt=external.*picotool.*@-fexceptions,-frtti
+
+# RP2xxx PIO assembler also needs exceptions.
+common --host_per_file_copt=external.*pioasm.*@-fexceptions,-frtti
+
+# Default to C++17 to ensure compatibility.
+common --//pw_toolchain/cc:cxx_standard=17
+common:cxx20 --//pw_toolchain/cc:cxx_standard=20
+
+# Silence compiler warnings from external repositories.
+#
+# TODO: https://pwbug.dev/347317581 - This is supported by Bazel's default C++
+# toolchain, but not yet by Pigweed's own toolchains.
+build --features=external_include_paths
+
+# Turn on internal warnings for upstream Pigweed. DO NOT enable in downstream
+# projects to allow for warnings to be added in the future without breaking
+# downstream.
+#
+build --features=internal_strict_warnings
+
+# This feature can't be enabled until __unordtf2 and __letf2 are implemented by
+# compiler-rt. See https://reviews.llvm.org/D53608.
+# build --features=fully_static_link
+
+# Required for combined code coverage reports.
+coverage --experimental_generate_llvm_lcov
+coverage --combined_report=lcov
+
+
+# Enable layering check support.
+#
+# NOTE: this _does not_ by itself enable the layering check; that's done in
+# REPO.bazel. This flag only ensures the module maps for sysroot and toolchain
+# headers (needed for the layering check to not produce false positives) are
+# constructed. Module map construction is gated behind a flag because the
+# approach we take does not work in Bazel versions older than 8.0.0, so some
+# downstream projects using Pigweed's toolchains would be broken if this flag
+# was removed and always set to true in the toolchain definition.
+common --//pw_toolchain/host_clang:layering_check
+
+# Rust related flags
+# ==================
+# Ensure that rust channel gets propagated to the exec config under which
+# proc-macros and build.rs files are built.
+common --experimental_propagate_custom_flag=@@rules_rust+//rust/toolchain/channel:channel
+
+# Java related flags
+# ==================
+# Workaround for https://github.com/bazelbuild/rules_jvm_external/issues/445.
+build --java_language_version=11
+build --tool_java_language_version=11
+build --java_runtime_version=remotejdk_11
+build --repo_env=JAVA_HOME=../bazel_tools/jdk
+
+# JavaScript related flags
+# ========================
+# Allow the Bazel server to check directory sources for changes. Ensures that the Bazel server
+# notices when a directory changes, if you have a directory listed in the srcs of some target.
+# Recommended when using
+# [copy_directory](https://github.com/aspect-build/bazel-lib/blob/main/docs/copy_directory.md) and
+# [rules_js](https://github.com/aspect-build/rules_js) since npm package are source directories
+# inputs to copy_directory actions.
+# Docs: https://bazel.build/reference/command-line-reference#flag--host_jvm_args
+#
+# Ultimately, this is a workaround for
+# https://github.com/aspect-build/rules_js/issues/1408. See also
+# https://github.com/bazelbuild/bazel/commit/c64421bc35214f0414e4f4226cc953e8c55fa0d2.
+startup --host_jvm_args=-DBAZEL_TRACK_SOURCE_DIRECTORIES=1
+
+# Default label flags values
+# ==========================
+build --@freertos//:freertos_config=//third_party/freertos:freertos_config
+build --@mbedtls//:mbedtls_config=//third_party/mbedtls:default_config
+
+# We use non-default labels for the STM32Cube repositories upstream (to reserve
+# the option of building for more than one MCU family down the road), so need to
+# override the three labels below.
+common --//third_party/stm32cube:hal_driver=@stm32f4xx_hal_driver//:hal_driver
+common --@stm32f4xx_hal_driver//:cmsis_device=@cmsis_device_f4//:cmsis_device
+common --@stm32f4xx_hal_driver//:cmsis_init=@cmsis_device_f4//:default_cmsis_init
+common --@cmsis_device_f4//:cmsis_core=@cmsis_core
+
+common --//pw_env_setup/py:pigweed_json=//:pigweed_json
+common --experimental_propagate_custom_flag=//pw_env_setup/py:pigweed_json
+
+build --//pw_function:config_override=//pw_function:upstream_default_config
+
+# These flags may be read by tooling running in the exec configuration.
+common --experimental_propagate_custom_flag=//pw_build/luci:is_ci
+common --experimental_propagate_custom_flag=//pw_build/luci:is_shadow
+
+
+# Sanitizer config definitions
+# ============================
+common:asan --//pw_toolchain/host_clang:asan
+# TODO: https://github.com/bazelbuild/bazel/issues/7322 - We need to repeat the
+# -integration because the test_tag_filters flag does not
+# accumulate.
+test:asan --test_tag_filters=-integration,-noasan,-do_not_build,-do_not_run_test,-kernel
+
+common:ubsan --//pw_toolchain/host_clang:ubsan
+# TODO: https://github.com/bazelbuild/bazel/issues/7322 - We need to repeat the
+# -integration because the test_tag_filters flag does not accumulate.
+test:ubsan --test_tag_filters=-integration,-noubsan,-do_not_build,-do_not_run_test,-kernel
+
+common:tsan --//pw_toolchain/host_clang:tsan
+# TODO: https://github.com/bazelbuild/bazel/issues/7322 - We need to repeat the
+# -integration because the test_tag_filters flag does not accumulate.
+test:tsan --test_tag_filters=-integration,-notsan,-do_not_build,-do_not_run_test,-kernel
+
+# Include libFuzzer build configurations.
+import %workspace%/pw_fuzzer/libfuzzer.bazelrc
+
+# Include FuzzTest build configurations.
+import %workspace%/pw_fuzzer/fuzztest.bazelrc
+
+# clang-tidy configuration
+build:clang-tidy --aspects @bazel_clang_tidy//clang_tidy:clang_tidy.bzl%clang_tidy_aspect
+build:clang-tidy --output_groups=report
+build:clang-tidy --@bazel_clang_tidy//:clang_tidy_config=//:clang_tidy_config
+build:clang-tidy --@bazel_clang_tidy//:clang_tidy_executable=//pw_toolchain/host_clang:copy_clang_tidy
+build:clang-tidy --@bazel_clang_tidy//:clang_tidy_additional_deps=//pw_toolchain/host_clang:sysroot_root
+build:clang-tidy --build_tag_filters=-noclangtidy
+# We need to disable this warning to avoid spurious "#pragma once in main file"
+# warnings for header-only libraries. For another approach, see
+# https://github.com/mongodb-forks/bazel_clang_tidy/pull/2
+#
+# TODO: https://pwbug.dev/341723612 - What do we do in GN?
+build:clang-tidy --copt=-Wno-pragma-once-outside-header
+
+# For some platforms i.e. google/oss-fuzz we need to use the system provided
+# rather than the hermetic toolchains. This allows oss-fuzz to override the
+# build with specialised compilers that are tightly coupled to the fuzzing
+# runtimes.
+# Detect toolchains
+common:non_hermetic --repo_env=BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=0
+common:non_hermetic --extra_toolchains=@local_config_cc_toolchains//...
+
+# Configure workspace status command to test pw_build_info git_build_info
+# https://bazel.build/docs/user-manual#workspace-status-command
+# TODO: b/348046338 - Add a Windows version of this command
+build --workspace_status_command=pw_build_info/git_workspace_status_command.sh
+
+# Target platform config definitions
+# ==================================
+# Exclude //pw_bluetooth_sapphire/fuchsia when the host platform is not
+# linux-amd64. This is the only platform that the Fuchsia SDK supports.
+common --enable_platform_specific_config
+
+# Import `--config=fuchsia` scoped pigweed backends.
+import %workspace%/pw_bluetooth_sapphire/fuchsia/backends.bazelrc
+
+# TODO: https://pwbug.dev/382533028 - The Fuchsia SDK doesn't work with these
+# flags yet. Unfortunately, this needs to be switched for all build types since
+# it's required for things to load properly in pw_bluetooth_sapphire.
+common --noincompatible_disallow_empty_glob
+
+# Configs for RP2xxx platforms.
+build:rp2040 --platforms=@pigweed//targets/rp2040
+test:rp2040 --run_under=//targets/rp2040/py:unit_test_client
+
+build:rp2350 --platforms=@pigweed//targets/rp2040:rp2350
+test:rp2350 --run_under=//targets/rp2040/py:unit_test_client
+
+# Config for the stm32f429i_disc1 baremetal platform.
+build:stm32f429i_baremetal --platforms=//targets/stm32f429i_disc1:platform
+
+# Config for the stm32f429i_disc1_stm32cube freertos platform.
+build:stm32f429i_freertos --platforms=//targets/stm32f429i_disc1_stm32cube:platform
+
+# Config for the lm3s6965evb platform, used to build pw_rust/examples.
+build:lm3s6965evb --platforms=//targets/lm3s6965evb
+
+# Config for the microbit platform, used to build pw_rust/examples.
+build:microbit --platforms=//targets/microbit
+
+# GoogleTest config
+# =================
+# This config can be used to build and run host tests using GoogleTest instead
+# of the default //pw_unit_test:light framework.
+common:googletest --//pw_unit_test:backend=//pw_unit_test:googletest
+common:googletest --//pw_unit_test:main=@com_google_googletest//:gtest_main
+
+# Remote execution config definitions
+# ===================================
+# Use the remote cache. This will only work for users who have permission to access it.
+common:remote_cache --bes_backend="buildeventservice.googleapis.com"
+common:remote_cache --bes_instance_name=pigweed-rbe-open
+common:remote_cache --bes_results_url="https://source.cloud.google.com/results/invocations/"
+common:remote_cache --bes_timeout=600s
+common:remote_cache --experimental_remote_cache_eviction_retries=5
+common:remote_cache --google_default_credentials=true
+# Required to use buildeventservice on Bazel 8+.
+# TODO: b/345556899 -- Remove this flag when no longer required.
+common:remote_cache --legacy_important_outputs
+common:remote_cache --remote_cache=grpcs://remotebuildexecution.googleapis.com
+common:remote_cache --remote_instance_name=projects/pigweed-rbe-open/instances/default-instance
+common:remote_cache --remote_upload_local_results=false
+
+# cache-silo-key: this is essentially a "salt" added to the remote cache key.
+# Change it to a new value when we want to create a new cache from scratch
+# (e.g. to recover from cache poisoning). We've used the current date in
+# YYYYMMDD format in the past.
+common --remote_default_exec_properties=cache-silo-key=20240918
+
+# Configs for experimental //pw_kernel
+import %workspace%/pw_kernel/kernel.bazelrc
+
+# User bazelrc file
+# =================
+# See https://bazel.build/configure/best-practices#bazelrc-file
+#
+# Note: this should be at the bottom of the file, so that user-specified
+# options override anything in this file
+# (https://bazel.build/run/bazelrc#imports)
+try-import %workspace%/user.bazelrc

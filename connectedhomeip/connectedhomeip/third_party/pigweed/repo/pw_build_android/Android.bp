@@ -1,0 +1,54 @@
+// Copyright 2024 The Pigweed Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not
+// use this file except in compliance with the License. You may obtain a copy of
+// the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+// License for the specific language governing permissions and limitations under
+// the License.
+
+package {
+    default_applicable_licenses: ["external_pigweed_license"],
+}
+
+// List of Common Android backends and build flags used by Pigweed modules.
+// Do not modify this to swap a different backend. Instead see the
+// pw_build_android documentation for how to use custom backends.
+cc_defaults {
+    name: "pw_android_common_backends",
+    cpp_std: "c++20",
+
+    // Note for maintainers:
+    // Update the build flags in the documentation when updating this list.
+    cflags: [
+        // Allow `pw::Function`s to exceed the inline size. This assumes all
+        // targets built with this backend can use dynamic allocation.
+        "-DPW_FUNCTION_ENABLE_DYNAMIC_ALLOCATION=1",
+    ],
+
+    // Note for maintainers:
+    // Update the common backends list in the documentation when updating this
+    // list.
+    static_libs: [
+        "pw_assert_log",
+        "pw_chrono_stl",
+        "pw_log_android",
+        "pw_sync_stl",
+        "pw_thread_stl",
+    ],
+    export_static_lib_headers: [
+        "pw_assert_log",
+        "pw_chrono_stl",
+        "pw_log_android",
+        "pw_sync_stl",
+        "pw_thread_stl",
+    ],
+    shared_libs: [
+        "liblog",
+    ],
+}

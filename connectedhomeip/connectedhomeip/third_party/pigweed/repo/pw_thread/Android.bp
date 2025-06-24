@@ -1,0 +1,71 @@
+// Copyright 2023 The Pigweed Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not
+// use this file except in compliance with the License. You may obtain a copy of
+// the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+// License for the specific language governing permissions and limitations under
+// the License.
+
+package {
+    default_applicable_licenses: ["external_pigweed_license"],
+}
+
+// To use the pw_thread facade, add it to the defaults list of the library or
+// binary that uses it, then include the pw_android_common_backends to the
+// defaults list, which adds the pw_thread_stl backend, or add include your
+// custom backend.
+cc_defaults {
+    name: "pw_thread",
+    cpp_std: "c++20",
+    header_libs: [
+        "pw_chrono",
+        "pw_thread_include_dirs",
+    ],
+    export_header_lib_headers: [
+        "pw_chrono",
+        "pw_thread_include_dirs",
+    ],
+    static_libs: [
+        "pw_function",
+        "pw_numeric",
+        "pw_preprocessor",
+        "pw_status",
+    ],
+    export_static_lib_headers: [
+        "pw_function",
+        "pw_numeric",
+        "pw_preprocessor",
+        "pw_status",
+    ],
+    srcs: [
+        ":pw_thread_src_files",
+    ],
+}
+
+// Do not include these since they are for the pw_thread cc_defaults. Depend on
+// the pw_thread facade instead.
+cc_library_headers {
+    name: "pw_thread_include_dirs",
+    cpp_std: "c++20",
+    export_include_dirs: [
+        "public",
+    ],
+    vendor_available: true,
+    host_supported: true,
+}
+
+// Do not include these since they are for the pw_thread cc_defaults. Depend on
+// the pw_thread facade instead.
+filegroup {
+    name: "pw_thread_src_files",
+    srcs: [
+        "sleep.cc",
+        "yield.cc",
+    ],
+}

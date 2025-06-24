@@ -1,0 +1,141 @@
+# Copyright 2020 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_python//python:proto.bzl", "py_proto_library")
+load("@rules_python//sphinxdocs:sphinx_docs_library.bzl", "sphinx_docs_library")
+load("//pw_build:compatibility.bzl", "incompatible_with_mcu")
+load(
+    "//pw_protobuf_compiler:pw_proto_library.bzl",
+    "pwpb_proto_library",
+    "pwpb_rpc_proto_library",
+)
+load("//pw_unit_test:pw_cc_test.bzl", "pw_cc_test")
+
+package(
+    default_visibility = ["//visibility:public"],
+)
+
+licenses(["notice"])
+
+cc_library(
+    name = "pw_digital_io",
+    srcs = ["digital_io.cc"],
+    hdrs = [
+        "public/pw_digital_io/digital_io.h",
+        "public/pw_digital_io/internal/conversions.h",
+        "public/pw_digital_io/polarity.h",
+    ],
+    strip_include_prefix = "public",
+    deps = [
+        "//pw_assert:check",
+        "//pw_function",
+        "//pw_result",
+        "//pw_status",
+        "//pw_toolchain:sibling_cast",
+    ],
+)
+
+pw_cc_test(
+    name = "digital_io_test",
+    srcs = ["digital_io_test.cc"],
+    deps = [
+        ":pw_digital_io",
+        "//pw_status",
+    ],
+)
+
+cc_library(
+    name = "digital_io_service",
+    srcs = ["digital_io_service.cc"],
+    hdrs = ["public/pw_digital_io/digital_io_service.h"],
+    strip_include_prefix = "public",
+    deps = [
+        ":digital_io_proto_pwpb",
+        ":digital_io_proto_pwpb_rpc",
+        ":pw_digital_io",
+        "//pw_function",
+        "//pw_log",
+        "//pw_result",
+        "//pw_rpc/pwpb:server_api",
+        "//pw_span",
+        "//pw_status",
+    ],
+)
+
+proto_library(
+    name = "digital_io_proto",
+    srcs = ["digital_io.proto"],
+)
+
+pwpb_proto_library(
+    name = "digital_io_proto_pwpb",
+    deps = [":digital_io_proto"],
+)
+
+pwpb_rpc_proto_library(
+    name = "digital_io_proto_pwpb_rpc",
+    pwpb_proto_library_deps = [":digital_io_proto_pwpb"],
+    deps = [":digital_io_proto"],
+)
+
+py_proto_library(
+    name = "digital_io_proto_py_pb2",
+    deps = [":digital_io_proto"],
+)
+
+cc_library(
+    name = "digital_io_mock",
+    srcs = ["digital_io_mock.cc"],
+    hdrs = ["public/pw_digital_io/digital_io_mock.h"],
+    implementation_deps = [
+        "//pw_log",
+    ],
+    strip_include_prefix = "public",
+    deps = [
+        "//pw_assert:check",
+        "//pw_chrono:system_clock",
+        "//pw_containers:inline_deque",
+        "//pw_digital_io",
+        "//pw_result",
+    ],
+)
+
+pw_cc_test(
+    name = "digital_io_mock_test",
+    srcs = ["digital_io_mock_test.cc"],
+    deps = [
+        ":digital_io_mock",
+        "//pw_status",
+    ],
+)
+
+filegroup(
+    name = "doxygen",
+    srcs = [
+        "public/pw_digital_io/digital_io.h",
+        "public/pw_digital_io/digital_io_mock.h",
+    ],
+)
+
+sphinx_docs_library(
+    name = "docs",
+    srcs = [
+        "backends.rst",
+        "docs.rst",
+    ],
+    prefix = "pw_digital_io/",
+    target_compatible_with = incompatible_with_mcu(),
+)

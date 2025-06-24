@@ -569,6 +569,8 @@ esp_err_t app_network_start(app_network_pop_type_t pop_type)
         network_prov_mgr_deinit();
 #ifdef CONFIG_ESP_RMAKER_NETWORK_OVER_WIFI
         ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+        esp_wifi_set_ps(WIFI_PS_MAX_MODEM);
+        ESP_ERROR_CHECK(esp_wifi_set_inactive_time(WIFI_IF_STA, 6)); 
         ESP_ERROR_CHECK(esp_wifi_start());
         esp_wifi_connect();
 #endif // CONFIG_ESP_RMAKER_NETWORK_OVER_WIFI

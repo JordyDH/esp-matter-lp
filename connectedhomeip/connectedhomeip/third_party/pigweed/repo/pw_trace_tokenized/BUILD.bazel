@@ -1,0 +1,416 @@
+# Copyright 2020 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_python//python:proto.bzl", "py_proto_library")
+load("@rules_python//sphinxdocs:sphinx_docs_library.bzl", "sphinx_docs_library")
+load("//pw_build:compatibility.bzl", "incompatible_with_mcu")
+load("//pw_build:pw_cc_binary.bzl", "pw_cc_binary")
+load(
+    "//pw_protobuf_compiler:pw_proto_library.bzl",
+    "nanopb_proto_library",
+    "nanopb_rpc_proto_library",
+    "pw_proto_filegroup",
+    "pwpb_proto_library",
+    "pwpb_rpc_proto_library",
+)
+load("//pw_unit_test:pw_cc_test.bzl", "pw_cc_test")
+
+package(
+    default_visibility = ["//visibility:public"],
+    features = ["-layering_check"],
+)
+
+licenses(["notice"])
+
+cc_library(
+    name = "linux_config_overrides",
+    hdrs = ["linux_config_overrides.h"],
+    tags = ["manual"],
+)
+
+cc_library(
+    name = "config",
+    hdrs = [
+        "public/pw_trace_tokenized/config.h",
+    ],
+    strip_include_prefix = "public",
+    tags = ["noclangtidy"],
+    deps = [":config_backend"],
+)
+
+label_flag(
+    name = "config_backend",
+    build_setting_default = "//pw_build:default_module_config",
+)
+
+cc_library(
+    name = "pw_trace_tokenized",
+    srcs = [
+        "trace.cc",
+    ],
+    hdrs = [
+        "public/pw_trace_tokenized/internal/trace_tokenized_internal.h",
+        "public/pw_trace_tokenized/trace_callback.h",
+        "public/pw_trace_tokenized/trace_tokenized.h",
+        "public_overrides/pw_trace_backend/trace_backend.h",
+    ],
+    features = ["-conversion_warnings"],
+    includes = [
+        "public",
+        "public_overrides",
+    ],
+    deps = [
+        ":config",
+        ":trace_time",
+        "//pw_log",
+        "//pw_status",
+        "//pw_tokenizer",
+        "//pw_trace:facade",
+        "//pw_varint",
+    ],
+)
+
+label_flag(
+    name = "trace_time",
+    build_setting_default = ":default_trace_time",
+    features = ["-conversion_warnings"],
+)
+
+alias(
+    name = "default_trace_time",
+    actual = select({
+        "@platforms//os:none": ":pw_trace_tokenized_fake_time",
+        "//conditions:default": ":pw_trace_host_trace_time",
+    }),
+    features = ["-conversion_warnings"],
+)
+
+cc_library(
+    name = "base_trace_service",
+    srcs = [
+        "base_trace_service.cc",
+    ],
+    hdrs = [
+        "public/pw_trace_tokenized/base_trace_service.h",
+    ],
+    features = ["-conversion_warnings"],
+    strip_include_prefix = "public",
+    deps = [
+        ":buffer",
+        ":pw_trace_tokenized",
+        "//pw_ring_buffer",
+        "//pw_stream",
+    ],
+)
+
+cc_library(
+    name = "trace_service_pwpb",
+    srcs = [
+        "trace_service_pwpb.cc",
+    ],
+    hdrs = [
+        "public/pw_trace_tokenized/trace_service_pwpb.h",
+    ],
+    features = ["-conversion_warnings"],
+    strip_include_prefix = "public",
+    deps = [
+        ":base_trace_service",
+        ":protos_pwpb_rpc",
+        "//pw_chrono:system_clock",
+    ],
+)
+
+cc_library(
+    name = "trace_rpc_service",
+    srcs = [
+        "trace_rpc_service_nanopb.cc",
+    ],
+    hdrs = [
+        "public/pw_trace_tokenized/trace_rpc_service_nanopb.h",
+    ],
+    features = ["-conversion_warnings"],
+    strip_include_prefix = "public",
+    deps = [
+        ":buffer",
+        ":protos_nanopb_rpc",
+        "//pw_log",
+        "//pw_trace",
+    ],
+)
+
+cc_library(
+    name = "buffer",
+    srcs = [
+        "trace_buffer.cc",
+    ],
+    hdrs = [
+        "public/pw_trace_tokenized/trace_buffer.h",
+    ],
+    features = ["-conversion_warnings"],
+    strip_include_prefix = "public",
+    deps = [
+        ":pw_trace_tokenized",
+        "//pw_bytes",
+        "//pw_ring_buffer",
+        "//pw_status",
+    ],
+)
+
+cc_library(
+    name = "buffer_log",
+    srcs = [
+        "trace_buffer_log.cc",
+    ],
+    hdrs = [
+        "public/pw_trace_tokenized/trace_buffer_log.h",
+    ],
+    features = ["-conversion_warnings"],
+    deps = [
+        ":buffer",
+        "//pw_base64",
+        "//pw_log",
+        "//pw_string",
+    ],
+)
+
+proto_library(
+    name = "protos",
+    srcs = [
+        "pw_trace_protos/trace.proto",
+        ":trace_rpc_proto_filegroup",
+        ":trace_service_proto_filegroup",
+    ],
+    strip_import_prefix = "/pw_trace_tokenized",
+    deps = [
+        "//pw_chrono:chrono_proto",
+    ],
+)
+
+pw_proto_filegroup(
+    name = "trace_rpc_proto_filegroup",
+    srcs = [
+        "pw_trace_protos/trace_rpc.proto",
+    ],
+    options_files = [
+        "pw_trace_protos/trace_rpc.options",
+    ],
+)
+
+pw_proto_filegroup(
+    name = "trace_service_proto_filegroup",
+    srcs = [
+        "pw_trace_protos/trace_service.proto",
+    ],
+    options_files = [
+        "pw_trace_protos/trace_service.options",
+    ],
+)
+
+pwpb_proto_library(
+    name = "protos_pwpb",
+    deps = [":protos"],
+)
+
+pwpb_rpc_proto_library(
+    name = "protos_pwpb_rpc",
+    pwpb_proto_library_deps = [":protos_pwpb"],
+    deps = [":protos"],
+)
+
+nanopb_proto_library(
+    name = "protos_nanopb",
+    deps = [":protos"],
+)
+
+nanopb_rpc_proto_library(
+    name = "protos_nanopb_rpc",
+    nanopb_proto_library_deps = [":protos_nanopb"],
+    deps = [":protos"],
+)
+
+py_proto_library(
+    name = "proto_py",
+    deps = [":protos"],
+)
+
+cc_library(
+    name = "pw_trace_tokenized_fake_time",
+    srcs = [
+        "fake_trace_time.cc",
+    ],
+    target_compatible_with = select({
+        "@platforms//os:none": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    deps = [
+        ":config",
+    ],
+)
+
+pw_cc_test(
+    name = "trace_tokenized_test",
+    srcs = [
+        "trace_test.cc",
+    ],
+    features = ["-conversion_warnings"],
+    includes = [
+        "pw_trace_test",
+        "pw_trace_test/public_overrides",
+    ],
+    deps = [
+        ":pw_trace_tokenized",
+        "//pw_trace",
+    ],
+)
+
+pw_cc_test(
+    name = "buffer_test",
+    srcs = [
+        "trace_buffer_test.cc",
+    ],
+    features = ["-conversion_warnings"],
+    deps = [
+        ":buffer",
+        ":pw_trace_tokenized",
+        "//pw_preprocessor",
+    ],
+)
+
+pw_cc_test(
+    name = "buffer_log_test",
+    srcs = [
+        "trace_buffer_log_test.cc",
+    ],
+    features = ["-conversion_warnings"],
+    deps = [
+        ":buffer_log",
+        ":pw_trace_tokenized",
+        "//pw_preprocessor",
+    ],
+)
+
+pw_cc_test(
+    name = "trace_service_pwpb_test",
+    srcs = [
+        "trace_service_pwpb_test.cc",
+    ],
+    features = ["-conversion_warnings"],
+    # TODO: b/343778108 - update to run on all compatible devices
+    target_compatible_with = incompatible_with_mcu(),
+    deps = [
+        ":pw_trace_host_trace_time",
+        ":trace_service_pwpb",
+        "//pw_chrono:system_clock",
+        "//pw_rpc/pwpb:test_method_context",
+        "//pw_trace",
+    ],
+)
+
+cc_library(
+    name = "pw_trace_host_trace_time",
+    srcs = ["host_trace_time.cc"],
+    features = ["-conversion_warnings"],
+    includes = ["example/public"],
+    target_compatible_with = incompatible_with_mcu(),
+    deps = [":config"],
+)
+
+cc_library(
+    name = "pw_trace_example_to_file",
+    hdrs = ["example/public/pw_trace_tokenized/example/trace_to_file.h"],
+    features = ["-conversion_warnings"],
+    includes = ["example/public"],
+    deps = [
+        ":pw_trace_tokenized",
+        "//pw_trace",
+    ],
+)
+
+pw_cc_binary(
+    name = "trace_tokenized_example_basic",
+    srcs = ["example/basic.cc"],
+    features = ["-conversion_warnings"],
+    deps = [
+        ":pw_trace_example_to_file",
+        "//pw_log",
+        "//pw_trace",
+        "//pw_trace:pw_trace_sample_app",
+    ],
+)
+
+pw_cc_binary(
+    name = "trace_tokenized_example_trigger",
+    srcs = ["example/trigger.cc"],
+    features = ["-conversion_warnings"],
+    deps = [
+        ":pw_trace_example_to_file",
+        "//pw_log",
+        "//pw_trace",
+        "//pw_trace:pw_trace_sample_app",
+    ],
+)
+
+pw_cc_binary(
+    name = "trace_tokenized_example_filter",
+    srcs = ["example/filter.cc"],
+    features = ["-conversion_warnings"],
+    deps = [
+        ":pw_trace_example_to_file",
+        "//pw_log",
+        "//pw_trace",
+        "//pw_trace:pw_trace_sample_app",
+    ],
+)
+
+cc_library(
+    name = "trace_tokenized_example_rpc",
+    srcs = ["example/rpc.cc"],
+    features = ["-conversion_warnings"],
+    implementation_deps = ["//pw_assert:check"],
+    deps = [
+        ":trace_rpc_service",
+        "//pw_hdlc",
+        "//pw_log",
+        "//pw_rpc",
+        "//pw_rpc/system_server",
+        "//pw_trace",
+        "//pw_trace:pw_trace_sample_app",
+    ],
+)
+
+cc_library(
+    name = "trace_tokenized_example_linux_group_by_tid",
+    srcs = ["example/linux_group_by_tid.cc"],
+    features = ["-conversion_warnings"],
+    target_compatible_with = select({
+        "@platforms//os:linux": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    deps = [
+        ":pw_trace_example_to_file",
+        "//pw_log",
+        "//pw_trace",
+    ],
+)
+
+sphinx_docs_library(
+    name = "docs",
+    srcs = [
+        "docs.rst",
+    ],
+    prefix = "pw_trace_tokenized/",
+    target_compatible_with = incompatible_with_mcu(),
+)

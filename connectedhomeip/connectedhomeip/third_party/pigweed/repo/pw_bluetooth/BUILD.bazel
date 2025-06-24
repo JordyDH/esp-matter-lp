@@ -1,0 +1,500 @@
+# Copyright 2022 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+load("@com_google_emboss//:build_defs.bzl", "emboss_cc_library")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_python//sphinxdocs:sphinx_docs_library.bzl", "sphinx_docs_library")
+load("//pw_build:compatibility.bzl", "incompatible_with_mcu")
+load("//pw_unit_test:pw_cc_test.bzl", "pw_cc_test")
+
+package(
+    default_visibility = ["//visibility:public"],
+    features = ["-layering_check"],
+)
+
+licenses(["notice"])
+
+label_flag(
+    name = "config",
+    build_setting_default = "//pw_build:default_module_config",
+)
+
+cc_library(
+    name = "pw_bluetooth",
+    hdrs = [
+        "public/pw_bluetooth/address.h",
+        "public/pw_bluetooth/assigned_uuids.h",
+        "public/pw_bluetooth/config.h",
+        "public/pw_bluetooth/constants.h",
+        "public/pw_bluetooth/controller.h",
+        "public/pw_bluetooth/gatt/client.h",
+        "public/pw_bluetooth/gatt/constants.h",
+        "public/pw_bluetooth/gatt/error.h",
+        "public/pw_bluetooth/gatt/server.h",
+        "public/pw_bluetooth/gatt/types.h",
+        "public/pw_bluetooth/host.h",
+        "public/pw_bluetooth/internal/hex.h",
+        "public/pw_bluetooth/internal/raii_ptr.h",
+        "public/pw_bluetooth/low_energy/advertising_data.h",
+        "public/pw_bluetooth/low_energy/bond_data.h",
+        "public/pw_bluetooth/low_energy/central.h",
+        "public/pw_bluetooth/low_energy/connection.h",
+        "public/pw_bluetooth/low_energy/peripheral.h",
+        "public/pw_bluetooth/low_energy/security_mode.h",
+        "public/pw_bluetooth/pairing_delegate.h",
+        "public/pw_bluetooth/peer.h",
+        "public/pw_bluetooth/result.h",
+        "public/pw_bluetooth/types.h",
+        "public/pw_bluetooth/uuid.h",
+        "public/pw_bluetooth/vendor.h",
+    ],
+    includes = ["public"],
+    deps = [
+        "//pw_assert:assert",
+        "//pw_chrono:system_clock",
+        "//pw_containers:vector",
+        "//pw_function",
+        "//pw_multibuf",
+        "//pw_result",
+        "//pw_status",
+        "//pw_string:string",
+    ],
+)
+
+cc_library(
+    name = "pw_bluetooth2",
+    hdrs = [
+        "public/pw_bluetooth/address.h",
+        "public/pw_bluetooth/assigned_uuids.h",
+        "public/pw_bluetooth/config.h",
+        "public/pw_bluetooth/constants.h",
+        "public/pw_bluetooth/controller2.h",
+        "public/pw_bluetooth/gatt/client2.h",
+        "public/pw_bluetooth/gatt/constants.h",
+        "public/pw_bluetooth/gatt/error.h",
+        "public/pw_bluetooth/gatt/server2.h",
+        "public/pw_bluetooth/gatt/types.h",
+        "public/pw_bluetooth/internal/hex.h",
+        "public/pw_bluetooth/internal/raii_ptr.h",
+        "public/pw_bluetooth/low_energy/advertising_data.h",
+        "public/pw_bluetooth/low_energy/bond_data2.h",
+        "public/pw_bluetooth/low_energy/central2.h",
+        "public/pw_bluetooth/low_energy/channel.h",
+        "public/pw_bluetooth/low_energy/connection2.h",
+        "public/pw_bluetooth/low_energy/peripheral2.h",
+        "public/pw_bluetooth/low_energy/phy.h",
+        "public/pw_bluetooth/low_energy/security_mode.h",
+        "public/pw_bluetooth/pairing_delegate2.h",
+        "public/pw_bluetooth/peer.h",
+        "public/pw_bluetooth/types.h",
+        "public/pw_bluetooth/uuid.h",
+        "public/pw_bluetooth/vendor.h",
+    ],
+    features = ["-conversion_warnings"],
+    includes = ["public"],
+    deps = [
+        ":config",
+        "//pw_assert:assert",
+        "//pw_async2:dispatcher",
+        "//pw_async2:once_sender",
+        "//pw_channel",
+        "//pw_chrono:system_clock",
+        "//pw_containers:vector",
+        "//pw_function",
+        "//pw_multibuf",
+        "//pw_result",
+        "//pw_result:expected",
+        "//pw_span",
+        "//pw_status",
+        "//pw_string:string",
+    ],
+)
+
+cc_library(
+    name = "snoop",
+    srcs = [
+        "snoop.cc",
+    ],
+    hdrs = [
+        "public/pw_bluetooth/snoop.h",
+    ],
+    features = ["-conversion_warnings"],
+    implementation_deps = ["//pw_assert:check"],
+    includes = ["public"],
+    deps = [
+        ":emboss_snoop",
+        ":emboss_util",
+        "//pw_bluetooth_proxy",
+        "//pw_chrono:system_clock",
+        "//pw_containers:inline_var_len_entry_queue",
+        "//pw_hex_dump",
+        "//pw_log",
+        "//pw_result",
+        "//pw_span",
+        "//pw_sync:mutex",
+        "//pw_sync:virtual_basic_lockable",
+    ],
+)
+
+cc_library(
+    name = "emboss_util",
+    hdrs = [
+        "public/pw_bluetooth/emboss_util.h",
+    ],
+    includes = ["public"],
+    deps = [
+        "//pw_result",
+        "//pw_span",
+        "//pw_status",
+    ],
+)
+
+pw_cc_test(
+    name = "address_test",
+    srcs = [
+        "address_test.cc",
+    ],
+    deps = [
+        ":pw_bluetooth",
+    ],
+)
+
+pw_cc_test(
+    name = "api_test",
+    srcs = [
+        "api_test.cc",
+    ],
+    deps = [
+        ":pw_bluetooth",
+    ],
+)
+
+pw_cc_test(
+    name = "api2_test",
+    srcs = [
+        "api2_test.cc",
+    ],
+    features = ["-conversion_warnings"],
+    deps = [
+        ":pw_bluetooth2",
+    ],
+)
+
+pw_cc_test(
+    name = "result_test",
+    srcs = [
+        "result_test.cc",
+    ],
+    deps = [
+        ":pw_bluetooth",
+    ],
+)
+
+pw_cc_test(
+    name = "snoop_test",
+    srcs = [
+        "snoop_test.cc",
+    ],
+    features = ["-conversion_warnings"],
+    deps = [
+        ":snoop",
+        "//pw_chrono:simulated_system_clock",
+        "//pw_hex_dump:log_bytes",
+    ],
+)
+
+pw_cc_test(
+    name = "uuid_test",
+    srcs = [
+        "uuid_test.cc",
+    ],
+    deps = [
+        ":pw_bluetooth",
+    ],
+)
+
+emboss_cc_library(
+    name = "_emboss_a2dp_aac",
+    srcs = ["public/pw_bluetooth/a2dp_aac.emb"],
+    enable_enum_traits = False,
+    import_dirs = ["public"],
+    visibility = ["//visibility:private"],
+)
+
+emboss_cc_library(
+    name = "_emboss_a2dp_sbc",
+    srcs = ["public/pw_bluetooth/a2dp_sbc.emb"],
+    enable_enum_traits = False,
+    import_dirs = ["public"],
+    visibility = ["//visibility:private"],
+)
+
+emboss_cc_library(
+    name = "_emboss_avdtp",
+    srcs = ["public/pw_bluetooth/avdtp.emb"],
+    enable_enum_traits = False,
+    import_dirs = ["public"],
+    visibility = ["//visibility:private"],
+    deps = [
+        ":_emboss_a2dp_aac",
+        ":_emboss_a2dp_sbc",
+    ],
+)
+
+emboss_cc_library(
+    name = "_emboss_att",
+    srcs = ["public/pw_bluetooth/att.emb"],
+    enable_enum_traits = False,
+    import_dirs = ["public"],
+    visibility = ["//visibility:private"],
+    deps = [
+        ":_emboss_hci_data",
+        ":_emboss_l2cap_frames",
+    ],
+)
+
+cc_library(
+    name = "emboss_a2dp_aac",
+    deps = [":_emboss_a2dp_aac"],
+)
+
+cc_library(
+    name = "emboss_a2dp_sbc",
+    deps = [":_emboss_a2dp_sbc"],
+)
+
+cc_library(
+    name = "emboss_avdtp",
+    includes = ["public"],
+    deps = [":_emboss_avdtp"],
+)
+
+cc_library(
+    name = "emboss_att",
+    includes = ["public"],
+    deps = [":_emboss_att"],
+)
+
+emboss_cc_library(
+    name = "_emboss_hci_android",
+    srcs = ["public/pw_bluetooth/hci_android.emb"],
+    enable_enum_traits = False,
+    import_dirs = ["public"],
+    visibility = ["//visibility:private"],
+    deps = [":_emboss_hci_common"],
+)
+
+# emboss_cc_library doesn't support includes, so we need to wrap it.
+cc_library(
+    name = "emboss_hci_android",
+    includes = ["public"],
+    deps = [":_emboss_hci_android"],
+)
+
+emboss_cc_library(
+    name = "_emboss_hci_common",
+    srcs = ["public/pw_bluetooth/hci_common.emb"],
+    enable_enum_traits = False,
+    visibility = ["//visibility:private"],
+)
+
+cc_library(
+    name = "emboss_hci_common",
+    includes = ["public"],
+    deps = [":_emboss_hci_common"],
+)
+
+emboss_cc_library(
+    name = "_emboss_hci_commands",
+    srcs = ["public/pw_bluetooth/hci_commands.emb"],
+    enable_enum_traits = False,
+    import_dirs = ["public"],
+    visibility = ["//visibility:private"],
+    deps = [":_emboss_hci_common"],
+)
+
+cc_library(
+    name = "emboss_hci_commands",
+    includes = ["public"],
+    deps = [":_emboss_hci_commands"],
+)
+
+emboss_cc_library(
+    name = "_emboss_hci_data",
+    srcs = ["public/pw_bluetooth/hci_data.emb"],
+    enable_enum_traits = False,
+    visibility = ["//visibility:private"],
+    deps = [":_emboss_hci_common"],
+)
+
+cc_library(
+    name = "emboss_hci_data",
+    includes = ["public"],
+    deps = [":_emboss_hci_data"],
+)
+
+emboss_cc_library(
+    name = "_emboss_hci_events",
+    srcs = ["public/pw_bluetooth/hci_events.emb"],
+    enable_enum_traits = False,
+    import_dirs = ["public"],
+    visibility = ["//visibility:private"],
+    deps = [":_emboss_hci_common"],
+)
+
+cc_library(
+    name = "emboss_hci_events",
+    includes = ["public"],
+    deps = [":_emboss_hci_events"],
+)
+
+emboss_cc_library(
+    name = "_emboss_hci_h4",
+    srcs = ["public/pw_bluetooth/hci_h4.emb"],
+    enable_enum_traits = False,
+    import_dirs = ["public"],
+    visibility = ["//visibility:private"],
+)
+
+cc_library(
+    name = "emboss_hci_h4",
+    includes = ["public"],
+    deps = [":_emboss_hci_h4"],
+)
+
+emboss_cc_library(
+    name = "_emboss_hci_test",
+    srcs = ["public/pw_bluetooth/hci_test.emb"],
+    enable_enum_traits = False,
+    import_dirs = ["public"],
+    visibility = ["//visibility:private"],
+    deps = [":_emboss_hci_common"],
+)
+
+cc_library(
+    name = "emboss_hci_test",
+    includes = ["public"],
+    deps = [":_emboss_hci_test"],
+)
+
+emboss_cc_library(
+    name = "_emboss_l2cap_frames",
+    srcs = ["public/pw_bluetooth/l2cap_frames.emb"],
+    enable_enum_traits = False,
+    visibility = ["//visibility:private"],
+)
+
+cc_library(
+    name = "emboss_l2cap_frames",
+    includes = ["public"],
+    deps = [":_emboss_l2cap_frames"],
+)
+
+emboss_cc_library(
+    name = "_emboss_rfcomm_frames",
+    srcs = ["public/pw_bluetooth/rfcomm_frames.emb"],
+    enable_enum_traits = False,
+    visibility = ["//visibility:private"],
+)
+
+cc_library(
+    name = "emboss_rfcomm_frames",
+    includes = ["public"],
+    deps = [":_emboss_rfcomm_frames"],
+)
+
+cc_library(
+    name = "emboss_hci",
+    deps = [
+        ":emboss_hci_android",
+        ":emboss_hci_commands",
+        ":emboss_hci_common",
+        ":emboss_hci_data",
+        ":emboss_hci_events",
+        ":emboss_hci_h4",
+    ],
+)
+
+emboss_cc_library(
+    name = "_emboss_snoop",
+    srcs = ["public/pw_bluetooth/snoop.emb"],
+    enable_enum_traits = False,
+    visibility = ["//visibility:private"],
+)
+
+cc_library(
+    name = "emboss_snoop",
+    includes = ["public"],
+    deps = [":_emboss_snoop"],
+)
+
+pw_cc_test(
+    name = "emboss_test",
+    srcs = ["emboss_test.cc"],
+    deps = [
+        # All emboss targets are listed (even if they don't have explicit tests)
+        # to ensure they are compiled.
+        ":emboss_util",
+        ":emboss_att",
+        ":emboss_hci",
+        ":emboss_hci_test",
+        ":emboss_l2cap_frames",
+        ":emboss_rfcomm_frames",
+        "//third_party/fuchsia:stdcompat",
+    ],
+)
+
+pw_cc_test(
+    name = "emboss_util_test",
+    srcs = [
+        "emboss_util_test.cc",
+    ],
+    deps = [
+        ":emboss_hci_test",
+        ":emboss_util",
+    ],
+)
+
+# Bazel support for Emboss has not been fully configured yet, but we need to
+# satisfy presubmit.
+filegroup(
+    name = "emboss_files",
+    srcs = [
+        "size_report/make_2_views_and_write.cc",
+        "size_report/make_view_and_write.cc",
+    ],
+)
+
+filegroup(
+    name = "doxygen",
+    srcs = [
+        "public/pw_bluetooth/controller2.h",
+        "public/pw_bluetooth/gatt/client2.h",
+        "public/pw_bluetooth/gatt/server2.h",
+        "public/pw_bluetooth/low_energy/central2.h",
+        "public/pw_bluetooth/low_energy/channel.h",
+        "public/pw_bluetooth/low_energy/connection2.h",
+        "public/pw_bluetooth/low_energy/peripheral2.h",
+    ],
+)
+
+sphinx_docs_library(
+    name = "docs",
+    srcs = [
+        "docs.rst",
+        "emboss_test.cc",
+    ],
+    prefix = "pw_bluetooth/",
+    target_compatible_with = incompatible_with_mcu(),
+)

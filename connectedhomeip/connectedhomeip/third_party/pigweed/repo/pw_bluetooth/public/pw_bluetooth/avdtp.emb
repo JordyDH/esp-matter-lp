@@ -1,0 +1,431 @@
+# Copyright 2024 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+import "pw_bluetooth/a2dp_sbc.emb" as sbc
+import "pw_bluetooth/a2dp_aac.emb" as aac
+
+[$default byte_order: "LittleEndian"]
+[(cpp) namespace: "pw::bluetooth::emboss::avdtp"]
+# Cf. AVDTP Spec v1.3
+
+# Glossary
+# ACP: Acceptor
+# INT: Initiatior
+# RFA: Reserved for Future Addition
+# SEID: Stream End-point Identifier
+# SEP: Stream End Point
+# TSEP: Stream End Point Type
+
+
+enum PacketType:
+  -- Cf. 8.4.2 Packet Type
+  [maximum_bits: 2]
+  SINGLE_PACKET   = 0b00
+  START_PACKET    = 0b01
+  CONTINUE_PACKET = 0b10
+  END_PACKET      = 0b11
+
+
+enum MessageType:
+  -- Cf. 8.4.3 Message Type
+  [maximum_bits: 2]
+  COMMAND         = 0b00
+  GENERAL_REJECT  = 0b01
+  RESPONSE_ACCEPT = 0b10
+  RESPONSE_REJECT = 0b11
+
+
+enum SignalIdentifierCode:
+  -- Cf. 8.5 Signaling message Identifier
+  [maximum_bits: 8]
+  AVDTP_DISCOVER             = 0x01
+  AVDTP_GET_CAPABILITIES     = 0x02
+  AVDTP_SET_CONFIGURATION    = 0x03
+  AVDTP_GET_CONFIGURATION    = 0x04
+  AVDTP_RECONFIGURE          = 0x05
+  AVDTP_OPEN                 = 0x06
+  AVDTP_START                = 0x07
+  AVDTP_CLOSE                = 0x08
+  AVDTP_SUSPEND              = 0x09
+  AVDTP_ABORT                = 0x0A
+  AVDTP_SECURITY_CONTROL     = 0x0B
+  AVDTP_GET_ALL_CAPABILITIES = 0x0C
+  AVDTP_DELAYREPORT          = 0x0D
+
+
+enum Seid:
+  -- Cf. 8.20.1 Stream End-point IDentifier(SEID, INT SEID, ACP SEID)
+  [maximum_bits: 6]
+  FORBIDDEN = 0x00
+  RFD       = 0x3F
+
+
+enum Tsep:
+  -- Cf. 8.20.3 Stream End-point Type, Source or Sink
+  [maximum_bits: 1]
+  SRC = 0b0
+  SNK = 0b1
+
+
+enum InUse:
+  -- Cf. 8.20.5 Stream End Point in Use
+  [maximum_bits: 1]
+  NOT_IN_USE = 0b0
+  IN_USE     = 0b1
+
+
+enum ErrorCode:
+  -- Cf. 8.20.6 Signaling Errors
+  -- Cf. 8.20.6.2 ERROR Code Tables
+  [maximum_bits: 8]
+  BAD_HEADER_FORMAT          = 0x01
+  BAD_LENGTH                 = 0x11
+  BAD_ACP_SEID               = 0x12
+  SEP_IN_USE                 = 0x13
+  SEP_NOT_IN_USE             = 0x14
+  BAD_SERV_CATEGORY          = 0x17
+  BAD_PAYLOAD_FORMAT         = 0x18
+  NOT_SUPPORTED_COMMAND      = 0x19
+  INVALID_CAPABILITIES       = 0x1A
+  BAD_RECOVERY_TYPE          = 0x22
+  BAD_MEDIA_TRANSPORT_FORMAT = 0x23
+  BAD_RECOVERY_FORMAT        = 0x25
+  BAD_ROHC_FORMAT            = 0x26
+  BAD_CP_FORMAT              = 0x27
+  BAD_MULTIPLEXING_FORMAT    = 0x28
+  UNSUPPORTED_CONFIGURATION  = 0x29
+  BAD_STATE                  = 0x31
+
+
+enum MediaType:
+  -- Cf. Bluetooth SIG assigned numbers
+  AUDIO      = 0x00
+  VIDEO      = 0x01
+  MULTIMEDIA = 0x02
+
+
+enum MediaCodecType:
+  -- Cf. Bluetooth SIG assigned numbers
+  [maximum_bits: 8]
+  SBC    = 0x00
+  MPEG1  = 0x01
+  AAC    = 0x02
+  USAC   = 0x03
+  ATRAC  = 0x04
+  VENDOR = 0xFF
+
+
+struct Sep:
+  -- Cf. 8.6.2 Stream End Point Discovery Response
+  0     [+1]  bits:
+    0     [+1]       UInt       reserved_for_future_addition
+    $next [+1]       InUse      in_use
+    $next [+6]       Seid       acp_seid
+
+  $next [+1]  bits:
+    0     [+3]       UInt       rfa
+    $next [+1]       Tsep       tsep
+    $next [+4]       MediaType  media_type
+
+# Cf 8.21 Service Capabilities
+
+
+enum ServiceCategory:
+  -- Cf. Table 8.47
+  [maximum_bits: 8]
+  MEDIA_TRANSPORT    = 0x01
+  REPORTING          = 0x02
+  RECOVERY           = 0x03
+  CONTENT_PROTECTION = 0x04
+  HEADER_COMPRESSION = 0x05
+  MULTIPLEXING       = 0x06
+  MEDIA_CODEC        = 0x07
+  DELAY_REPORTING    = 0x08
+
+
+struct MediaCodecCapabilityHeader:
+  -- Cf. Table 8.52
+  0     [+1]  bits:
+    0     [+4]       UInt            rfa
+    $next [+4]       MediaType       media_type
+
+  $next [+1]         MediaCodecType  media_codec_type
+
+
+struct MediaCodecCapability(length: UInt:32):
+  -- Cf. Table 8.52
+  0     [+MediaCodecCapabilityHeader.$size_in_bytes]  MediaCodecCapabilityHeader  header
+  $next [+length-2]                                   UInt:8[]                    media_codec_specific_information_elements
+
+
+struct MediaCodecCapabilitySbc:
+  -- Cf. Table 8.52
+  [requires: header.media_codec_type == MediaCodecType.SBC]
+  0     [+MediaCodecCapabilityHeader.$size_in_bytes]            MediaCodecCapabilityHeader            header
+  $next [+sbc.CodecSpecificInformationElements.$size_in_bytes]  sbc.CodecSpecificInformationElements  codec
+
+
+struct MediaCodecCapabilityAac:
+  -- Cf. Table 8.52
+  [requires: header.media_codec_type == MediaCodecType.AAC]
+  0     [+MediaCodecCapabilityHeader.$size_in_bytes]            MediaCodecCapabilityHeader            header
+  $next [+aac.CodecSpecificInformationElements.$size_in_bytes]  aac.CodecSpecificInformationElements  codec
+
+
+struct ServiceCapability(remaining_size: UInt:32):
+  -- Cf. 8.21.1 Generic Service Capabilities
+  -- Cf. Table 8.46
+  0        [+1]                                         ServiceCategory                        service_category
+  1        [+1]                                         UInt                                   length
+  2        [+remaining_size-2]                          UInt:8[remaining_size-2]               raw_service_capability
+  if service_category == ServiceCategory.MEDIA_CODEC:
+    2        [+length]                                  MediaCodecCapability(length)           media_codec_capability
+
+  if service_category == ServiceCategory.MEDIA_CODEC && media_codec_capability.header.media_codec_type == MediaCodecType.SBC:
+    2        [+MediaCodecCapabilitySbc.$size_in_bytes]  MediaCodecCapabilitySbc                sbc_codec
+
+  if service_category == ServiceCategory.MEDIA_CODEC && media_codec_capability.header.media_codec_type == MediaCodecType.AAC:
+    2        [+MediaCodecCapabilityAac.$size_in_bytes]  MediaCodecCapabilityAac                aac_codec
+
+  if remaining_size > length+2:
+    let new_remaining_size = remaining_size-length-2
+    length+2 [+new_remaining_size]                      ServiceCapability(new_remaining_size)  next
+
+# Cf 8. Signaling Messages
+
+
+struct CommonSignalingHeader:
+  -- Cf. 8.4 AVDTP Signaling header
+  0     [+1]  bits:
+    0     [+2]       MessageType  message_type
+    $next [+2]       PacketType   packet_type
+    $next [+4]       UInt         transaction_label
+
+
+struct SignalingHeader:
+  -- Cf. 8.4 AVDTP Signaling header
+  [requires: header.packet_type == PacketType.SINGLE_PACKET]
+  0     [+CommonSignalingHeader.$size_in_bytes]  CommonSignalingHeader  header
+  $next [+1]  bits:
+    0     [+6]                                   SignalIdentifierCode   signal_identifier
+    $next [+2]                                   UInt                   rfa
+
+
+struct StartSignalingHeader:
+  -- Cf. 8.4 AVDTP SignalingHeader
+  [requires: header.packet_type == PacketType.START_PACKET]
+  0     [+CommonSignalingHeader.$size_in_bytes]  CommonSignalingHeader  header
+  $next [+1]                                     UInt                   number_of_signal_packets
+  $next [+1]  bits:
+    0     [+6]                                   SignalIdentifierCode   signal_identifier
+    $next [+2]                                   UInt                   rfa
+
+
+struct ContinueSignalingHeader:
+  -- Cf. 8.4 AVDTP Signaling header
+  [requires: header.packet_type == PacketType.CONTINUE_PACKET]
+  0 [+CommonSignalingHeader.$size_in_bytes]  CommonSignalingHeader  header
+
+
+struct EndSignalingHeader:
+  -- Cf. 8.4 AVDTP Signaling header
+  [requires: header.packet_type == PacketType.END_PACKET]
+  0 [+CommonSignalingHeader.$size_in_bytes]  CommonSignalingHeader  header
+
+# Cf 8.6 Stream End Point Discovery - AVDTP_DISCOVER
+
+
+struct StreamEndPointDiscoveryCommand:
+  -- Cf. 8.6.1 AVDTP_DISCOVER_CMD
+  [requires: signaling_header.header.message_type == MessageType.COMMAND && signaling_header.signal_identifier == SignalIdentifierCode.AVDTP_DISCOVER]
+  0 [+2]  SignalingHeader  signaling_header
+
+
+struct StreamEndPointDiscoveryResponse(length: UInt:32):
+  -- Cf. 8.6.2 AVDTP_DISCOVER_RSP
+  [requires: signaling_header.header.message_type == MessageType.RESPONSE_ACCEPT && signaling_header.signal_identifier == SignalIdentifierCode.AVDTP_DISCOVER]
+  let seps_size = length-SignalingHeader.$size_in_bytes
+  0     [+2]          SignalingHeader  signaling_header
+  $next [+seps_size]  Sep[]            others_acp_sep
+
+
+struct StreamEndPointDiscoveryReject:
+  -- Cf. 8.6.3 AVDTP_DISCOVER_REJ
+  [requires: signaling_header.header.message_type == MessageType.RESPONSE_REJECT && signaling_header.signal_identifier == SignalIdentifierCode.AVDTP_DISCOVER]
+  0     [+2]  SignalingHeader  signaling_header
+  $next [+1]  ErrorCode        error_code
+
+# Cf 8.7 GetCapabilities - AVDTP_GET_CAPABILITIES
+
+
+struct GetCapabilitiesCommand:
+  -- Cf 8.7.1 AVDTP_GET_CAPABILITIES_CMD
+  [requires: signaling_header.header.message_type == MessageType.COMMAND && signaling_header.signal_identifier == SignalIdentifierCode.AVDTP_GET_CAPABILITIES]
+  0     [+2]         SignalingHeader  signaling_header
+  $next [+1]  bits:
+    0     [+2]       UInt             rfa
+    2     [+6]       Seid             acp_seid
+
+
+struct GetCapabilitiesResponse(length: UInt:32):
+  -- Cf 8.8.2 AVDTP_GET_ALL_CAPABILITIES_RSP
+  [requires: signaling_header.header.message_type == MessageType.RESPONSE_ACCEPT && signaling_header.signal_identifier == SignalIdentifierCode.AVDTP_GET_ALL_CAPABILITIES]
+  0     [+2]              SignalingHeader                   signaling_header
+  let services_size = length-SignalingHeader.$size_in_bytes
+  $next [+services_size]  ServiceCapability(services_size)  service_capabilities
+
+
+struct GetCapabilitiesReject:
+  -- Cf 8.6.3 AVDTP_GET_CAPABILITIES_REJ
+  [requires: signaling_header.header.message_type == MessageType.RESPONSE_REJECT && signaling_header.signal_identifier == SignalIdentifierCode.AVDTP_GET_CAPABILITIES]
+  0     [+2]  SignalingHeader  signaling_header
+  $next [+1]  ErrorCode        error_code
+
+# Cf 8.8 Get All Capabilities - AVDTP_GET_ALL_CAPABILITIES
+
+
+struct GetAllCapabilitiesCommand:
+  -- Cf 8.8.1 AVDTP_GET_ALL_CAPABILITIES_CMD
+  [requires: signaling_header.header.message_type == MessageType.COMMAND && signaling_header.signal_identifier == SignalIdentifierCode.AVDTP_GET_ALL_CAPABILITIES]
+  0     [+2]         SignalingHeader  signaling_header
+  $next [+1]  bits:
+    0     [+2]       UInt             rfa
+    2     [+6]       Seid             acp_seid
+
+
+struct GetAllCapabilitiesResponse(length: UInt:32):
+  -- Cf 8.8.2 AVDTP_GET_ALL_CAPABILITIES_RSP
+  [requires: signaling_header.header.message_type == MessageType.RESPONSE_ACCEPT && signaling_header.signal_identifier == SignalIdentifierCode.AVDTP_GET_ALL_CAPABILITIES]
+  0     [+2]              SignalingHeader                   signaling_header
+  let services_size = length-SignalingHeader.$size_in_bytes
+  $next [+services_size]  ServiceCapability(services_size)  service_capabilities
+
+
+struct GetAllCapabilitiesReject:
+  -- Cf 8.8.3 AVDTP_GET_ALL_CAPABILITIES_REJ
+  [requires: signaling_header.header.message_type == MessageType.RESPONSE_REJECT && signaling_header.signal_identifier == SignalIdentifierCode.AVDTP_GET_ALL_CAPABILITIES]
+  0     [+2]  SignalingHeader  signaling_header
+  $next [+1]  ErrorCode        error_code
+
+# Cf 8.9 Stream Configuration
+
+
+struct SetConfigurationCommand(length: UInt:32):
+  -- Cf 8.9.1 AVDTP_SET_CONFIGURATION_CMD
+  [requires: signaling_header.header.message_type == MessageType.COMMAND && signaling_header.signal_identifier == SignalIdentifierCode.AVDTP_SET_CONFIGURATION]
+  let services_size = length-SignalingHeader.$size_in_bytes-2
+  0     [+2]              SignalingHeader                   signaling_header
+  $next [+1]  bits:
+    0     [+2]            UInt                              rfa
+    2     [+6]            Seid                              acp_seid
+
+  $next [+1]  bits:
+    0     [+2]            UInt                              rfa2
+    2     [+6]            Seid                              int_seid
+
+  $next [+services_size]  ServiceCapability(services_size)  service_capabilities
+
+
+struct SetConfigurationResponse:
+  -- Cf 8.9.2 AVDTP_SET_CONFIGURATION_RSP
+  [requires: signaling_header.header.message_type == MessageType.RESPONSE_ACCEPT && signaling_header.signal_identifier == SignalIdentifierCode.AVDTP_SET_CONFIGURATION]
+  0 [+2]  SignalingHeader  signaling_header
+
+
+struct SetConfigurationReject:
+  -- Cf 8.9.3 AVDTP_SET_CONFIGURATION_REJ
+  [requires: signaling_header.header.message_type == MessageType.RESPONSE_REJECT && signaling_header.signal_identifier == SignalIdentifierCode.AVDTP_SET_CONFIGURATION]
+  0     [+2]  SignalingHeader  signaling_header
+  $next [+1]  ServiceCategory  service_category
+  $next [+1]  ErrorCode        error_code
+
+# Cf 8.13 Start Stream
+
+
+struct StreamStartCommand:
+  -- Cf 8.13.1 AVDTP_START_CMD
+  [requires: signaling_header.header.message_type == MessageType.COMMAND && signaling_header.signal_identifier == SignalIdentifierCode.AVDTP_START]
+  0     [+2]         SignalingHeader  signaling_header
+  $next [+1]  bits:
+    0     [+2]       UInt             rfa
+    2     [+6]       Seid             acp_seid
+
+
+struct StreamStartResponse:
+  -- Cf 8.13.2 AVDTP_START_RSP
+  [requires: signaling_header.header.message_type == MessageType.RESPONSE_ACCEPT && signaling_header.signal_identifier == SignalIdentifierCode.AVDTP_START]
+  0 [+2]  SignalingHeader  signaling_header
+
+
+struct StreamStartReject:
+  -- Cf 8.13.3 AVDTP_START_REJ
+  [requires: signaling_header.header.message_type == MessageType.RESPONSE_REJECT && signaling_header.signal_identifier == SignalIdentifierCode.AVDTP_START]
+  0     [+2]         SignalingHeader  signaling_header
+  $next [+1]  bits:
+    0     [+2]       UInt             rfa
+    2     [+6]       Seid             acp_seid
+
+  $next [+1]         ErrorCode        error_code
+
+# Cf 8.14 Stream Release
+
+
+struct CloseCommand:
+  -- Cf 8.14.1 AVDTP_CLOSE_CMD
+  [requires: signaling_header.header.message_type == MessageType.COMMAND && signaling_header.signal_identifier == SignalIdentifierCode.AVDTP_CLOSE]
+  0     [+2]         SignalingHeader  signaling_header
+  $next [+1]  bits:
+    0     [+2]       UInt             rfa
+    2     [+6]       Seid             acp_seid
+
+
+struct CloseResponse:
+  -- Cf 8.14.2 AVDTP_CLOSE_RSP
+  [requires: signaling_header.header.message_type == MessageType.RESPONSE_ACCEPT && signaling_header.signal_identifier == SignalIdentifierCode.AVDTP_CLOSE]
+  0 [+2]  SignalingHeader  signaling_header
+
+
+struct CloseReject:
+  -- Cf 8.14.3 AVDTP_CLOSE_REJ
+  [requires: signaling_header.header.message_type == MessageType.RESPONSE_REJECT && signaling_header.signal_identifier == SignalIdentifierCode.AVDTP_CLOSE]
+  0     [+2]  SignalingHeader  signaling_header
+  $next [+1]  ErrorCode        error_code
+
+# Cf 8.15 Stream suspend
+
+
+struct StreamSuspendCommand:
+  -- Cf 8.15.1 AVDTP_SUSPEND_CMD
+  [requires: signaling_header.header.message_type == MessageType.COMMAND && signaling_header.signal_identifier == SignalIdentifierCode.AVDTP_SUSPEND]
+  0     [+2]         SignalingHeader  signaling_header
+  $next [+1]  bits:
+    0     [+2]       UInt             rfa
+    2     [+6]       Seid             acp_seid
+
+
+struct StreamSuspendResponse:
+  -- Cf 8.15.2 AVDTP_SUSPEND_RSP
+  [requires: signaling_header.header.message_type == MessageType.RESPONSE_ACCEPT && signaling_header.signal_identifier == SignalIdentifierCode.AVDTP_SUSPEND]
+  0 [+2]  SignalingHeader  signaling_header
+
+
+struct StreamSuspendReject:
+  -- Cf 8.15.3 AVDTP_SUSPEND_REJ
+  [requires: signaling_header.header.message_type == MessageType.RESPONSE_REJECT && signaling_header.signal_identifier == SignalIdentifierCode.AVDTP_SUSPEND]
+  0     [+2]         SignalingHeader  signaling_header
+  $next [+1]  bits:
+    0     [+2]       UInt             rfa
+    2     [+6]       Seid             acp_seid
+
+  $next [+1]         ErrorCode        error_code

@@ -1,0 +1,267 @@
+# Copyright 2024 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+load("@fuchsia_infra//infra:infra.bzl", "fuchsia_cipd_releases")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load(
+    "@rules_fuchsia//fuchsia:defs.bzl",
+    "fuchsia_cc_binary",
+    "fuchsia_cc_test",
+    "fuchsia_component",
+    "fuchsia_component_manifest",
+    "fuchsia_package",
+    "fuchsia_platforms",
+    "fuchsia_structured_config_cpp_elf_lib",
+    "fuchsia_structured_config_values",
+    "fuchsia_unittest_package",
+)
+load(
+    "@rules_fuchsia//fuchsia:licenses.bzl",
+    "fuchsia_licenses_collection",
+    "fuchsia_licenses_spdx",
+)
+load("//pw_bluetooth_sapphire/fuchsia:fuchsia_api_level.bzl", "FUCHSIA_API_LEVEL")
+load("//pw_build:compatibility.bzl", "incompatible_with_mcu")
+
+package(
+    default_applicable_licenses = ["//pw_bluetooth_sapphire/fuchsia:license_fuchsia"],
+    default_visibility = ["//pw_bluetooth_sapphire/fuchsia:__pkg__"],
+)
+
+exports_files(["README.fuchsia.md"])
+
+cc_library(
+    name = "sources",
+    srcs = [
+        "host.cc",
+        "util.cc",
+    ],
+    hdrs = [
+        "host.h",
+        "util.h",
+    ],
+    # `fuchsia_cc_binary` does not understand Pigweed's sanitizer features, e.g.
+    # //pw_toolchain/host_clang:asan_feature. This leads to link errors if the
+    # binary is linked against FuzzTest, as the latter expects the sanitizer to
+    # provide the SanitizerCoverage implementation. Since the binary is not
+    # intended to be a fuzzer, it can just be excluded from fuzzing builds.
+    target_compatible_with = select({
+        "//pw_toolchain/host_clang:fuzztest_enabled": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
+    deps = [
+        ":bt_host_config",
+        "//pw_async_fuchsia:dispatcher",
+        "//pw_bluetooth_sapphire:null_lease_provider",
+        "//pw_bluetooth_sapphire/fuchsia/host/controllers",
+        "//pw_bluetooth_sapphire/fuchsia/host/fidl",
+        "//pw_bluetooth_sapphire/fuchsia/lib/fidl",
+        "//pw_bluetooth_sapphire/host:stack",
+        "//pw_bluetooth_sapphire/host/common",
+        "//pw_bluetooth_sapphire/host/gap",
+        "//pw_bluetooth_sapphire/host/gatt",
+        "//pw_random_fuchsia:zircon_random_generator",
+        "@fuchsia_sdk//fidl/fuchsia.bluetooth.host:fuchsia.bluetooth.host_cpp",
+        "@fuchsia_sdk//fidl/fuchsia.bluetooth.host:fuchsia.bluetooth.host_hlcpp",
+        "@fuchsia_sdk//fidl/fuchsia.hardware.bluetooth:fuchsia.hardware.bluetooth_hlcpp",
+        "@fuchsia_sdk//fidl/fuchsia.process.lifecycle:fuchsia.process.lifecycle_hlcpp",
+        "@fuchsia_sdk//pkg/async-loop-cpp",
+        "@fuchsia_sdk//pkg/async-loop-default",
+        "@fuchsia_sdk//pkg/fit",
+        "@fuchsia_sdk//pkg/inspect",
+        "@fuchsia_sdk//pkg/sys_cpp",
+        "@fuchsia_sdk//pkg/trace",
+        "@fuchsia_sdk//pkg/zx",
+    ],
+)
+
+fuchsia_cc_binary(
+    name = "bt_host_bin",
+    srcs = ["main.cc"],
+    bin_name = "bt_host",
+    # TODO: b/367805596 - Remove when dynamic linking size budget issues are resolved.
+    features = ["static_cpp_standard_library"],
+    deps = [
+        ":sources",
+        "//pw_log_fuchsia",
+        "@fuchsia_sdk//fidl/fuchsia.scheduler:fuchsia.scheduler_cpp",
+        "@fuchsia_sdk//pkg/component_incoming_cpp",
+    ],
+)
+
+fuchsia_component_manifest(
+    name = "manifest",
+    src = "meta/bt-host.cml",
+)
+
+fuchsia_structured_config_cpp_elf_lib(
+    name = "bt_host_config",
+    cm_label = ":manifest",
+)
+
+fuchsia_structured_config_values(
+    name = "default_config_values",
+    cm_label = ":manifest",
+    cvf_output_name = "bt-host",
+    values = {
+        "device_path": "/dev/class/bt-hci/000",
+        "legacy_pairing_enabled": False,
+    },
+)
+
+fuchsia_component(
+    name = "component",
+    component_name = "bt-host",
+    manifest = ":manifest",
+    moniker = "core/bluetooth-core/bt-host-collection:bt-host_000",
+    deps = [":bt_host_bin"],
+)
+
+fuchsia_cc_test(
+    name = "host_test",
+    testonly = True,
+    srcs = ["host_test.cc"],
+    death_unittest = True,
+    deps = [
+        ":sources",
+        "//pw_bluetooth_sapphire/fuchsia/host/fidl:fake_vendor_server",
+        "//pw_bluetooth_sapphire/host/testing",
+        "//pw_bluetooth_sapphire/host/testing:gtest_main",
+        "//pw_bluetooth_sapphire/host/testing:loop_fixture",
+    ],
+)
+
+fuchsia_unittest_package(
+    name = "test_pkg",
+    package_name = "bt-host-unittests",
+    fuchsia_api_level = FUCHSIA_API_LEVEL,
+    platform = fuchsia_platforms.x64,
+    unit_tests = [
+        ":host_test",
+    ],
+)
+
+fuchsia_package(
+    name = "pkg.x64",
+    package_name = "bt-host",
+    components = [
+        ":component",
+    ],
+    fuchsia_api_level = FUCHSIA_API_LEVEL,
+    platform = fuchsia_platforms.x64,
+    resources = [":default_config_values"],
+)
+
+fuchsia_package(
+    name = "pkg.arm64",
+    package_name = "bt-host",
+    components = [
+        ":component",
+    ],
+    fuchsia_api_level = FUCHSIA_API_LEVEL,
+    platform = fuchsia_platforms.arm64,
+    resources = [":default_config_values"],
+)
+
+fuchsia_package(
+    name = "pkg.riscv64",
+    package_name = "bt-host",
+    components = [
+        ":component",
+    ],
+    fuchsia_api_level = FUCHSIA_API_LEVEL,
+    platform = fuchsia_platforms.riscv64,
+    resources = [":default_config_values"],
+)
+
+fuchsia_licenses_collection(
+    name = "bt_host_x64_pkg_licenses_collection",
+    root_target = ":pkg.x64",
+)
+
+fuchsia_licenses_collection(
+    name = "bt_host_arm64_pkg_licenses_collection",
+    root_target = ":pkg.arm64",
+)
+
+fuchsia_licenses_collection(
+    name = "bt_host_riscv64_pkg_licenses_collection",
+    root_target = ":pkg.riscv64",
+)
+
+fuchsia_licenses_spdx(
+    name = "bt_host_x64_licenses.spdx.json",
+    document_namespace = "https://pigweed.dev/pw_bluetooth_sapphire/",
+    licenses = ":bt_host_x64_pkg_licenses_collection",
+    licenses_cross_refs_base_url = "https://pigweed.googlesource.com/pigweed/pigweed/+/refs/heads/main/pw_bluetooth_sapphire/fuchsia/",
+    root_package_homepage = "https://pigweed.dev/pw_bluetooth_sapphire/",
+    root_package_name = "bt-host",
+)
+
+fuchsia_licenses_spdx(
+    name = "bt_host_arm64_licenses.spdx.json",
+    document_namespace = "https://pigweed.dev/pw_bluetooth_sapphire/",
+    licenses = ":bt_host_arm64_pkg_licenses_collection",
+    licenses_cross_refs_base_url = "https://pigweed.googlesource.com/pigweed/pigweed/+/refs/heads/main/pw_bluetooth_sapphire/fuchsia/",
+    root_package_homepage = "https://pigweed.dev/pw_bluetooth_sapphire/",
+    root_package_name = "bt-host",
+)
+
+fuchsia_licenses_spdx(
+    name = "bt_host_riscv64_licenses.spdx.json",
+    document_namespace = "https://pigweed.dev/pw_bluetooth_sapphire/",
+    licenses = ":bt_host_riscv64_pkg_licenses_collection",
+    licenses_cross_refs_base_url = "https://pigweed.googlesource.com/pigweed/pigweed/+/refs/heads/main/pw_bluetooth_sapphire/fuchsia/",
+    root_package_homepage = "https://pigweed.dev/pw_bluetooth_sapphire/",
+    root_package_name = "bt-host",
+)
+
+fuchsia_cipd_releases(
+    name = "bt_host_x64_cipd",
+    cipd_prefix = "fuchsia/prebuilt/bt-host",
+    extra_content = {
+        ":README.fuchsia.md": "README.fuchsia",
+        ":bt_host_x64_licenses.spdx.json": "licenses.spdx.json",
+    },
+    pkg = ":pkg.x64",
+    # TODO: b/354711360 - fuchsia_cipd_releases appears to be misconfigured
+    # when cross-compiling,
+    target_compatible_with = incompatible_with_mcu(),
+)
+
+fuchsia_cipd_releases(
+    name = "bt_host_arm64_cipd",
+    cipd_prefix = "fuchsia/prebuilt/bt-host",
+    extra_content = {
+        ":README.fuchsia.md": "README.fuchsia",
+        ":bt_host_arm64_licenses.spdx.json": "licenses.spdx.json",
+    },
+    pkg = ":pkg.arm64",
+    # TODO: b/354711360 - fuchsia_cipd_releases appears to be misconfigured
+    # when cross-compiling,
+    target_compatible_with = incompatible_with_mcu(),
+)
+
+fuchsia_cipd_releases(
+    name = "bt_host_riscv64_cipd",
+    cipd_prefix = "fuchsia/prebuilt/bt-host",
+    extra_content = {
+        ":README.fuchsia.md": "README.fuchsia",
+        ":bt_host_riscv64_licenses.spdx.json": "licenses.spdx.json",
+    },
+    pkg = ":pkg.riscv64",
+    # TODO: b/354711360 - fuchsia_cipd_releases appears to be misconfigured
+    # when cross-compiling,
+    target_compatible_with = incompatible_with_mcu(),
+)

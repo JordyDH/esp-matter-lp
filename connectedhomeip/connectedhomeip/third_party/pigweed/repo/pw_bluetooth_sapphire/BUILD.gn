@@ -1,0 +1,198 @@
+# Copyright 2023 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+import("//build_overrides/pigweed.gni")
+import("$dir_pw_bluetooth_sapphire/sapphire.gni")
+import("$dir_pw_build/module_config.gni")
+import("$dir_pw_build/target_types.gni")
+import("$dir_pw_docgen/docs.gni")
+import("$dir_pw_unit_test/test.gni")
+
+config("public_include_path") {
+  include_dirs = [ "public" ]
+}
+
+pw_source_set("config") {
+  public = [ "public/pw_bluetooth_sapphire/config.h" ]
+  public_configs = [ ":public_include_path" ]
+  public_deps = [ pw_bluetooth_sapphire_CONFIG ]
+}
+
+group("host") {
+  public_deps = [ "host" ]
+  public_configs = [ ":public_include_path" ]
+}
+
+pw_source_set("peripheral") {
+  public = [ "public/pw_bluetooth_sapphire/peripheral.h" ]
+  sources = [ "peripheral.cc" ]
+  public_deps = [
+    "$dir_pw_bluetooth:pw_bluetooth2",
+    "$dir_pw_sync:mutex",
+    "host/gap",
+  ]
+  public_configs = [ ":public_include_path" ]
+}
+
+pw_source_set("central") {
+  public = [ "public/pw_bluetooth_sapphire/central.h" ]
+  sources = [ "central.cc" ]
+  public_deps = [
+    ":connection",
+    ":uuid",
+    "$dir_pw_bluetooth:pw_bluetooth2",
+    "$dir_pw_multibuf:allocator",
+    "host/gap",
+  ]
+  public_configs = [ ":public_include_path" ]
+}
+
+pw_source_set("connection") {
+  visibility = [ ":*" ]
+  public = [
+    "public/pw_bluetooth_sapphire/internal/connection.h",
+    "public/pw_bluetooth_sapphire/internal/connection_options.h",
+  ]
+  sources = [
+    "connection.cc",
+    "connection_options.cc",
+  ]
+  public_deps = [
+    ":uuid",
+    "$dir_pw_bluetooth:pw_bluetooth2",
+    "host/gap",
+  ]
+  public_configs = [ ":public_include_path" ]
+}
+
+pw_source_set("uuid") {
+  visibility = [ ":*" ]
+  public = [ "public/pw_bluetooth_sapphire/internal/uuid.h" ]
+  public_configs = [ ":public_include_path" ]
+  deps = [
+    "//pw_bluetooth_sapphire/host/common",
+    "//pw_span",
+  ]
+}
+
+pw_source_set("discovery_filter") {
+  visibility = [ ":*" ]
+  public = [ "public/pw_bluetooth_sapphire/internal/discovery_filter.h" ]
+  sources = [ "discovery_filter.cc" ]
+  public_configs = [ ":public_include_path" ]
+  deps = [
+    ":uuid",
+    "$dir_pw_bluetooth:pw_bluetooth2",
+    "//pw_bluetooth_sapphire/host/hci",
+  ]
+}
+
+pw_source_set("lease") {
+  public_configs = [ ":public_include_path" ]
+  public = [ "public/pw_bluetooth_sapphire/lease.h" ]
+  public_deps = [
+    ":config",
+    dir_pw_function,
+    dir_pw_result,
+  ]
+}
+
+pw_source_set("null_lease_provider") {
+  public_configs = [ ":public_include_path" ]
+  public = [ "public/pw_bluetooth_sapphire/null_lease_provider.h" ]
+  public_deps = [ ":lease" ]
+}
+
+pw_source_set("fake_lease_provider") {
+  public_configs = [ ":public_include_path" ]
+  public = [ "public/pw_bluetooth_sapphire/fake_lease_provider.h" ]
+  public_deps = [ ":lease" ]
+}
+
+pw_source_set("power_delegate") {
+  public_configs = [ ":public_include_path" ]
+  public = [ "public/pw_bluetooth_sapphire/power_delegate.h" ]
+  public_deps = [ ":lease" ]
+}
+
+pw_test("lease_test") {
+  sources = [ "lease_test.cc" ]
+  deps = [ ":lease" ]
+}
+
+pw_test("null_lease_provider_test") {
+  sources = [ "null_lease_provider_test.cc" ]
+  deps = [ ":null_lease_provider" ]
+}
+
+pw_test("fake_lease_provider_test") {
+  sources = [ "fake_lease_provider_test.cc" ]
+  deps = [ ":fake_lease_provider" ]
+}
+
+pw_test("central_test") {
+  enable_if = pw_bluetooth_sapphire_ENABLED
+  sources = [ "central_test.cc" ]
+  deps = [
+    ":central",
+    ":discovery_filter",
+    "$dir_pw_async:fake_dispatcher",
+    "$dir_pw_async2:pend_func_task",
+    "$dir_pw_multibuf:testing",
+    "host/gap:testing",
+  ]
+  test_main = "$dir_pw_bluetooth_sapphire/host/testing:gtest_main"
+}
+
+pw_test("peripheral_test") {
+  enable_if = pw_bluetooth_sapphire_ENABLED
+  sources = [ "peripheral_test.cc" ]
+  deps = [
+    ":peripheral",
+    "$dir_pw_async:fake_dispatcher",
+    "$dir_pw_async2:pend_func_task",
+    "host/gap:testing",
+  ]
+}
+
+pw_test_group("tests") {
+  tests = [
+    ":peripheral_test",
+    ":central_test",
+    ":fake_lease_provider_test",
+    ":null_lease_provider_test",
+    ":lease_test",
+  ]
+  group_deps = [
+    "host:tests",
+    "lib:tests",
+  ]
+}
+
+pw_test_group("fuzzers") {
+  group_deps = [ "host:fuzzers" ]
+}
+
+pw_doc_group("docs") {
+  sources = [
+    "docs.rst",
+    "fuchsia.rst",
+    "host/att/docs.rst",
+    "host/gap/docs.rst",
+    "host/l2cap/docs.rst",
+    "reference.rst",
+    "size_report.rst",
+  ]
+  report_deps = [ "size_report:host_size_diff" ]
+}

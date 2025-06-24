@@ -1,0 +1,56 @@
+# Copyright 2024 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+import("//build_overrides/pigweed.gni")
+
+import("$dir_pw_build/target_types.gni")
+import("$dir_pw_docgen/docs.gni")
+import("$dir_pw_unit_test/test.gni")
+
+config("public_include_path") {
+  include_dirs = [ "public" ]
+  visibility = [ ":*" ]
+}
+
+pw_source_set("checked_arithmetic") {
+  public = [ "public/pw_numeric/checked_arithmetic.h" ]
+  public_configs = [ ":public_include_path" ]
+  public_deps = [ dir_pw_preprocessor ]
+}
+
+pw_test("checked_arithmetic_test") {
+  sources = [ "checked_arithmetic_test.cc" ]
+  deps = [ ":checked_arithmetic" ]
+}
+
+pw_source_set("integer_division") {
+  public = [ "public/pw_numeric/integer_division.h" ]
+  public_configs = [ ":public_include_path" ]
+}
+
+pw_test("integer_division_test") {
+  sources = [ "integer_division_test.cc" ]
+  deps = [ ":integer_division" ]
+}
+
+pw_test_group("tests") {
+  tests = [
+    ":checked_arithmetic_test",
+    ":integer_division_test",
+  ]
+}
+
+pw_doc_group("docs") {
+  sources = [ "docs.rst" ]
+}

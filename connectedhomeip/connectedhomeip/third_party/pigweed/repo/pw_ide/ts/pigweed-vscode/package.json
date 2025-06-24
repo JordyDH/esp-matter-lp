@@ -1,0 +1,303 @@
+{
+  "publisher": "pigweed",
+  "name": "pigweed",
+  "displayName": "Pigweed",
+  "description": "Visual Studio Code support for Pigweed projects",
+  "icon": "./icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://pigweed.googlesource.com/pigweed/pigweed"
+  },
+  "version": "1.3.3",
+  "license": "Apache-2.0",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Debuggers",
+    "Formatters",
+    "Linters",
+    "Programming Languages",
+    "Other",
+    "Testing"
+  ],
+  "activationEvents": [
+    "workspaceContains:**/pigweed.json"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "custom-activitybar",
+          "title": "Pigweed VSCode Extension",
+          "icon": "./icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "custom-activitybar": [
+        {
+          "type": "webview",
+          "id": "pigweed.webview",
+          "name": "View",
+          "contextualTitle": "View"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "pigweed.open-output-panel",
+        "title": "Pigweed: Open Output Panel"
+      },
+      {
+        "command": "pigweed.file-bug",
+        "title": "Pigweed: File Bug"
+      },
+      {
+        "command": "pigweed.sync-settings",
+        "title": "Pigweed: Sync Shared Settings"
+      },
+      {
+        "command": "pigweed.check-extensions",
+        "title": "Pigweed: Check Extensions"
+      },
+      {
+        "command": "pigweed.launch-terminal",
+        "title": "Pigweed: Launch Activated Terminal"
+      },
+      {
+        "command": "pigweed.bootstrap-terminal",
+        "title": "Pigweed: Bootstrap Activated Terminal"
+      },
+      {
+        "command": "pigweed.activate-bazelisk-in-terminal",
+        "title": "Pigweed: Activate Bazelisk in Terminal"
+      },
+      {
+        "command": "pigweed.refresh-compile-commands",
+        "title": "Pigweed: Refresh Compile Commands"
+      },
+      {
+        "command": "pigweed.refresh-compile-commands-and-set-target",
+        "title": "Pigweed: Refresh Compile Commands and Set Code Analysis Target"
+      },
+      {
+        "command": "pigweed.select-target",
+        "title": "Pigweed: Select Code Analysis Target"
+      },
+      {
+        "command": "pigweed.disable-inactive-file-code-intelligence",
+        "title": "Pigweed: Disable Inactive File Code intelligence"
+      },
+      {
+        "command": "pigweed.enable-inactive-file-code-intelligence",
+        "title": "Pigweed: Enable Inactive File Code intelligence"
+      },
+      {
+        "command": "pigweed.set-bazelisk-path",
+        "title": "Pigweed: Set Bazelisk Path"
+      },
+      {
+        "command": "pigweed.set-bazel-recommended-settings",
+        "title": "Pigweed: Set Bazel Recommended Settings"
+      }
+    ],
+    "configuration": {
+      "title": "Pigweed",
+      "properties": {
+        "pigweed.activateBazeliskInNewTerminals": {
+          "type": "boolean",
+          "default": "false",
+          "description": "When enabled, the path to Bazelisk will be added to the integrated terminal when launched"
+        },
+        "pigweed.clangdAlternatePath": {
+          "type": "string",
+          "description": "Path to clangd to use for non-Bazel targets"
+        },
+        "pigweed.codeAnalysisTarget": {
+          "type": "string",
+          "description": "The build target to use for editor code intelligence"
+        },
+        "pigweed.codeAnalysisTargetDir": {
+          "type": "string",
+          "description": "The compile commands directory for the selected build target to use for editor code intelligence"
+        },
+        "pigweed.compDbSearchPaths": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "pathGlob": {
+                "type": "string",
+                "description": "..."
+              },
+              "targetInferencePattern": {
+                "type": "string",
+                "default": "?",
+                "description": "..."
+              }
+            }
+          },
+          "default": [],
+          "description": "..."
+        },
+        "pigweed.disableBazelSettingsRecommendations": {
+          "type": "boolean",
+          "default": "false",
+          "description": "Disable reminders to use Pigweed's Bazel settings recommendations"
+        },
+        "pigweed.disableBazeliskCheck": {
+          "type": "boolean",
+          "default": "false",
+          "description": "Disable the recommendation to use Bazelisk"
+        },
+        "pigweed.disableCompileCommandsFileWatcher": {
+          "type": "boolean",
+          "default": "false",
+          "description": "Disable automatically refreshing compile commands"
+        },
+        "pigweed.disableInactiveFileCodeIntelligence": {
+          "type": "boolean",
+          "default": "true",
+          "description": "By default, Pigweed disables code intelligence for files not in the current target's build graph. Setting this to false disables that behavior."
+        },
+        "pigweed.enforceExtensionRecommendations": {
+          "type": "boolean",
+          "default": "false",
+          "description": "Require installing and disabling extensions recommended in extensions.json"
+        },
+        "pigweed.hideInactiveFileIndicators": {
+          "type": "boolean",
+          "default": "false",
+          "description": "When code intelligence is enabled for all files, hide indicators for inactive and orphaned files"
+        },
+        "pigweed.preserveBazelPath": {
+          "type": "boolean",
+          "default": "false",
+          "description": "When enabled, this extension won't override the specified Bazel path under any circumstances"
+        },
+        "pigweed.projectRoot": {
+          "type": "string",
+          "description": "The root of the Pigweed project source directory"
+        },
+        "pigweed.refreshCompileCommandsTarget": {
+          "type": "string",
+          "default": "//:refresh_compile_commands",
+          "description": "The Bazel target to run to refresh compile commands"
+        },
+        "pigweed.supportBazelTargets": {
+          "type": [
+            "boolean",
+            "string"
+          ],
+          "enum": [
+            "auto",
+            true,
+            false
+          ],
+          "default": "auto",
+          "description": "Enable or disable support for Bazel build targets"
+        },
+        "pigweed.supportCmakeTargets": {
+          "type": [
+            "boolean",
+            "string"
+          ],
+          "enum": [
+            "auto",
+            true,
+            false
+          ],
+          "default": "auto",
+          "description": "Enable or disable support for CMake build targets"
+        },
+        "pigweed.supportGnTargets": {
+          "type": [
+            "boolean",
+            "string"
+          ],
+          "enum": [
+            "auto",
+            true,
+            false
+          ],
+          "default": "auto",
+          "description": "Enable or disable support for GN build targets"
+        },
+        "pigweed.terminalShell": {
+          "type": "string",
+          "default": "bash",
+          "enum": [
+            "bash",
+            "zsh"
+          ],
+          "description": "The shell to use for the Pigweed activated terminal"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "clean": "rimraf out dist",
+    "build": "tsc -p ./",
+    "build:e2e": "tsc -p tsconfig.e2e.json",
+    "bundle": "webpack --mode production --devtool hidden-source-map",
+    "watch:build": "tsc -watch -p ./",
+    "watch:bundle": "webpack --mode development --watch",
+    "watch:e2e": "tsc -watch -p tsconfig.e2e.json",
+    "lint": "eslint src --ext ts",
+    "prePackage": "tsx scripts/prepostPackage.mts --pre",
+    "doPackage": "vsce package",
+    "doPackagePrerelease": "vsce package --pre-release",
+    "postPackage": "tsx scripts/prepostPackage.mts --post",
+    "package": "npm run clean && npm run build && npm run bundle && npm run prePackage && npm run doPackage && npm run postPackage",
+    "packagePrerelease": "npm run clean && npm run build && npm run bundle && npm run prePackage && npm run doPackagePrerelease && npm run postPackage",
+    "test:unit": "npm run clean && npm run build && vscode-test --label unitTests",
+    "test:e2e": "npm run clean && npm run build && npm run build:e2e && vscode-test --label e2eTests",
+    "test:all": "npm run clean && npm run build && vscode-test"
+  },
+  "dependencies": {
+    "@bazel/bazelisk": "^1.19.0",
+    "@bazel/buildifier": "^7.1.2",
+    "@vscode-elements/elements-lite": "^0.3.0",
+    "@vscode/codicons": "^0.0.36",
+    "glob": "^10.4.5",
+    "hjson": "^3.2.2",
+    "js-yaml": "^4.1.0",
+    "lit": "^3.2.1",
+    "node_modules-path": "^2.0.8",
+    "yaml": "^2.7.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/glob": "^8.1.0",
+    "@types/hjson": "^2.4.6",
+    "@types/jest": "29.5.12",
+    "@types/js-yaml": "^4.0.9",
+    "@types/mocha": "^10.0.1",
+    "@types/node": "^20.14.10",
+    "@types/vscode": "^1.75.0",
+    "@typescript-eslint/eslint-plugin": "^7.16.0",
+    "@typescript-eslint/parser": "^7.16.0",
+    "@vscode/test-cli": "^0.0.10",
+    "@vscode/test-electron": "^2.3.9",
+    "css-loader": "^7.1.2",
+    "eslint": "^8.56.0",
+    "mocha": "^10.2.0",
+    "node-polyfill-webpack-plugin": "^4.0.0",
+    "prettier": "^3.3.2",
+    "rimraf": "^6.0.1",
+    "style-loader": "^4.0.0",
+    "ts-jest": "^29.2.2",
+    "ts-loader": "^9.5.1",
+    "tsx": "^4.16.2",
+    "typescript": "^5.5.3",
+    "webpack": "^5.93.0",
+    "webpack-cli": "^5.1.4"
+  },
+  "extensionDependencies": [
+    "BazelBuild.vscode-bazel",
+    "llvm-vs-code-extensions.vscode-clangd",
+    "zxh404.vscode-proto3"
+  ]
+}

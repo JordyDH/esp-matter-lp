@@ -1,0 +1,236 @@
+# Copyright 2020 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_python//sphinxdocs:sphinx_docs_library.bzl", "sphinx_docs_library")
+load("//pw_build:compatibility.bzl", "incompatible_with_mcu")
+load(
+    "//pw_build:selects.bzl",
+    "TARGET_COMPATIBLE_WITH_HOST_SELECT",
+)
+load("//pw_unit_test:pw_cc_test.bzl", "pw_cc_test")
+
+package(
+    default_visibility = ["//visibility:public"],
+)
+
+licenses(["notice"])
+
+cc_library(
+    name = "id",
+    hdrs = [
+        "id_public_overrides/pw_thread_backend/id_inline.h",
+        "id_public_overrides/pw_thread_backend/id_native.h",
+    ],
+    strip_include_prefix = "id_public_overrides",
+    target_compatible_with = incompatible_with_mcu(),
+    deps = [
+        ":id_private",
+    ],
+)
+
+cc_library(
+    name = "id_private",
+    hdrs = [
+        "public/pw_thread_stl/id_inline.h",
+        "public/pw_thread_stl/id_native.h",
+    ],
+    strip_include_prefix = "public",
+    tags = ["noclangtidy"],
+    target_compatible_with = incompatible_with_mcu(),
+    visibility = ["//visibility:private"],
+    deps = [
+        "//pw_thread:id.facade",
+    ],
+)
+
+cc_library(
+    name = "sleep",
+    hdrs = [
+        "sleep_public_overrides/pw_thread_backend/sleep_inline.h",
+    ],
+    strip_include_prefix = "sleep_public_overrides",
+    target_compatible_with = incompatible_with_mcu(),
+    deps = [
+        ":sleep_private",
+    ],
+)
+
+cc_library(
+    name = "sleep_private",
+    hdrs = [
+        "public/pw_thread_stl/sleep_inline.h",
+    ],
+    strip_include_prefix = "public",
+    target_compatible_with = incompatible_with_mcu(),
+    visibility = ["//visibility:private"],
+    deps = [
+        "//pw_chrono:system_clock",
+        "//pw_thread:sleep.facade",
+    ],
+)
+
+cc_library(
+    name = "thread",
+    hdrs = [
+        "thread_public_overrides/pw_thread_backend/thread_inline.h",
+        "thread_public_overrides/pw_thread_backend/thread_native.h",
+    ],
+    strip_include_prefix = "thread_public_overrides",
+    target_compatible_with = incompatible_with_mcu(),
+    deps = [
+        ":thread_private",
+    ],
+)
+
+cc_library(
+    name = "thread_private",
+    hdrs = [
+        "public/pw_thread_stl/thread_inline.h",
+        "public/pw_thread_stl/thread_native.h",
+    ],
+    strip_include_prefix = "public",
+    tags = ["noclangtidy"],
+    target_compatible_with = incompatible_with_mcu(),
+    visibility = ["//visibility:private"],
+    deps = [
+        ":options",
+        "//pw_thread:thread.facade",
+    ],
+)
+
+cc_library(
+    name = "options",
+    hdrs = [
+        "public/pw_thread_stl/options.h",
+    ],
+    strip_include_prefix = "public",
+    target_compatible_with = incompatible_with_mcu(),
+    deps = [
+        "//pw_thread:options",
+    ],
+)
+
+cc_library(
+    name = "thread_creation",
+    hdrs = [
+        "thread_creation_public_overrides/pw_thread_backend/context.h",
+        "thread_creation_public_overrides/pw_thread_backend/options.h",
+        "thread_creation_public_overrides/pw_thread_backend/priority.h",
+        "thread_creation_public_overrides/pw_thread_backend/stack.h",
+    ],
+    strip_include_prefix = "thread_creation_public_overrides",
+    tags = ["noclangtidy"],
+    deps = [":options"],
+)
+
+# This target provides a stub backend for pw::this_thread::thread_iteration.
+# Iterating over child threads isn't supported by STL, so this only exists
+# for portability reasons.
+cc_library(
+    name = "thread_iteration",
+    srcs = ["thread_iteration.cc"],
+    deps = [
+        "//pw_status",
+        "//pw_thread:thread_iteration.facade",
+    ],
+)
+
+cc_library(
+    name = "non_portable_test_thread_options",
+    srcs = [
+        "test_threads.cc",
+    ],
+    target_compatible_with = incompatible_with_mcu(),
+    deps = [
+        ":options",
+        "//pw_thread:non_portable_test_thread_options",
+        "//pw_thread:thread.facade",
+    ],
+)
+
+pw_cc_test(
+    name = "thread_backend_test",
+    # TODO: b/317922402 - On Windows, this test can easily hang indefinitely.
+    # Disable on Windows until we can test with the native Windows SDK libraries
+    # for threading.
+    target_compatible_with = select(TARGET_COMPATIBLE_WITH_HOST_SELECT | {
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+    }),
+    deps = [
+        ":non_portable_test_thread_options",
+        "//pw_thread:thread_facade_test",
+    ],
+)
+
+cc_library(
+    name = "yield",
+    hdrs = [
+        "yield_public_overrides/pw_thread_backend/yield_inline.h",
+    ],
+    strip_include_prefix = "yield_public_overrides",
+    target_compatible_with = incompatible_with_mcu(),
+    deps = [
+        ":yield_private",
+    ],
+)
+
+cc_library(
+    name = "yield_private",
+    hdrs = [
+        "public/pw_thread_stl/yield_inline.h",
+    ],
+    strip_include_prefix = "public",
+    target_compatible_with = incompatible_with_mcu(),
+    visibility = ["//visibility:private"],
+    deps = [
+        "//pw_thread:yield.facade",
+    ],
+)
+
+cc_library(
+    name = "test_thread_context",
+    hdrs = [
+        "test_thread_context_public_overrides/pw_thread_backend/test_thread_context_native.h",
+    ],
+    strip_include_prefix = "test_thread_context_public_overrides",
+    target_compatible_with = incompatible_with_mcu(),
+    deps = [
+        ":test_thread_context_private",
+    ],
+)
+
+cc_library(
+    name = "test_thread_context_private",
+    hdrs = [
+        "public/pw_thread_stl/test_thread_context_native.h",
+    ],
+    strip_include_prefix = "public",
+    target_compatible_with = incompatible_with_mcu(),
+    visibility = ["//visibility:private"],
+    deps = [
+        ":options",
+        "//pw_thread:test_thread_context.facade",
+    ],
+)
+
+sphinx_docs_library(
+    name = "docs",
+    srcs = [
+        "docs.rst",
+        "public/pw_thread_stl/test_thread_context_native.h",
+    ],
+    prefix = "pw_thread_stl/",
+    target_compatible_with = incompatible_with_mcu(),
+)

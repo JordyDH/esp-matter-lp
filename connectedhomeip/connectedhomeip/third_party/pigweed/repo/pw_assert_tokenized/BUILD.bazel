@@ -1,0 +1,111 @@
+# Copyright 2022 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_python//sphinxdocs:sphinx_docs_library.bzl", "sphinx_docs_library")
+load("//pw_build:compatibility.bzl", "incompatible_with_mcu")
+
+package(
+    default_visibility = ["//visibility:public"],
+)
+
+licenses(["notice"])
+
+cc_library(
+    name = "handler",
+    hdrs = [
+        "public/pw_assert_tokenized/handler.h",
+    ],
+    strip_include_prefix = "public",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//pw_preprocessor",
+    ],
+)
+
+cc_library(
+    name = "impl",
+    srcs = [
+        "log_handler.cc",
+    ],
+    features = ["-conversion_warnings"],
+    deps = [
+        ":handler",
+        "//pw_assert:config",
+        "//pw_base64",
+        "//pw_bytes",
+        "//pw_log",
+        "//pw_log_tokenized",
+        "//pw_log_tokenized:handler",
+        "//pw_log_tokenized:headers",
+        "//pw_span",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
+    name = "assert_backend",
+    hdrs = [
+        "assert_public_overrides/pw_assert_backend/assert_backend.h",
+    ],
+    strip_include_prefix = "assert_public_overrides",
+    deps = [
+        ":assert_backend_private",
+    ],
+)
+
+cc_library(
+    name = "assert_backend_private",
+    hdrs = [
+        "public/pw_assert_tokenized/assert_tokenized.h",
+    ],
+    strip_include_prefix = "public",
+    visibility = ["//visibility:private"],
+    deps = [
+        ":handler",
+        "//pw_tokenizer",
+    ],
+)
+
+cc_library(
+    name = "check_backend",
+    hdrs = [
+        "check_public_overrides/pw_assert_backend/check_backend.h",
+    ],
+    strip_include_prefix = "check_public_overrides",
+    tags = ["noclangtidy"],
+    deps = [":check_backend_private"],
+)
+
+cc_library(
+    name = "check_backend_private",
+    hdrs = [
+        "public/pw_assert_tokenized/check_tokenized.h",
+    ],
+    visibility = ["//visibility:private"],
+    deps = [
+        ":handler",
+        "//pw_log_tokenized",
+        "//pw_tokenizer",
+    ],
+)
+
+sphinx_docs_library(
+    name = "docs",
+    srcs = [
+        "docs.rst",
+    ],
+    prefix = "pw_assert_tokenized/",
+    target_compatible_with = incompatible_with_mcu(),
+)

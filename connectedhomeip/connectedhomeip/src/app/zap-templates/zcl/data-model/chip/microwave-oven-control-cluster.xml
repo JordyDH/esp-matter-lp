@@ -1,0 +1,105 @@
+<?xml version="1.0"?>
+<!--
+Copyright (c) 2023 Project CHIP Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+<configurator>
+  <domain name="CHIP"/>
+
+
+  <cluster>
+    <name>Microwave Oven Control</name>
+    <domain>Appliances</domain>
+    <description>Attributes and commands for configuring the microwave oven control, and reporting cooking stats.</description>
+    <code>0x005F</code>
+    <define>MICROWAVE_OVEN_CONTROL_CLUSTER</define>
+    <client tick="false" init="false">true</client>
+    <server tick="false" init="false">true</server>
+
+    <features>
+      <feature bit="0" code="PWRNUM" name="PowerAsNumber" summary="Power is specified as a unitless number or a percentage">
+        <optionalConform choice="a"/>
+      </feature>
+      <feature bit="1" code="WATTS" name="PowerInWatts" summary="Power is specified in Watts">
+        <optionalConform choice="a"/>
+      </feature>
+      <feature bit="2" code="PWRLMTS" name="PowerNumberLimits" summary="Supports the limit attributes used with the PWRNUM feature">
+        <optionalConform>
+          <feature name="PWRNUM"/>
+        </optionalConform>
+      </feature>
+    </features>
+
+    <attribute side="server" code="0x0000" name="CookTime" define="COOK_TIME" type="elapsed_s" default="30">
+      <mandatoryConform/>
+    </attribute>
+    <attribute side="server" code="0x0001" name="MaxCookTime" define="MAX_COOK_TIME" type="elapsed_s" min="1" max="86400">
+      <mandatoryConform/>
+    </attribute>
+    <attribute side="server" code="0x0002" name="PowerSetting" define="POWER_SETTING" type="int8u" default="100" optional="true">
+      <mandatoryConform>
+        <feature name="PWRNUM"/>
+      </mandatoryConform>
+    </attribute>
+    <attribute side="server" code="0x0003" name="MinPower" define="MIN_POWER" type="int8u" default="10" optional="true">
+      <mandatoryConform>
+        <feature name="PWRLMTS"/>
+      </mandatoryConform>
+    </attribute>
+    <attribute side="server" code="0x0004" name="MaxPower" define="MAX_POWER" type="int8u" default="100" optional="true">
+      <mandatoryConform>
+        <feature name="PWRLMTS"/>
+      </mandatoryConform>
+    </attribute>
+    <attribute side="server" code="0x0005" name="PowerStep" define="POWER_STEP" type="int8u" default="10" optional="true">
+      <mandatoryConform>
+        <feature name="PWRLMTS"/>
+      </mandatoryConform>
+    </attribute>
+    <attribute apiMaturity="provisional" side="server" code="0x0006" name="SupportedWatts" define="SUPPORTED_WATTS" type="array" entryType="int16u" optional="true">
+      <otherwiseConform>
+        <provisionalConform/>
+        <mandatoryConform>
+          <feature name="WATTS"/>
+        </mandatoryConform>
+      </otherwiseConform>
+    </attribute>
+    <attribute apiMaturity="provisional" side="server" code="0x0007" name="SelectedWattIndex" define="SELECTED_WATT_INDEX" type="int8u" optional="true">
+      <otherwiseConform>
+        <provisionalConform/>
+        <mandatoryConform>
+          <feature name="WATTS"/>
+        </mandatoryConform>
+      </otherwiseConform>
+    </attribute>
+    <attribute side="server" code="0x0008" name="WattRating" define="WATT_RATING" type="int16u" optional="true">
+      <optionalConform/>
+    </attribute>
+    
+    <command source="client" code="0x00" name="SetCookingParameters" optional="false">
+      <description>Set Cooking Parameters</description>
+        <arg name="CookMode"          type="int8u"     optional="true"/>
+        <arg name="CookTime"          type="elapsed_s" optional="true"/>
+        <arg name="PowerSetting"      type="int8u" min="MIN_POWER" max="MAX_POWER" optional="true"/>
+        <arg name="WattSettingIndex"  type="int8u"     optional="true"/>
+        <arg name="StartAfterSetting" type="boolean"   optional="true"/>
+      <mandatoryConform/>
+    </command>
+    <command source="client" code="0x01" name="AddMoreTime" optional="true">
+      <description>Add More Cooking Time</description>
+      <arg name="TimeToAdd" type="elapsed_s" optional="false"/>
+      <optionalConform/>
+    </command>
+  </cluster>
+</configurator>

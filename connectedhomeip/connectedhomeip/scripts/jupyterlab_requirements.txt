@@ -1,0 +1,18 @@
+# Requirements for running chip-repl in jupyterlab
+# Once installed, start with
+#
+# jupyter-lab
+#
+# --------------------------------------
+# %reset -f
+# import importlib.util
+# spec = importlib.util.find_spec('chip.ChipReplStartup')
+# %run {spec.origin}
+# --------------------------------------
+#
+
+jupyterlab
+ipykernel
+jupyterlab-lsp
+python-lsp-server
+jupyterlab-git

@@ -1,0 +1,204 @@
+# Copyright 2023 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+import("//build_overrides/pigweed.gni")
+
+import("$dir_pigweed/build_overrides/pi_pico.gni")
+import("$dir_pw_async2/backend.gni")
+import("$dir_pw_build/target_types.gni")
+import("$dir_pw_docgen/docs.gni")
+import("$dir_pw_thread/backend.gni")
+import("$dir_pw_unit_test/test.gni")
+
+config("public_include_path") {
+  include_dirs = [ "public" ]
+  visibility = [ ":*" ]
+}
+
+pw_source_set("pw_channel") {
+  public_configs = [ ":public_include_path" ]
+  public = [
+    "public/pw_channel/channel.h",
+    "public/pw_channel/properties.h",
+  ]
+  public_deps = [
+    "$dir_pw_async2:dispatcher",
+    "$dir_pw_async2:poll",
+    "$dir_pw_multibuf:allocator",
+    "$dir_pw_multibuf:allocator_async",
+    "$dir_pw_toolchain:sibling_cast",
+    dir_pw_assert,
+    dir_pw_bytes,
+    dir_pw_multibuf,
+    dir_pw_result,
+    dir_pw_span,
+    dir_pw_status,
+  ]
+  sources = [ "public/pw_channel/internal/channel_specializations.h" ]
+}
+
+pw_source_set("forwarding_channel") {
+  public_configs = [ ":public_include_path" ]
+  public = [ "public/pw_channel/forwarding_channel.h" ]
+  sources = [ "forwarding_channel.cc" ]
+  public_deps = [
+    ":pw_channel",
+    "$dir_pw_multibuf:allocator",
+    "$dir_pw_multibuf:allocator_async",
+    "$dir_pw_sync:mutex",
+  ]
+}
+
+pw_test("forwarding_channel_test") {
+  sources = [ "forwarding_channel_test.cc" ]
+  deps = [
+    ":forwarding_channel",
+    "$dir_pw_allocator:testing",
+    "$dir_pw_multibuf:header_chunk_region_tracker",
+    "$dir_pw_multibuf:simple_allocator",
+    dir_pw_preprocessor,
+  ]
+  enable_if = pw_async2_DISPATCHER_BACKEND != ""
+}
+
+pw_source_set("loopback_channel") {
+  public_configs = [ ":public_include_path" ]
+  public = [ "public/pw_channel/loopback_channel.h" ]
+  sources = [ "loopback_channel.cc" ]
+  public_deps = [
+    ":pw_channel",
+    "$dir_pw_multibuf:allocator",
+    "$dir_pw_multibuf:allocator_async",
+  ]
+}
+
+pw_test("loopback_channel_test") {
+  sources = [ "loopback_channel_test.cc" ]
+  deps = [
+    ":loopback_channel",
+    "$dir_pw_multibuf:allocator_async",
+    "$dir_pw_multibuf:testing",
+  ]
+  enable_if = pw_async2_DISPATCHER_BACKEND != ""
+}
+
+pw_source_set("epoll_channel") {
+  public_configs = [ ":public_include_path" ]
+  public = [ "public/pw_channel/epoll_channel.h" ]
+  sources = [ "epoll_channel.cc" ]
+  public_deps = [
+    ":pw_channel",
+    "$dir_pw_multibuf:allocator",
+    "$dir_pw_multibuf:allocator_async",
+    "$dir_pw_sync:mutex",
+  ]
+  deps = [ dir_pw_log ]
+}
+
+pw_test("epoll_channel_test") {
+  sources = [ "epoll_channel_test.cc" ]
+  deps = [
+    ":epoll_channel",
+    "$dir_pw_multibuf:allocator",
+    "$dir_pw_multibuf:allocator_async",
+    "$dir_pw_multibuf:testing",
+    "$dir_pw_thread:sleep",
+    "$dir_pw_thread:thread",
+    "$dir_pw_thread_stl:thread",
+  ]
+  enable_if =
+      pw_async2_DISPATCHER_BACKEND == "$dir_pw_async2_epoll:dispatcher_backend"
+}
+
+if (pw_build_EXECUTABLE_TARGET_TYPE == "pico_executable") {
+  pw_source_set("rp2_stdio_channel") {
+    public_configs = [ ":public_include_path" ]
+    public = [ "public/pw_channel/rp2_stdio_channel.h" ]
+    sources = [ "rp2_stdio_channel.cc" ]
+    public_deps = [
+      ":pw_channel",
+      "$dir_pw_multibuf:allocator",
+      "$dir_pw_multibuf:allocator_async",
+    ]
+    deps = [
+      "$PICO_ROOT/src/common/pico_base",
+      "$PICO_ROOT/src/common/pico_stdlib",
+      dir_pw_log,
+    ]
+  }
+}
+
+pw_source_set("stream_channel") {
+  public_configs = [ ":public_include_path" ]
+  public = [ "public/pw_channel/stream_channel.h" ]
+  sources = [ "stream_channel.cc" ]
+  public_deps = [
+    ":pw_channel",
+    "$dir_pw_sync:interrupt_spin_lock",
+    "$dir_pw_sync:thread_notification",
+    "$dir_pw_thread:thread",
+    dir_pw_stream,
+  ]
+  deps = [ dir_pw_log ]
+}
+
+pw_test("stream_channel_test") {
+  sources = [ "stream_channel_test.cc" ]
+  deps = [
+    ":stream_channel",
+    "$dir_pw_async2:pend_func_task",
+    "$dir_pw_multibuf:allocator_async",
+    "$dir_pw_multibuf:testing",
+    "$dir_pw_stream:mpsc_stream",
+    "$dir_pw_thread:test_thread_context",
+    "$dir_pw_thread:thread",
+    "$dir_pw_toolchain:globals",
+    "$dir_pw_toolchain:no_destructor",
+    "$dir_pw_unit_test",
+    dir_pw_stream,
+  ]
+  enable_if = host_os != "win" && pw_async2_DISPATCHER_BACKEND != "" &&
+              pw_thread_THREAD_BACKEND != ""
+}
+
+pw_doc_group("docs") {
+  sources = [
+    "design.rst",
+    "docs.rst",
+    "guides.rst",
+    "reference.rst",
+  ]
+}
+
+pw_test_group("tests") {
+  tests = [
+    ":channel_test",
+    ":epoll_channel_test",
+    ":forwarding_channel_test",
+    ":loopback_channel_test",
+    ":stream_channel_test",
+  ]
+}
+
+pw_test("channel_test") {
+  sources = [ "channel_test.cc" ]
+  deps = [
+    ":pw_channel",
+    "$dir_pw_allocator:testing",
+    "$dir_pw_multibuf:allocator_async",
+    "$dir_pw_multibuf:simple_allocator",
+  ]
+  enable_if = pw_async2_DISPATCHER_BACKEND != ""
+  negative_compilation_tests = true
+}

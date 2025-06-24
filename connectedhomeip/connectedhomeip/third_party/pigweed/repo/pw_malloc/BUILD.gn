@@ -1,0 +1,249 @@
+# Copyright 2020 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+import("//build_overrides/pigweed.gni")
+
+import("$dir_pw_build/facade.gni")
+import("$dir_pw_build/module_config.gni")
+import("$dir_pw_docgen/docs.gni")
+import("$dir_pw_malloc/backend.gni")
+import("$dir_pw_unit_test/test.gni")
+
+declare_args() {
+  # The build target that overrides the default configuration options for this
+  # module. This should point to a source set that provides defines through a
+  # public config (which may -include a file or add defines directly).
+  pw_malloc_CONFIG = pw_build_DEFAULT_MODULE_CONFIG
+}
+
+pw_source_set("config") {
+  public_configs = [ ":public_include_path" ]
+  public = [ "public/pw_malloc/config.h" ]
+  public_deps = [
+    "$dir_pw_allocator:synchronized_allocator",
+    "$dir_pw_allocator:tracking_allocator",
+    pw_malloc_CONFIG,
+  ]
+}
+
+config("public_include_path") {
+  include_dirs = [ "public" ]
+}
+
+config("private_include_path") {
+  include_dirs = [ "." ]
+}
+
+config("wrap_functions") {
+  # Link options that provides replace dynamic memory operations in standard
+  # library with the pigweed malloc.
+  ldflags = [
+    # memory allocation -- these must be re-entrant and do locking
+    "-Wl,--wrap=malloc",
+    "-Wl,--wrap=free",
+    "-Wl,--wrap=realloc",
+    "-Wl,--wrap=calloc",
+
+    # Wrap these in case internal newlib call them (e.g. strdup will)
+    # directly call _malloc_r)
+    "-Wl,--wrap=_malloc_r",
+    "-Wl,--wrap=_realloc_r",
+    "-Wl,--wrap=_free_r",
+    "-Wl,--wrap=_calloc_r",
+  ]
+}
+
+# Alias for `:wrap_functions`.
+config("pw_malloc_wrapper_config") {
+  configs = [ ":wrap_functions" ]
+}
+
+_COMMON_SRCS = [ "malloc.cc" ]
+
+_COMMON_HDRS = [ "public/pw_malloc/malloc.h" ]
+
+group("common") {
+  visibility = [ ":*" ]
+  public_configs = [
+    ":public_include_path",
+    ":wrap_functions",
+  ]
+  public_deps = [
+    ":config",
+    "$dir_pw_allocator:allocator",
+    dir_pw_assert,
+    dir_pw_bytes,
+    dir_pw_preprocessor,
+  ]
+}
+
+pw_facade("pw_malloc") {
+  backend = pw_malloc_BACKEND
+  public = _COMMON_HDRS
+  sources = _COMMON_SRCS
+  public_deps = [ ":common" ]
+}
+
+# Allocator-based backends.
+
+pw_source_set("best_fit") {
+  public_deps = [ ":pw_malloc.facade" ]
+  deps = [ "$dir_pw_allocator:best_fit" ]
+  sources = [ "best_fit.cc" ]
+}
+
+# TODO(b/376730645): Remove deprecated backends.
+pw_source_set("best_fit_block_allocator") {
+  public_deps = [ ":best_fit" ]
+}
+
+pw_source_set("bucket_allocator") {
+  public_deps = [ ":pw_malloc.facade" ]
+  deps = [ "$dir_pw_allocator:bucket_allocator" ]
+  sources = [ "bucket_allocator.cc" ]
+}
+
+# TODO(b/376730645): Remove deprecated backends.
+pw_source_set("bucket_block_allocator") {
+  public_deps = [ ":bucket_allocator" ]
+}
+
+# TODO(b/376730645): Remove deprecated backends.
+pw_source_set("dual_first_fit_block_allocator") {
+  public_deps = [ ":first_fit" ]
+}
+
+pw_source_set("first_fit") {
+  public_deps = [ ":pw_malloc.facade" ]
+  deps = [ "$dir_pw_allocator:first_fit" ]
+  sources = [ "first_fit.cc" ]
+}
+
+# TODO(b/376730645): Remove deprecated backends.
+pw_source_set("first_fit_block_allocator") {
+  public_deps = [ ":first_fit" ]
+}
+
+# TODO(b/376730645): Remove deprecated backends.
+pw_source_set("last_fit_block_allocator") {
+  public_deps = [ ":first_fit" ]
+}
+
+pw_source_set("worst_fit") {
+  public_deps = [ ":pw_malloc.facade" ]
+  deps = [ "$dir_pw_allocator:worst_fit" ]
+  sources = [ "worst_fit.cc" ]
+}
+
+# TODO(b/376730645): Remove deprecated backends.
+pw_source_set("worst_fit_block_allocator") {
+  public_deps = [ ":worst_fit" ]
+}
+
+# Backend unit tests.
+
+pw_source_set("testing") {
+  configs = [ ":private_include_path" ]
+  defines = [
+    "PW_MALLOC_METRICS_INCLUDE=\"pw_malloc/internal/testing.h\"",
+    "PW_MALLOC_METRICS_TYPE=::pw::malloc::internal::TestMetrics",
+    "PW_MALLOC_BLOCK_OFFSET_TYPE=uint16_t",
+    "PW_MALLOC_MIN_BUCKET_SIZE=64",
+    "PW_MALLOC_NUM_BUCKETS=4",
+  ]
+  public = _COMMON_HDRS + [ "public/pw_malloc/internal/testing.h" ]
+  sources = _COMMON_SRCS + [ "malloc_test.cc" ]
+  public_deps = [ ":common" ]
+  deps = [
+    "$dir_pw_tokenizer:decoder",
+    "$dir_pw_unit_test:light",
+  ]
+}
+
+pw_test("best_fit_test") {
+  deps = [
+    ":testing",
+    "$dir_pw_allocator:best_fit",
+  ]
+  sources = [ "best_fit.cc" ]
+}
+
+pw_test("bucket_allocator_test") {
+  deps = [
+    ":testing",
+    "$dir_pw_allocator:bucket_allocator",
+  ]
+  sources = [ "bucket_allocator.cc" ]
+}
+
+pw_test("first_fit_test") {
+  deps = [
+    ":testing",
+    "$dir_pw_allocator:first_fit",
+  ]
+  sources = [ "first_fit.cc" ]
+}
+
+pw_test("worst_fit_test") {
+  deps = [
+    ":testing",
+    "$dir_pw_allocator:worst_fit",
+  ]
+  sources = [ "worst_fit.cc" ]
+}
+
+# Docs
+
+pw_doc_group("docs") {
+  sources = [
+    "backends.rst",
+    "docs.rst",
+  ]
+}
+
+pw_test_group("tests") {
+  # Only run the test if no backend is set to ensure there is no system
+  # allocator.
+  enable_if = pw_malloc_BACKEND == ""
+
+  # Currently only supported for host unit tests on Linux.
+  enable_if = enable_if && defined(pw_toolchain_SCOPE.is_host_toolchain) &&
+              pw_toolchain_SCOPE.is_host_toolchain && host_os == "linux"
+
+  # Only run using the light framework, since gtest allocates objects before the
+  # test fixture initializes the heap.
+  enable_if = enable_if && pw_unit_test_BACKEND == "$dir_pw_unit_test:light"
+
+  # Don't run with ASAN and TSAN since they wrap malloc.
+  default_configs = []
+  if (defined(pw_toolchain_SCOPE.defaults)) {
+    defaults = pw_toolchain_SCOPE.defaults
+    if (defined(defaults.default_configs)) {
+      default_configs = defaults.default_configs
+    }
+  }
+  conflicting = [
+    "$dir_pw_toolchain/host_clang:sanitize_address",
+    "$dir_pw_toolchain/host_clang:sanitize_thread",
+  ]
+  enable_if = enable_if &&
+              default_configs + conflicting - conflicting == default_configs
+
+  tests = [
+    ":best_fit_test",
+    ":bucket_allocator_test",
+    ":first_fit_test",
+    ":worst_fit_test",
+  ]
+}

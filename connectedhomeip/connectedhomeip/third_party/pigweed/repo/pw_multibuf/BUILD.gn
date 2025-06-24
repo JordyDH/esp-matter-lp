@@ -1,0 +1,247 @@
+# Copyright 2023 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+import("//build_overrides/pigweed.gni")
+
+import("$dir_pw_async2/backend.gni")
+import("$dir_pw_build/target_types.gni")
+import("$dir_pw_docgen/docs.gni")
+import("$dir_pw_unit_test/test.gni")
+
+config("public_include_path") {
+  include_dirs = [ "public" ]
+  visibility = [ ":*" ]
+}
+
+pw_source_set("chunk") {
+  public_configs = [ ":public_include_path" ]
+  public = [ "public/pw_multibuf/chunk.h" ]
+  sources = [ "chunk.cc" ]
+  public_deps = [
+    "$dir_pw_sync:mutex",
+    dir_pw_assert,
+    dir_pw_bytes,
+    dir_pw_preprocessor,
+    dir_pw_span,
+  ]
+  deps = [ "$dir_pw_assert:check" ]
+}
+
+pw_source_set("header_chunk_region_tracker") {
+  public_configs = [ ":public_include_path" ]
+  public = [ "public/pw_multibuf/header_chunk_region_tracker.h" ]
+  public_deps = [
+    ":chunk",
+    dir_pw_allocator,
+    dir_pw_bytes,
+  ]
+}
+
+pw_test("header_chunk_region_tracker_test") {
+  deps = [
+    ":chunk",
+    ":header_chunk_region_tracker",
+    "$dir_pw_allocator:testing",
+    dir_pw_status,
+  ]
+  sources = [ "header_chunk_region_tracker_test.cc" ]
+}
+
+pw_source_set("single_chunk_region_tracker") {
+  public_configs = [ ":public_include_path" ]
+  public = [ "public/pw_multibuf/single_chunk_region_tracker.h" ]
+  public_deps = [
+    ":chunk",
+    dir_pw_assert,
+    dir_pw_bytes,
+  ]
+}
+
+pw_test("single_chunk_region_tracker_test") {
+  deps = [
+    ":chunk",
+    ":single_chunk_region_tracker",
+  ]
+  sources = [ "single_chunk_region_tracker_test.cc" ]
+
+  # TODO: b/260624583 - Fix this for //targets/rp2040
+  enable_if = pw_build_EXECUTABLE_TARGET_TYPE != "pico_executable"
+}
+
+pw_test("chunk_test") {
+  deps = [
+    ":chunk",
+    ":header_chunk_region_tracker",
+    "$dir_pw_allocator:testing",
+  ]
+  sources = [ "chunk_test.cc" ]
+}
+
+pw_source_set("pw_multibuf") {
+  public_configs = [ ":public_include_path" ]
+  public = [ "public/pw_multibuf/multibuf.h" ]
+  sources = [ "multibuf.cc" ]
+  public_deps = [
+    ":chunk",
+    dir_pw_preprocessor,
+    dir_pw_status,
+  ]
+}
+
+pw_test("multibuf_test") {
+  deps = [
+    ":internal_test_utils",
+    ":pw_multibuf",
+    dir_pw_bytes,
+  ]
+  sources = [ "multibuf_test.cc" ]
+}
+
+pw_source_set("allocator") {
+  public_configs = [ ":public_include_path" ]
+  public = [ "public/pw_multibuf/allocator.h" ]
+  sources = [ "allocator.cc" ]
+  public_deps = [
+    ":pw_multibuf",
+    "$dir_pw_containers:intrusive_forward_list",
+    "$dir_pw_result",
+    "$dir_pw_sync:interrupt_spin_lock",
+  ]
+}
+
+pw_source_set("allocator_async") {
+  public_configs = [ ":public_include_path" ]
+  public = [ "public/pw_multibuf/allocator_async.h" ]
+  sources = [ "allocator_async.cc" ]
+  public_deps = [
+    ":allocator",
+    "$dir_pw_async2:dispatcher",
+    "$dir_pw_async2:poll",
+  ]
+}
+
+# TODO: https://pwbug.dev/384583239 - Split async into its own test.
+pw_test("allocator_test") {
+  enable_if = pw_async2_DISPATCHER_BACKEND != ""
+  deps = [
+    ":allocator",
+    ":allocator_async",
+    "$dir_pw_async2:dispatcher",
+    "$dir_pw_async2:poll",
+  ]
+  sources = [ "allocator_test.cc" ]
+}
+
+pw_source_set("simple_allocator") {
+  public_configs = [ ":public_include_path" ]
+  public = [ "public/pw_multibuf/simple_allocator.h" ]
+  sources = [ "simple_allocator.cc" ]
+  public_deps = [
+    ":allocator",
+    ":pw_multibuf",
+    "$dir_pw_allocator:allocator",
+    "$dir_pw_containers:intrusive_list",
+  ]
+  deps = [ "$dir_pw_bytes:alignment" ]
+}
+
+pw_test("simple_allocator_test") {
+  enable_if = pw_async2_DISPATCHER_BACKEND != ""
+  deps = [
+    ":simple_allocator",
+    "$dir_pw_allocator:null_allocator",
+    "$dir_pw_allocator:testing",
+  ]
+  sources = [ "simple_allocator_test.cc" ]
+}
+
+pw_source_set("stream") {
+  public_configs = [ ":public_include_path" ]
+  public = [ "public/pw_multibuf/stream.h" ]
+  public_deps = [
+    ":pw_multibuf",
+    dir_pw_status,
+    dir_pw_stream,
+  ]
+  sources = [ "stream.cc" ]
+}
+
+pw_test("stream_test") {
+  enable_if = pw_async2_DISPATCHER_BACKEND != ""
+  deps = [
+    ":internal_test_utils",
+    ":stream",
+  ]
+  sources = [ "stream_test.cc" ]
+}
+
+pw_source_set("from_span") {
+  public_configs = [ ":public_include_path" ]
+  public = [ "public/pw_multibuf/from_span.h" ]
+  public_deps = [
+    ":pw_multibuf",
+    dir_pw_allocator,
+    dir_pw_function,
+  ]
+  sources = [ "from_span.cc" ]
+}
+
+pw_test("from_span_test") {
+  deps = [
+    ":from_span",
+    "$dir_pw_allocator:testing",
+  ]
+  sources = [ "from_span_test.cc" ]
+}
+
+pw_source_set("testing") {
+  public_configs = [ ":public_include_path" ]
+  public = [ "public/pw_multibuf/simple_allocator_for_test.h" ]
+  public_deps = [
+    ":simple_allocator",
+    "$dir_pw_allocator:synchronized_allocator",
+    "$dir_pw_allocator:testing",
+    "$dir_pw_sync:mutex",
+    dir_pw_assert,
+  ]
+}
+
+pw_source_set("internal_test_utils") {
+  sources = [ "pw_multibuf_private/test_utils.h" ]
+  public_deps = [
+    ":header_chunk_region_tracker",
+    ":pw_multibuf",
+    "$dir_pw_allocator:testing",
+    dir_pw_assert,
+    dir_pw_bytes,
+  ]
+  visibility = [ ":*" ]
+}
+
+pw_test_group("tests") {
+  tests = [
+    ":allocator_test",
+    ":chunk_test",
+    ":from_span_test",
+    ":header_chunk_region_tracker_test",
+    ":multibuf_test",
+    ":simple_allocator_test",
+    ":single_chunk_region_tracker_test",
+    ":stream_test",
+  ]
+}
+
+pw_doc_group("docs") {
+  sources = [ "docs.rst" ]
+}

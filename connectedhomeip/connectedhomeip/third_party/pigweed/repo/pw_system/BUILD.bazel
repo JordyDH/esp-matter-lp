@@ -1,0 +1,805 @@
+# Copyright 2025 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_platform//platform_data:defs.bzl", "platform_data")
+load("@rules_python//python:proto.bzl", "py_proto_library")
+load("@rules_python//sphinxdocs:sphinx_docs_library.bzl", "sphinx_docs_library")
+load("//pw_build:compatibility.bzl", "host_backend_alias", "incompatible_with_mcu")
+load("//pw_build:pw_cc_binary.bzl", "pw_cc_binary")
+load("//pw_build:pw_facade.bzl", "pw_facade")
+load(
+    "//pw_protobuf_compiler:pw_proto_library.bzl",
+    "pw_proto_filegroup",
+    "pwpb_proto_library",
+    "pwpb_rpc_proto_library",
+)
+load("//pw_system/py:console.bzl", "device_console", "device_simulator_console")
+load("//pw_unit_test:pw_cc_test.bzl", "pw_cc_test")
+load("//targets/host_device_simulator:transition.bzl", "host_device_simulator_binary")
+load("//targets/rp2040:flash.bzl", "flash_rp2040", "flash_rp2350")
+
+package(
+    default_visibility = ["//visibility:public"],
+    features = ["-layering_check"],
+)
+
+licenses(["notice"])
+
+cc_library(
+    name = "config",
+    hdrs = [
+        "public/pw_system/config.h",
+    ],
+    strip_include_prefix = "public",
+    deps = [":config_override"],
+)
+
+label_flag(
+    name = "config_override",
+    build_setting_default = ":default_config",
+)
+
+cc_library(
+    name = "default_config",
+    defines = select({
+        "//pw_cpu_exception:enabled": [],
+        "//conditions:default": [
+            "PW_SYSTEM_ENABLE_CRASH_HANDLER=0",
+        ],
+    }),
+)
+
+cc_library(
+    name = "pw_system",
+    features = ["-conversion_warnings"],
+    deps = [
+        ":init",
+        ":io",
+        ":extra_platform_libs",
+        ":target_hooks",
+        ":work_queue",
+        # pw_system has (transitive) dependencies on pw_assert and pw_log. So,
+        # we add deps on the backend_impl here, saving the user from having to
+        # add them manually to their cc_binary target.
+        #
+        # When implementing a backend for pw_assert or pw_log, *do not* depend
+        # on //pw_system:pw_system. Instead, depend on the appropriate
+        # component library. See :log_backend, below, for an examples.
+        "//pw_assert:check_backend_impl",
+        "//pw_assert:assert_backend_impl",
+        "//pw_log:backend_impl",
+    ],
+)
+
+# Any platform-specific pw_system components. At the very least, this should
+# include platform-specific initialization code. It may also include linker
+# scripts.
+#
+# TODO: https://github.com/bazelbuild/bazel/issues/22457 - Recommend using
+# @bazel_tool//tools/cpp:link_extra_libs instead, once they're not propagated
+# to the exec configuration.
+label_flag(
+    name = "extra_platform_libs",
+    build_setting_default = "//targets/host_device_simulator:boot",
+    features = ["-conversion_warnings"],
+)
+
+cc_library(
+    name = "log",
+    srcs = [
+        "log.cc",
+    ],
+    hdrs = [
+        "public/pw_system/log.h",
+    ],
+    features = ["-conversion_warnings"],
+    strip_include_prefix = "public",
+    deps = [
+        ":config",
+        "//pw_log_rpc:log_service",
+        "//pw_log_rpc:rpc_log_drain",
+        "//pw_log_rpc:rpc_log_drain_thread",
+        "//pw_multisink",
+        "//pw_sync:lock_annotations",
+        "//pw_sync:mutex",
+    ],
+)
+
+cc_library(
+    name = "log_backend",
+    srcs = [
+        "log_backend.cc",
+    ],
+    features = ["-conversion_warnings"],
+    tags = ["noclangtidy"],
+    deps = [
+        ":config",
+        ":log",
+        "//pw_bytes",
+        "//pw_chrono:system_clock",
+        "//pw_log:proto_utils",
+        "//pw_log:pw_log.facade",
+        "//pw_log_string:handler.facade",
+        "//pw_log_tokenized:handler.facade",
+        "//pw_log_tokenized:headers",
+        "//pw_metric:global",
+        "//pw_multisink",
+        "//pw_result",
+        "//pw_string",
+        "//pw_sync:interrupt_spin_lock",
+        "//pw_sync:lock_annotations",
+        "//pw_tokenizer",
+    ],
+    # Log backends, like assert backends, generally need to be alwayslink'ed
+    # because we don't inform Bazel correctly about dependencies on them. We
+    # only add them as deps of binary targets, not intermediate library targets,
+    # to avoid circular dependencies. But this may lead the linker to eagerly
+    # remove some symbols defined here as unused.
+    alwayslink = 1,
+)
+
+pw_facade(
+    name = "rpc_server",
+    hdrs = [
+        "public/pw_system/rpc_server.h",
+    ],
+    backend = ":rpc_server_backend",
+    features = ["-conversion_warnings"],
+    strip_include_prefix = "public",
+    deps = [
+        ":config",
+        "//pw_thread:thread_core",
+    ],
+)
+
+label_flag(
+    name = "rpc_server_backend",
+    build_setting_default = "//pw_system:hdlc_rpc_server",
+    features = ["-conversion_warnings"],
+)
+
+cc_library(
+    name = "hdlc_rpc_server",
+    srcs = [
+        "hdlc_rpc_server.cc",
+    ],
+    features = ["-conversion_warnings"],
+    implementation_deps = ["//pw_assert:check"],
+    deps = [
+        ":config",
+        ":io",
+        ":rpc_server.facade",
+        "//pw_hdlc",
+        "//pw_hdlc:default_addresses",
+        "//pw_hdlc:rpc_channel_output",
+        "//pw_sync:mutex",
+        "//pw_thread:thread_core",
+        "//pw_trace",
+    ],
+)
+
+cc_library(
+    name = "thread_snapshot_service",
+    srcs = [
+        "thread_snapshot_service.cc",
+    ],
+    hdrs = [
+        "public/pw_system/thread_snapshot_service.h",
+    ],
+    features = ["-conversion_warnings"],
+    strip_include_prefix = "public",
+    deps = [
+        "//pw_rpc",
+        "//pw_thread:thread_snapshot_service",
+    ],
+)
+
+pw_facade(
+    name = "io",
+    hdrs = [
+        "public/pw_system/io.h",
+    ],
+    backend = ":io_backend",
+    strip_include_prefix = "public",
+    deps = [
+        "//pw_stream",
+    ],
+)
+
+label_flag(
+    name = "io_backend",
+    build_setting_default = "//pw_system:sys_io_target_io",
+)
+
+pw_facade(
+    name = "device_handler",
+    hdrs = [
+        "public/pw_system/device_handler.h",
+    ],
+    backend = ":device_handler_backend",
+    strip_include_prefix = "public",
+    deps = [
+        "//pw_snapshot:snapshot_proto_pwpb",
+    ],
+)
+
+label_flag(
+    name = "device_handler_backend",
+    build_setting_default = "//pw_system:unknown_device_handler",
+)
+
+cc_library(
+    name = "unknown_device_handler",
+    srcs = [
+        "unknown_device_handler.cc",
+    ],
+    strip_include_prefix = "public",
+    deps = [
+        ":device_handler.facade",
+    ],
+)
+
+cc_library(
+    name = "init",
+    srcs = [
+        "init.cc",
+    ],
+    hdrs = [
+        "public/pw_system/init.h",
+    ],
+    features = ["-conversion_warnings"],
+    strip_include_prefix = "public",
+    deps = [
+        ":benchmark_service",
+        ":device_service",
+        ":file_manager",
+        ":file_service",
+        ":log",
+        ":rpc_server",
+        ":target_hooks",
+        ":thread_snapshot_service",
+        ":trace_service",
+        ":transfer_service",
+        ":work_queue",
+        "//pw_metric:global",
+        "//pw_metric:metric_service_pwpb",
+        "//pw_rpc:benchmark",
+        "//pw_rpc/pwpb:echo_service",
+        "//pw_thread:thread",
+    ] + select({
+        "//pw_cpu_exception:enabled": [
+            ":crash_handler",
+            ":crash_snapshot",
+        ],
+        "//conditions:default": [],
+    }),
+)
+
+cc_library(
+    name = "work_queue",
+    srcs = [
+        "work_queue.cc",
+    ],
+    hdrs = [
+        "public/pw_system/work_queue.h",
+    ],
+    strip_include_prefix = "public",
+    deps = [
+        ":config",
+        "//pw_work_queue",
+    ],
+)
+
+cc_library(
+    name = "sys_io_target_io",
+    srcs = [
+        "sys_io_target_io.cc",
+    ],
+    strip_include_prefix = "public",
+    deps = [
+        ":io.facade",
+        "//pw_stream",
+        "//pw_stream:sys_io_stream",
+    ],
+)
+
+cc_library(
+    name = "socket_target_io",
+    srcs = [
+        "socket_target_io.cc",
+    ],
+    features = ["-conversion_warnings"],
+    implementation_deps = ["//pw_assert:check"],
+    strip_include_prefix = "public",
+    deps = [
+        ":config",
+        ":io.facade",
+        "//pw_stream",
+        "//pw_stream:socket_stream",
+    ],
+)
+
+cc_library(
+    name = "transfer_handlers",
+    srcs = [
+        "transfer_handlers.cc",
+    ],
+    hdrs = [
+        "public/pw_system/transfer_handlers.h",
+    ],
+    features = ["-conversion_warnings"],
+    strip_include_prefix = "public",
+    deps = [
+        ":config",
+        "//pw_persistent_ram",
+        "//pw_trace_tokenized:config",
+        "//pw_transfer",
+    ],
+)
+
+cc_library(
+    name = "file_manager",
+    srcs = [
+        "file_manager.cc",
+    ],
+    hdrs = [
+        "public/pw_system/file_manager.h",
+    ],
+    features = ["-conversion_warnings"],
+    strip_include_prefix = "public",
+    deps = [
+        ":config",
+        ":trace_service",
+        ":transfer_handlers",
+        "//pw_file:flat_file_system",
+        "//pw_persistent_ram:flat_file_system_entry",
+    ] + select({
+        "//pw_cpu_exception:enabled": [
+            ":crash_snapshot",
+        ],
+        "//conditions:default": [],
+    }),
+)
+
+cc_library(
+    name = "transfer_service",
+    srcs = [
+        "transfer_service.cc",
+    ],
+    hdrs = [
+        "public/pw_system/transfer_service.h",
+    ],
+    features = ["-conversion_warnings"],
+    strip_include_prefix = "public",
+    deps = [
+        ":file_manager",
+        "//pw_transfer",
+    ],
+)
+
+cc_library(
+    name = "benchmark_service",
+    srcs = [
+        "benchmark_service.cc",
+    ],
+    hdrs = [
+        "public/pw_system/benchmark_service.h",
+    ],
+    strip_include_prefix = "public",
+    deps = [
+        "//pw_rpc:benchmark",
+    ],
+)
+
+cc_library(
+    name = "file_service",
+    srcs = [
+        "file_service.cc",
+    ],
+    hdrs = [
+        "public/pw_system/file_service.h",
+    ],
+    features = ["-conversion_warnings"],
+    strip_include_prefix = "public",
+    deps = [
+        ":file_manager",
+    ],
+)
+
+cc_library(
+    name = "trace_service",
+    srcs = [
+        "trace_service.cc",
+    ],
+    hdrs = [
+        "public/pw_system/trace_service.h",
+    ],
+    features = ["-conversion_warnings"],
+    strip_include_prefix = "public",
+    deps = [
+        ":transfer_handlers",
+        "//pw_persistent_ram",
+        "//pw_trace_tokenized:trace_service_pwpb",
+    ],
+)
+
+cc_library(
+    name = "crash_handler",
+    srcs = [
+        "crash_handler.cc",
+    ],
+    hdrs = [
+        "public/pw_system/crash_handler.h",
+    ],
+    strip_include_prefix = "public",
+    deps = [
+        ":crash_snapshot",
+        ":device_handler",
+        ":log",
+        "//pw_assert_trap:message",
+        "//pw_cpu_exception:handler",
+    ],
+)
+
+cc_library(
+    name = "crash_snapshot",
+    srcs = [
+        "crash_snapshot.cc",
+    ],
+    hdrs = [
+        "public/pw_system/crash_snapshot.h",
+    ],
+    strip_include_prefix = "public",
+    deps = [
+        ":device_handler",
+        ":log",
+        ":transfer_handlers",
+        "//pw_cpu_exception:entry",
+        "//pw_multisink:util",
+        "//pw_persistent_ram",
+        "//pw_snapshot:snapshot_proto_pwpb",
+        "//pw_snapshot:uuid",
+    ],
+)
+
+pw_proto_filegroup(
+    name = "device_service_proto_and_options",
+    srcs = ["pw_system_protos/device_service.proto"],
+    options_files = ["pw_system_protos/device_service.options"],
+)
+
+proto_library(
+    name = "device_service_proto",
+    srcs = [":device_service_proto_and_options"],
+    strip_import_prefix = "/pw_system",
+)
+
+pwpb_proto_library(
+    name = "device_service_proto_pwpb",
+    deps = [":device_service_proto"],
+)
+
+pwpb_rpc_proto_library(
+    name = "device_service_pwpb_rpc",
+    pwpb_proto_library_deps = [":device_service_proto_pwpb"],
+    deps = [":device_service_proto"],
+)
+
+py_proto_library(
+    name = "device_service_py_pb2",
+    deps = [":device_service_proto"],
+)
+
+cc_library(
+    name = "device_service_pwpb",
+    srcs = [
+        "device_service_pwpb.cc",
+    ],
+    hdrs = [
+        "public/pw_system/device_service_pwpb.h",
+    ],
+    implementation_deps = ["//pw_assert:check"],
+    strip_include_prefix = "public",
+    deps = [
+        ":device_handler",
+        ":device_service_pwpb_rpc",
+    ],
+)
+
+cc_library(
+    name = "device_service",
+    srcs = [
+        "device_service.cc",
+    ],
+    hdrs = [
+        "public/pw_system/device_service.h",
+    ],
+    strip_include_prefix = "public",
+    deps = [
+        ":device_service_pwpb",
+    ],
+)
+
+cc_library(
+    name = "target_hooks",
+    hdrs = [
+        "public/pw_system/target_hooks.h",
+    ],
+    strip_include_prefix = "public",
+    deps = [
+        ":target_hooks_backend",
+        "//pw_thread:thread",
+    ],
+)
+
+label_flag(
+    name = "target_hooks_backend",
+    build_setting_default = ":unspecified_target_hooks",
+)
+
+host_backend_alias(
+    name = "unspecified_target_hooks",
+    backend = ":stl_target_hooks",
+)
+
+cc_library(
+    name = "stl_target_hooks",
+    srcs = [
+        "stl_target_hooks.cc",
+    ],
+    strip_include_prefix = "public",
+    deps = [
+        ":config",
+        "//pw_thread:thread",
+        "//pw_thread_stl:thread",
+    ],
+)
+
+cc_library(
+    name = "freertos_target_hooks",
+    srcs = [
+        "freertos_target_hooks.cc",
+    ],
+    hdrs = [
+        "public/pw_system/target_hooks.h",
+    ],
+    includes = ["public"],
+    target_compatible_with = [
+        "//pw_build/constraints/rtos:freertos",
+    ],
+    deps = [
+        ":config",
+        "//pw_thread:thread",
+        "//pw_thread_freertos:thread",
+        "@freertos",
+    ],
+)
+
+pw_cc_binary(
+    name = "system_example",
+    # This is marked as testonly because the example app pulls in the RPC unit
+    # test runner. In a real production binary, you wouldn't want to have any
+    # testonly dependencies.
+    testonly = True,
+    srcs = ["example_user_app_init.cc"],
+    # This needs extra platform configuration to work (even on the host), so
+    # don't try to build the cc_binary without it.
+    tags = ["manual"],
+    # TODO(b/365184562): This target does not build with asan and fuzztest.
+    target_compatible_with = select({
+        "//pw_fuzzer:use_fuzztest": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
+    deps = [
+        ":pw_system",
+        "//pw_unit_test:rpc_service",
+    ],
+)
+
+cc_library(
+    name = "async",
+    srcs = [
+        "pw_system_private/threads.h",
+        "system.cc",
+        "threads.cc",
+    ],
+    hdrs = ["public/pw_system/system.h"],
+    features = ["-conversion_warnings"],
+    implementation_deps = [
+        ":async_packet_io",
+        ":device_service",
+        ":file_manager",
+        ":file_service",
+        ":log",
+        ":thread_snapshot_service",
+        ":transfer_service",
+        ":work_queue",
+        "//pw_allocator:best_fit_block_allocator",
+        "//pw_allocator:synchronized_allocator",
+        "//pw_assert:check",
+        "//pw_async2:allocate_task",
+        "//pw_async2:pend_func_task",
+        "//pw_hdlc:router",
+        "//pw_multibuf:simple_allocator",
+        "//pw_rpc/pwpb:echo_service",
+        "//pw_sync:interrupt_spin_lock",
+        "//pw_thread:thread",
+    ] + select({
+        "//pw_cpu_exception:enabled": [
+            ":crash_handler",
+            ":crash_snapshot",
+        ],
+        "//conditions:default": [],
+    }),
+    strip_include_prefix = "public",
+    tags = ["noclangtidy"],
+    deps = [
+        "//pw_allocator:allocator",
+        "//pw_async2:dispatcher",
+        "//pw_channel",
+        "//pw_rpc",
+    ],
+)
+
+cc_library(
+    name = "async_packet_io",
+    srcs = ["async_packet_io.cc"],
+    hdrs = ["public/pw_system/internal/async_packet_io.h"],
+    features = ["-conversion_warnings"],
+    implementation_deps = [
+        "//pw_assert:check",
+        "//pw_log",
+    ],
+    strip_include_prefix = "public",
+    visibility = ["//visibility:private"],
+    deps = [
+        ":config",
+        "//pw_allocator:allocator",
+        "//pw_async2:dispatcher",
+        "//pw_channel",
+        "//pw_channel:forwarding_channel",
+        "//pw_containers:inline_var_len_entry_queue",
+        "//pw_hdlc:router",
+        "//pw_multibuf",
+        "//pw_multibuf:simple_allocator",
+        "//pw_rpc",
+        "//pw_sync:lock_annotations",
+        "//pw_sync:mutex",
+        "//pw_sync:thread_notification",
+        "//pw_thread:thread",
+    ],
+)
+
+pw_cc_test(
+    name = "async_packet_io_test",
+    srcs = ["async_packet_io_test.cc"],
+    features = ["-conversion_warnings"],
+    deps = [
+        ":async_packet_io",
+        "//pw_allocator:testing",
+        "//pw_channel:loopback_channel",
+        "//pw_multibuf:testing",
+    ],
+)
+
+pw_cc_test(
+    name = "system_async_test",
+    srcs = ["system_async_test.cc"],
+    features = ["-conversion_warnings"],
+    deps = [
+        ":async",
+        "//pw_allocator:testing",
+        "//pw_channel:loopback_channel",
+        "//pw_multibuf:testing",
+    ],
+)
+
+pw_cc_binary(
+    name = "system_async_host_example",
+    testonly = True,
+    srcs = ["system_async_host_example.cc"],
+    features = ["-conversion_warnings"],
+    deps = [
+        ":async",
+        "//pw_assert:check",
+        "//pw_channel:epoll_channel",
+        "//pw_multibuf:testing",
+    ],
+)
+
+host_device_simulator_binary(
+    name = "system_async_host_simulator_example",
+    testonly = True,
+    binary = ":system_async_host_example",
+    features = ["-conversion_warnings"],
+)
+
+host_device_simulator_binary(
+    name = "simulator_system_example",
+    testonly = True,
+    binary = ":system_example",
+    features = ["-conversion_warnings"],
+)
+
+platform_data(
+    name = "rp2040_system_example",
+    testonly = True,
+    platform = "//targets/rp2040:rp2040_pw_system_demo",
+    target = ":system_example",
+)
+
+platform_data(
+    name = "rp2350_system_example",
+    testonly = True,
+    platform = "//targets/rp2040:rp2350_pw_system_demo",
+    target = ":system_example",
+)
+
+flash_rp2040(
+    name = "flash_rp2040_system_example",
+    testonly = True,
+    rp2040_binary = ":rp2040_system_example",
+)
+
+flash_rp2350(
+    name = "flash_rp2350_system_example",
+    testonly = True,
+    rp2350_binary = ":rp2350_system_example",
+)
+
+# Start :simulator_system_example and connect to it with pw console.
+device_simulator_console(
+    name = "simulator_system_example_console",
+    testonly = True,
+    features = ["-conversion_warnings"],
+    host_binary = ":simulator_system_example",
+    script = "//pw_system/py:device_sim",
+)
+
+# Conect to a Pico running :system_example over serial with the
+# pw-system-console.
+device_console(
+    name = "rp2040_system_example_console",
+    testonly = True,
+    binary = ":rp2040_system_example",
+    script = "//pw_system/py:pw_system_console",
+)
+
+device_console(
+    name = "rp2350_system_example_console",
+    testonly = True,
+    binary = ":rp2350_system_example",
+    script = "//pw_system/py:pw_system_console",
+)
+
+filegroup(
+    name = "doxygen",
+    srcs = [
+        "public/pw_system/system.h",
+    ],
+)
+
+sphinx_docs_library(
+    name = "docs",
+    srcs = [
+        "Kconfig",
+        "cli.rst",
+        "docs.rst",
+        "system_async_test.cc",
+    ],
+    prefix = "pw_system/",
+    target_compatible_with = incompatible_with_mcu(),
+)

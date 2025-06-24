@@ -1,0 +1,49 @@
+# Copyright 2024 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+load("@rules_python//python:proto.bzl", "py_proto_library")
+load(
+    "//pw_protobuf_compiler:pw_proto_library.bzl",
+    "pwpb_proto_library",
+)
+
+package(
+    default_visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "pw_my_module",
+    hdrs = ["public/pw_my_module/standing_screeb.h"],
+    strip_include_prefix = "public",
+)
+
+proto_library(
+    name = "foo_proto",
+    srcs = select({
+        "//conditions:default": [
+            "foo.proto",
+        ],
+        "//mymodule:condition": [],
+    }),
+)
+
+py_proto_library(
+    name = "foo_proto_pb2",
+    deps = [":foo_proto"],
+)
+
+pwpb_proto_library(
+    name = "foo_proto_pwpb",
+    deps = [":foo_proto"],
+)

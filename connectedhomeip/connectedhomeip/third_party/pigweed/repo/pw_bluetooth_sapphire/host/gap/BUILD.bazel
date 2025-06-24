@@ -1,0 +1,234 @@
+# Copyright 2024 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_python//sphinxdocs:sphinx_docs_library.bzl", "sphinx_docs_library")
+load("//pw_build:compatibility.bzl", "incompatible_with_mcu")
+load("//pw_fuzzer:fuzzer.bzl", "pw_cc_fuzz_test")
+load("//pw_unit_test:pw_cc_test.bzl", "pw_cc_test")
+
+package(
+    default_visibility = ["//visibility:public"],
+    features = ["-layering_check"],
+)
+
+cc_library(
+    name = "definitions",
+    srcs = [
+        "gap.cc",
+    ],
+    hdrs = [
+        "public/pw_bluetooth_sapphire/internal/host/gap/gap.h",
+        "public/pw_bluetooth_sapphire/internal/host/gap/pairing_delegate.h",
+    ],
+    features = ["-conversion_warnings"],
+    strip_include_prefix = "public",
+    tags = ["noclangtidy"],
+    deps = [
+        "//pw_bluetooth_sapphire/host/common",
+        "//pw_bluetooth_sapphire/host/sm:definitions",
+        "//third_party/fuchsia:fit",
+    ],
+)
+
+cc_library(
+    name = "peer",
+    srcs = [
+        "peer.cc",
+        "peer_metrics.cc",
+    ],
+    hdrs = [
+        "public/pw_bluetooth_sapphire/internal/host/gap/peer.h",
+        "public/pw_bluetooth_sapphire/internal/host/gap/peer_metrics.h",
+    ],
+    features = ["-conversion_warnings"],
+    strip_include_prefix = "public",
+    tags = ["noclangtidy"],
+    deps = [
+        ":definitions",
+        "//pw_bluetooth_sapphire/host/common",
+        "//pw_bluetooth_sapphire/host/gatt:persisted_data",
+        "//pw_bluetooth_sapphire/host/hci-spec",
+        "//pw_bluetooth_sapphire/host/sm:definitions",
+        "//pw_bluetooth_sapphire/lib/cpp-string",
+        "//pw_bytes",
+        "//pw_string:utf_codecs",
+    ],
+)
+
+cc_library(
+    name = "gap",
+    srcs = [
+        "adapter.cc",
+        "android_vendor_capabilities.cc",
+        "bredr_connection.cc",
+        "bredr_connection_manager.cc",
+        "bredr_connection_request.cc",
+        "bredr_discovery_manager.cc",
+        "bredr_interrogator.cc",
+        "generic_access_client.cc",
+        "identity_resolving_list.cc",
+        "legacy_pairing_state.cc",
+        "low_energy_address_manager.cc",
+        "low_energy_advertising_manager.cc",
+        "low_energy_connection.cc",
+        "low_energy_connection_handle.cc",
+        "low_energy_connection_manager.cc",
+        "low_energy_connection_request.cc",
+        "low_energy_connector.cc",
+        "low_energy_discovery_manager.cc",
+        "low_energy_interrogator.cc",
+        "pairing_state_manager.cc",
+        "peer_cache.cc",
+        "secure_simple_pairing_state.cc",
+        "types.cc",
+    ],
+    hdrs = [
+        "public/pw_bluetooth_sapphire/internal/host/gap/adapter.h",
+        "public/pw_bluetooth_sapphire/internal/host/gap/adapter_state.h",
+        "public/pw_bluetooth_sapphire/internal/host/gap/android_vendor_capabilities.h",
+        "public/pw_bluetooth_sapphire/internal/host/gap/bonding_data.h",
+        "public/pw_bluetooth_sapphire/internal/host/gap/bredr_connection.h",
+        "public/pw_bluetooth_sapphire/internal/host/gap/bredr_connection_manager.h",
+        "public/pw_bluetooth_sapphire/internal/host/gap/bredr_connection_request.h",
+        "public/pw_bluetooth_sapphire/internal/host/gap/bredr_discovery_manager.h",
+        "public/pw_bluetooth_sapphire/internal/host/gap/bredr_interrogator.h",
+        "public/pw_bluetooth_sapphire/internal/host/gap/event_masks.h",
+        "public/pw_bluetooth_sapphire/internal/host/gap/generic_access_client.h",
+        "public/pw_bluetooth_sapphire/internal/host/gap/identity_resolving_list.h",
+        "public/pw_bluetooth_sapphire/internal/host/gap/legacy_pairing_state.h",
+        "public/pw_bluetooth_sapphire/internal/host/gap/low_energy_address_manager.h",
+        "public/pw_bluetooth_sapphire/internal/host/gap/low_energy_advertising_manager.h",
+        "public/pw_bluetooth_sapphire/internal/host/gap/low_energy_connection.h",
+        "public/pw_bluetooth_sapphire/internal/host/gap/low_energy_connection_handle.h",
+        "public/pw_bluetooth_sapphire/internal/host/gap/low_energy_connection_manager.h",
+        "public/pw_bluetooth_sapphire/internal/host/gap/low_energy_connection_request.h",
+        "public/pw_bluetooth_sapphire/internal/host/gap/low_energy_connector.h",
+        "public/pw_bluetooth_sapphire/internal/host/gap/low_energy_discovery_manager.h",
+        "public/pw_bluetooth_sapphire/internal/host/gap/low_energy_interrogator.h",
+        "public/pw_bluetooth_sapphire/internal/host/gap/low_energy_state.h",
+        "public/pw_bluetooth_sapphire/internal/host/gap/pairing_state_manager.h",
+        "public/pw_bluetooth_sapphire/internal/host/gap/peer_cache.h",
+        "public/pw_bluetooth_sapphire/internal/host/gap/secure_simple_pairing_state.h",
+        "public/pw_bluetooth_sapphire/internal/host/gap/types.h",
+    ],
+    features = ["-conversion_warnings"],
+    implementation_deps = [
+        "//pw_string:utf_codecs",
+    ],
+    strip_include_prefix = "public",
+    tags = ["noclangtidy"],
+    deps = [
+        ":definitions",
+        ":peer",
+        "//pw_async:heap_dispatcher",
+        "//pw_bluetooth_sapphire/host/common",
+        "//pw_bluetooth_sapphire/host/gatt",
+        "//pw_bluetooth_sapphire/host/hci",
+        "//pw_bluetooth_sapphire/host/iso",
+        "//pw_bluetooth_sapphire/host/l2cap",
+        "//pw_bluetooth_sapphire/host/sco",
+        "//pw_bluetooth_sapphire/host/sdp",
+        "//pw_bluetooth_sapphire/host/sm",
+        "//pw_bluetooth_sapphire/host/transport",
+        "//third_party/fuchsia:fit",
+    ],
+)
+
+cc_library(
+    name = "testing",
+    testonly = True,
+    srcs = [
+        "fake_adapter.cc",
+        "fake_pairing_delegate.cc",
+    ],
+    hdrs = [
+        "public/pw_bluetooth_sapphire/internal/host/gap/fake_adapter.h",
+        "public/pw_bluetooth_sapphire/internal/host/gap/fake_pairing_delegate.h",
+    ],
+    features = ["-conversion_warnings"],
+    implementation_deps = [
+        "//pw_unit_test:pw_unit_test.facade",
+    ],
+    strip_include_prefix = "public",
+    deps = [
+        ":definitions",
+        ":gap",
+        "//pw_bluetooth_sapphire/host/common",
+        "//pw_bluetooth_sapphire/host/hci:testing",
+        "//pw_bluetooth_sapphire/host/l2cap",
+        "//pw_bluetooth_sapphire/host/l2cap:testing",
+    ],
+)
+
+pw_cc_test(
+    name = "gap_test",
+    srcs = [
+        "adapter_test.cc",
+        "android_vendor_capabilities_test.cc",
+        "bredr_connection_manager_test.cc",
+        "bredr_connection_request_test.cc",
+        "bredr_discovery_manager_test.cc",
+        "bredr_interrogator_test.cc",
+        "fake_pairing_delegate_test.cc",
+        "identity_resolving_list_test.cc",
+        "legacy_pairing_state_test.cc",
+        "low_energy_address_manager_test.cc",
+        "low_energy_advertising_manager_test.cc",
+        "low_energy_connection_manager_test.cc",
+        "low_energy_discovery_manager_test.cc",
+        "low_energy_interrogator_test.cc",
+        "peer_cache_test.cc",
+        "peer_test.cc",
+        "secure_simple_pairing_state_test.cc",
+        "types_test.cc",
+    ],
+    features = ["-conversion_warnings"],
+    test_main = "//pw_bluetooth_sapphire/host/testing:gtest_main",
+    deps = [
+        ":gap",
+        ":testing",
+        "//pw_bluetooth_sapphire/host/common",
+        "//pw_bluetooth_sapphire/host/gatt:testing",
+        "//pw_bluetooth_sapphire/host/hci:testing",
+        "//pw_bluetooth_sapphire/host/l2cap:testing",
+        "//pw_bluetooth_sapphire/host/sm",
+        "//pw_bluetooth_sapphire/host/sm:testing",
+        "//pw_bluetooth_sapphire/host/testing",
+        "//pw_bluetooth_sapphire/host/testing:fake_controller",
+        "//pw_bluetooth_sapphire/host/testing:mock_controller",
+        "//pw_bluetooth_sapphire/host/testing:test_helpers",
+        "//pw_bluetooth_sapphire/host/transport:testing",
+    ],
+)
+
+pw_cc_fuzz_test(
+    name = "peer_cache_fuzzer",
+    srcs = ["peer_cache_fuzztest.cc"],
+    features = ["-conversion_warnings"],
+    deps = [
+        ":gap",
+        "//pw_async:fake_dispatcher",
+        "//pw_bluetooth_sapphire/host/testing:fuzzing",
+        "//pw_random:fuzzer_generator",
+    ],
+)
+
+sphinx_docs_library(
+    name = "docs",
+    srcs = [
+        "docs.rst",
+    ],
+    target_compatible_with = incompatible_with_mcu(),
+)

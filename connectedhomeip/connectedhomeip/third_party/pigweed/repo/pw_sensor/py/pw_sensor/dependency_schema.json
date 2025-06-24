@@ -1,0 +1,110 @@
+{
+  "title": "Sensor dependency",
+  "description": "A dependency definition of channels and attributes",
+  "type": "object",
+  "properties": {
+    "units": {
+      "type": "object",
+      "description": "A mapping of units to their definitions",
+      "patternProperties": {
+        "^[a-zA-Z_]\\w*$": {
+          "type": "object",
+          "description": "A unit definition",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "A user friendly name for the units"
+            },
+            "description": {
+              "type": "string",
+              "description": "Details about the units."
+            },
+            "symbol": {
+              "type": "string",
+              "description": "The units used to represent the value"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "symbol"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "channels": {
+      "type": "object",
+      "description": "A mapping of channels to their definitions",
+      "patternProperties": {
+        "^[a-zA-Z_]\\w*$": {
+          "type": "object",
+          "description": "A channel definition",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "A user friendly name for the channel, the channel ID will be used if undefined"
+            },
+            "description": {
+              "type": "string",
+              "description": "A description of the channel, the channel ID will be used if undefined"
+            },
+            "units": {
+              "type": "string",
+              "description": "Name of the units entry to use"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "units"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "attributes": {
+      "type": "object",
+      "description": "Mapping of attributes to their definition",
+      "patternProperties": {
+        "^[a-zA-Z_]\\w*$": {
+          "type": "object",
+          "description": "An attribute definition",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "A user friendly name for the attribute, the attribute ID will be used if undefined"
+            },
+            "description": {
+              "type": "string",
+              "description": "A description of the attribute, the attribute ID will be used if undefined"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "triggers": {
+      "type": "object",
+      "description": "A mapping of triggers to their definitions",
+      "patternProperties": {
+        "^[a-zA-Z_]\\w*$": {
+          "type": "object",
+          "description": "A trigger definition",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "The name of the trigger"
+            },
+            "description": {
+              "type": "string",
+              "description": "The description of the trigger"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

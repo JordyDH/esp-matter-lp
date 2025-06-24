@@ -1,0 +1,138 @@
+# Copyright 2019 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_python//sphinxdocs:sphinx_docs_library.bzl", "sphinx_docs_library")
+load("//pw_build:compatibility.bzl", "boolean_constraint_value", "incompatible_with_mcu")
+load("//pw_build:pw_facade.bzl", "pw_facade")
+
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])
+
+# This module has three facades, each of whose backends are set with a
+# different constraint_setting.
+#
+# - entry: This is the library that handles early exception entry and prepares
+#   any CPU state that must be available to the exception handler via the
+#   pw_cpu_exception_State object. The backend for this facade is
+#   architecture-specific.
+constraint_setting(
+    name = "entry_constraint_setting",
+)
+
+# - handler: This facade is backed by an application-specific handler that
+#   determines what to do when an exception is encountered. This may be
+#   capturing a crash report before resetting the device, or in some cases
+#   handling the exception to allow execution to continue.
+constraint_setting(
+    name = "handler_constraint_setting",
+)
+
+# - support: This facade provides architecture-independent functions that may be
+#   helpful for dumping CPU state in various forms. This allows an application
+#   to create an application-specific handler that is portable across multiple
+#   architectures.
+constraint_setting(
+    name = "support_constraint_setting",
+)
+
+pw_facade(
+    name = "entry",
+    hdrs = [
+        "public/pw_cpu_exception/entry.h",
+        "public/pw_cpu_exception/state.h",
+    ],
+    backend = ":entry_backend",
+    strip_include_prefix = "public",
+    deps = [
+        "//pw_preprocessor",
+    ],
+)
+
+pw_facade(
+    name = "handler",
+    srcs = ["start_exception_handler.cc"],
+    hdrs = ["public/pw_cpu_exception/handler.h"],
+    backend = ":handler_backend",
+    implementation_deps = [
+        "//pw_preprocessor",
+    ],
+    strip_include_prefix = "public",
+    deps = [":entry"],
+)
+
+pw_facade(
+    name = "support",
+    hdrs = ["public/pw_cpu_exception/support.h"],
+    backend = ":support_backend",
+    strip_include_prefix = "public",
+    deps = [
+        ":entry",
+    ],
+)
+
+constraint_value(
+    name = "basic_handler_backend",
+    constraint_setting = "//pw_cpu_exception:handler_constraint_setting",
+)
+
+# TODO: https://github.com/bazelbuild/bazel/issues/23003 - this shouldn't be
+# needed, as it should be possible to have a config_setting as to whether
+# the entry_backend is "//pw_build:unspecified_backend" or not, but that doesn't
+# work currently due to the referenced bug.
+boolean_constraint_value(
+    name = "enabled",
+)
+
+cc_library(
+    name = "basic_handler",
+    srcs = ["basic_handler.cc"],
+    deps = [
+        ":entry",
+        ":handler.facade",
+        "//pw_log",
+    ],
+)
+
+# Override-able flags for each facade backend.
+label_flag(
+    name = "entry_backend",
+    build_setting_default = "//pw_build:unspecified_backend",
+)
+
+label_flag(
+    name = "entry_backend_impl",
+    build_setting_default = "//pw_build:unspecified_backend",
+)
+
+label_flag(
+    name = "handler_backend",
+    build_setting_default = "//pw_build:unspecified_backend",
+)
+
+label_flag(
+    name = "support_backend",
+    build_setting_default = "//pw_build:unspecified_backend",
+)
+
+sphinx_docs_library(
+    name = "docs",
+    srcs = [
+        "backends.rst",
+        "docs.rst",
+    ],
+    prefix = "pw_cpu_exception/",
+    target_compatible_with = incompatible_with_mcu(),
+)

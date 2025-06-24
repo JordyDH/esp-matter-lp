@@ -1,0 +1,152 @@
+# Copyright 2021 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_python//sphinxdocs:sphinx_docs_library.bzl", "sphinx_docs_library")
+load("//pw_build:compatibility.bzl", "incompatible_with_mcu")
+load("//pw_build:pw_linker_script.bzl", "pw_linker_script")
+load("//pw_build:python.bzl", "pw_py_binary")
+load(
+    "//pw_build_info:substitute_workspace_status.bzl",
+    "pw_substitute_workspace_status",
+)
+load("//pw_unit_test:pw_cc_test.bzl", "pw_cc_test")
+
+package(
+    default_visibility = ["//visibility:public"],
+)
+
+licenses(["notice"])
+
+cc_library(
+    name = "build_id_header",
+    hdrs = [
+        "public/pw_build_info/build_id.h",
+        "public/pw_build_info/util.h",
+    ],
+    strip_include_prefix = "public",
+    deps = [
+        "//pw_span",
+    ],
+)
+
+# When building for Linux, the linker provides a default linker script.
+# The add_build_id_to_default_script.ld wrapper includes the
+# build_id_linker_snippet.ld script in a way that appends to the
+# default linker script instead of overriding it.
+pw_linker_script(
+    name = "build_id_linker_script",
+    linker_script = "add_build_id_to_default_linker_script.ld",
+    target_compatible_with = ["@platforms//os:linux"],
+)
+
+cc_library(
+    name = "build_id",
+    srcs = [
+        "build_id.cc",
+        "util.cc",
+    ],
+    linkopts = [
+        "-Lexternal/" + repo_name() + "/" + package_name(),
+        "-L" + package_name(),
+        "-Wl,--build-id=sha1",
+    ],
+    # Automatically add the gnu build ID linker sections when building for
+    # Linux. macOS and Windows executables are not supported, and embedded
+    # targets must manually add the snippet to their linker script in a
+    # read-only section.
+    deps = select({
+        "@platforms//os:linux": [
+            ":build_id_linker_script",
+            ":build_id_linker_snippet.ld",
+        ],
+        "//conditions:default": [],
+    }) + [
+        ":build_id_header",
+        "//pw_log",
+        "//pw_preprocessor",
+        "//pw_span",
+        "//pw_string:builder",
+    ],
+)
+
+cc_library(
+    name = "build_id_noop",
+    srcs = [
+        "build_id_noop.cc",
+        "util.cc",
+    ],
+    deps = [
+        ":build_id_header",
+        "//pw_log",
+        "//pw_span",
+        "//pw_string:builder",
+    ],
+)
+
+cc_library(
+    name = "build_id_or_noop",
+    deps = select({
+        "@platforms//os:ios": [":build_id_noop"],
+        "@platforms//os:macos": [":build_id_noop"],
+        "@platforms//os:windows": [":build_id_noop"],
+        "//conditions:default": [":build_id"],
+    }),
+)
+
+pw_cc_test(
+    name = "build_id_test",
+    srcs = ["build_id_test.cc"],
+    # This test is only compatible with linux. macOS and Windows are not
+    # supported, and embedded targets must manually add the snippet to  their
+    # linker scripts
+    target_compatible_with = ["@platforms//os:linux"],
+    deps = [
+        ":build_id",
+        ":build_id_header",
+        "//pw_span",
+    ],
+)
+
+pw_py_binary(
+    name = "substitute_workspace_status_tool",
+    srcs = ["substitute_workspace_status_tool.py"],
+)
+
+pw_substitute_workspace_status(
+    name = "git_build_info",
+    src = "git_build_info.h.in",
+    out = "git_build_info.h",
+)
+
+pw_cc_test(
+    name = "git_build_info_test",
+    srcs = [
+        "git_build_info_test.cc",
+        ":git_build_info",
+    ],
+    tags = ["noclangtidy"],
+    deps = ["//pw_log"],
+)
+
+sphinx_docs_library(
+    name = "docs",
+    srcs = [
+        "add_build_id_to_default_linker_script.ld",
+        "build_id_linker_snippet.ld",
+        "docs.rst",
+    ],
+    prefix = "pw_build_info/",
+    target_compatible_with = incompatible_with_mcu(),
+)

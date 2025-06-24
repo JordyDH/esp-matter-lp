@@ -1,0 +1,328 @@
+# Copyright 2019 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_python//sphinxdocs:sphinx_docs_library.bzl", "sphinx_docs_library")
+load("//pw_build:compatibility.bzl", "incompatible_with_mcu")
+load("//pw_build:glob_dirs.bzl", "glob_dirs", "match_dir", "match_dir_internal")
+load("//pw_build:load_phase_test.bzl", "pw_string_comparison_test", "pw_string_list_comparison_test", "return_error")
+load("//pw_build:pw_cc_binary.bzl", "pw_cc_binary_with_map")
+load("//pw_build:pw_cc_blob_library.bzl", "pw_cc_blob_info", "pw_cc_blob_library")
+load("//pw_build:pw_copy_and_patch_file_test.bzl", "pw_copy_and_patch_file_test")
+load("//pw_build:pw_py_importable_runfile.bzl", "pw_py_importable_runfile")
+load("//pw_unit_test:pw_cc_test.bzl", "pw_cc_test")
+
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])
+
+config_setting(
+    name = "kythe",
+    values = {
+        "define": "kythe_corpus=pigweed.googlesource.com/pigweed/pigweed",
+    },
+)
+
+pw_cc_blob_info(
+    name = "test_blob_aligned",
+    alignas = "512",
+    file_path = "test_blob_0123.bin",
+    symbol_name = "kFirstBlob0123",
+)
+
+pw_cc_blob_info(
+    name = "test_blob_unaligned",
+    file_path = "test_blob_0123.bin",
+    symbol_name = "kSecondBlob0123",
+)
+
+pw_cc_blob_library(
+    name = "test_blob",
+    blobs = [
+        ":test_blob_aligned",
+        ":test_blob_unaligned",
+    ],
+    namespace = "test::ns",
+    out_header = "pw_build/test_blob.h",
+)
+
+pw_cc_test(
+    name = "cc_blob_library_test",
+    srcs = ["cc_blob_library_test.cc"],
+    deps = [":test_blob"],
+)
+
+pw_cc_binary_with_map(
+    name = "cc_binary_with_map",
+    srcs = ["empty_main.cc"],
+    # Only enable on platforms that support -Map linker flag
+    target_compatible_with = ["@platforms//os:linux"],
+)
+
+# Bazel produces root-relative file paths without the -ffile-prefix-map option.
+pw_cc_test(
+    name = "file_prefix_map_test",
+    srcs = [
+        "file_prefix_map_test.cc",
+        "pw_build_private/file_prefix_map_test.h",
+    ],
+    defines = [
+        "PW_BUILD_EXPECTED_HEADER_PATH=\\\"pw_build/pw_build_private/file_prefix_map_test.h\\\"",
+        "PW_BUILD_EXPECTED_SOURCE_PATH=\\\"pw_build/file_prefix_map_test.cc\\\"",
+    ],
+    tags = ["noclangtidy"],
+)
+
+label_flag(
+    name = "default_module_config",
+    # The default module config is empty.
+    build_setting_default = ":empty_cc_library",
+)
+
+cc_library(
+    name = "test_module_config",
+    defines = [
+        "PW_THREAD_FREERTOS_CONFIG_JOINING_ENABLED=1",
+    ],
+)
+
+pw_cc_test(
+    name = "module_config_test",
+    srcs = ["module_config_test.cc"],
+    # This test requires a special configuration. It's run in CI, and can be
+    # run manually via,
+    #
+    #   bazel build \
+    #     --config=stm32f429i_freertos \
+    #     --//pw_thread_freertos:config_override=//pw_build:test_module_config \
+    #     //pw_build:module_config_test
+    tags = ["manual"],
+    deps = ["//pw_thread:thread"],
+)
+
+# This empty library is used as a placeholder for label flags that need to
+# point to a library of some kind, but don't actually need the dependency to
+# amount to anything.
+cc_library(
+    name = "empty_cc_library",
+)
+
+# A special target used instead of a cc_library as the default condition in
+# backend multiplexer select statements to signal that a facade is in an
+# unconfigured state. This produces better error messages than e.g. using an
+# invalid label.
+#
+# If you're a user whose build errored out because a library transitively
+# depended on this target: the platform you're targeting did not specify which
+# backend to use for some facade. Look at the previous step in the dependency
+# chain (printed with the error) to figure out which one.
+cc_library(
+    name = "unspecified_backend",
+    target_compatible_with = ["@platforms//:incompatible"],
+)
+
+# Additional libraries that all binaries using Pigweed should be linked against.
+#
+# This is analogous to GN's pw_build_LINK_DEPS. See
+# https://pigweed.dev/build_system.html#docs-build-system-bazel-link-extra-lib
+# for more details.
+cc_library(
+    name = "default_link_extra_lib",
+    deps = [
+        "//pw_assert:assert_backend_impl",
+        "//pw_assert:check_backend_impl",
+        "//pw_log:backend_impl",
+    ],
+)
+
+# Linker script utility PW_MUST_PLACE
+cc_library(
+    name = "must_place",
+    hdrs = ["public/pw_build/must_place.ld.h"],
+    strip_include_prefix = "public",
+)
+
+cc_library(
+    name = "linker_symbol",
+    hdrs = ["public/pw_build/linker_symbol.h"],
+    strip_include_prefix = "public",
+    deps = [
+        "//third_party/fuchsia:stdcompat",
+    ],
+)
+
+pw_cc_test(
+    name = "linker_symbol_test",
+    srcs = ["linker_symbol_test.cc"],
+    linkopts = [
+        "-T$(execpath linker_symbol_test.ld)",
+    ],
+    target_compatible_with = [
+        "@platforms//os:linux",
+    ],
+    deps = [
+        ":linker_symbol",
+        ":linker_symbol_test.ld",
+    ],
+)
+
+pw_string_list_comparison_test(
+    name = "simple_glob",
+    actual = glob_dirs(
+        ["test_data/**"],
+        exclude = ["test_data/pw_copy_and_patch_file/**"],
+    ),
+    expected = [
+        "test_data",
+        "test_data/glob_dirs",
+        "test_data/glob_dirs/nested_1",
+        "test_data/glob_dirs/nested_1/foo",
+        "test_data/glob_dirs/nested_2",
+    ],
+)
+
+pw_string_comparison_test(
+    name = "single_match",
+    actual = match_dir(["test_data/glob_dirs/nested_1"]),
+    expected = "test_data/glob_dirs/nested_1",
+)
+
+pw_string_comparison_test(
+    name = "no_match_single",
+    actual = match_dir(["test_data/glob_dirs/nested_1/nope"]),
+    expected = None,
+)
+
+pw_string_comparison_test(
+    name = "no_match_single_fail",
+    actual = match_dir_internal(
+        ["test_data/glob_dirs/**/*.txt"],
+        _fail_callback = return_error,
+        allow_empty = False,
+    ),
+    expected = "glob pattern [\"test_data/glob_dirs/**/*.txt\"] didn't match anything, but allow_empty is set to False",
+)
+
+pw_string_comparison_test(
+    name = "bad_match_multiple",
+    actual = match_dir_internal(
+        ["test_data/glob_dirs/**"],
+        _fail_callback = return_error,
+        allow_empty = False,
+    ),
+    expected = "glob pattern [\"test_data/glob_dirs/**\"] matches multiple directories when only one was requested: [\"test_data/glob_dirs\", \"test_data/glob_dirs/nested_1\", \"test_data/glob_dirs/nested_1/foo\", \"test_data/glob_dirs/nested_2\"]",
+)
+
+pw_string_comparison_test(
+    name = "match_exclusions",
+    actual = match_dir(
+        ["test_data/glob_dirs/**"],
+        allow_empty = False,
+        exclude = ["test_data/glob_dirs/*/**"],
+    ),
+    expected = "test_data/glob_dirs",
+)
+
+pw_string_list_comparison_test(
+    name = "single_match_glob",
+    actual = glob_dirs(["test_data/glob_dirs/nested_1"]),
+    expected = [
+        "test_data/glob_dirs/nested_1",
+    ],
+)
+
+pw_string_list_comparison_test(
+    name = "partial_match_glob",
+    actual = glob_dirs(["test_data/glob_dirs/nested_*"]),
+    expected = [
+        "test_data/glob_dirs/nested_1",
+        "test_data/glob_dirs/nested_2",
+    ],
+)
+
+pw_string_list_comparison_test(
+    name = "nested_match_glob",
+    actual = glob_dirs(["test_data/glob_dirs/*/foo"]),
+    expected = [
+        "test_data/glob_dirs/nested_1/foo",
+    ],
+)
+
+pw_string_list_comparison_test(
+    name = "no_match_glob",
+    actual = glob_dirs(["test_data/glob_dirs/others/**"]),
+    expected = [
+    ],
+)
+
+pw_string_list_comparison_test(
+    name = "no_match_subpackage",
+    actual = glob_dirs(
+        ["test_data/glob_dirs/subpackage"],
+        allow_empty = True,
+    ),
+    expected = [],
+)
+
+pw_copy_and_patch_file_test(
+    name = "patch_file_basic",
+    src = "test_data/pw_copy_and_patch_file/basic.txt",
+    out = "test_data/pw_copy_and_patch_file/patched_basic.txt",
+    expected = "test_data/pw_copy_and_patch_file/basic.expected",
+    patch_file = "test_data/pw_copy_and_patch_file/basic.patch",
+)
+
+pw_py_importable_runfile(
+    name = "test_runfile",
+    testonly = True,
+    src = "test_data/test_runfile.txt",
+    visibility = ["//pw_build:__subpackages__"],
+)
+
+pw_py_importable_runfile(
+    name = "test_runfile_remapped",
+    testonly = True,
+    src = "test_data/test_runfile.txt",
+    import_location = "pw_build.another_test_runfile",
+    visibility = ["//pw_build:__subpackages__"],
+)
+
+filegroup(
+    name = "doxygen",
+    srcs = [
+        "public/pw_build/linker_symbol.h",
+        "public/pw_build/must_place.ld.h",
+    ],
+)
+
+sphinx_docs_library(
+    name = "docs",
+    srcs = [
+        "bazel.rst",
+        "cmake.rst",
+        "docs.rst",
+        "gn.rst",
+        "linker_scripts.rst",
+        "pigweed.bazelrc",
+        "pigweed_recommended.bazelrc",
+        "project_builder.rst",
+        "python.gni",
+        "python.rst",
+        "python_api.rst",
+        "python_gn_args.gni",
+        "//pw_build/py:docs",
+    ],
+    prefix = "pw_build/",
+    target_compatible_with = incompatible_with_mcu(),
+)

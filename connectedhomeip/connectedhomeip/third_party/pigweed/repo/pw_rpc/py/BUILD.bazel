@@ -1,0 +1,271 @@
+# Copyright 2020 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+load("@rules_python//python:defs.bzl", "py_library")
+load("@rules_python//sphinxdocs:sphinx_docs_library.bzl", "sphinx_docs_library")
+load("//pw_build:compatibility.bzl", "incompatible_with_mcu")
+load("//pw_build:python.bzl", "pw_py_binary", "pw_py_test")
+
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])
+
+filegroup(
+    name = "pw_rpc_common_sources",
+    srcs = [
+        "pw_rpc/callback_client/__init__.py",
+        "pw_rpc/callback_client/call.py",
+        "pw_rpc/callback_client/errors.py",
+        "pw_rpc/callback_client/impl.py",
+        "pw_rpc/codegen.py",
+        "pw_rpc/codegen_nanopb.py",
+        "pw_rpc/codegen_pwpb.py",
+        "pw_rpc/codegen_raw.py",
+        "pw_rpc/console_tools/__init__.py",
+        "pw_rpc/console_tools/console.py",
+        "pw_rpc/console_tools/functions.py",
+        "pw_rpc/console_tools/watchdog.py",
+        "pw_rpc/descriptors.py",
+        "pw_rpc/ids.py",
+        "pw_rpc/packets.py",
+        "pw_rpc/plugin.py",
+        "pw_rpc/plugin_nanopb.py",
+        "pw_rpc/plugin_pwpb.py",
+        "pw_rpc/plugin_raw.py",
+    ],
+)
+
+pw_py_binary(
+    name = "plugin_raw",
+    srcs = [":pw_rpc_common_sources"],
+    imports = ["."],
+    main = "pw_rpc/plugin_raw.py",
+    python_version = "PY3",
+    deps = [
+        "//pw_protobuf/py:plugin_library",
+        "//pw_protobuf_compiler/py:pw_protobuf_compiler",
+        "//pw_status/py:pw_status",
+        "@com_google_protobuf//:protobuf_python",
+    ],
+)
+
+pw_py_binary(
+    name = "plugin_nanopb",
+    srcs = [":pw_rpc_common_sources"],
+    imports = ["."],
+    main = "pw_rpc/plugin_nanopb.py",
+    python_version = "PY3",
+    deps = [
+        "//pw_protobuf/py:plugin_library",
+        "//pw_protobuf_compiler/py:pw_protobuf_compiler",
+        "//pw_status/py:pw_status",
+        "@com_google_protobuf//:protobuf_python",
+    ],
+)
+
+pw_py_binary(
+    name = "plugin_pwpb",
+    srcs = [":pw_rpc_common_sources"],
+    imports = ["."],
+    main = "pw_rpc/plugin_pwpb.py",
+    python_version = "PY3",
+    deps = [
+        "//pw_protobuf/py:plugin_library",
+        "//pw_protobuf_compiler/py:pw_protobuf_compiler",
+        "//pw_status/py:pw_status",
+        "@com_google_protobuf//:protobuf_python",
+    ],
+)
+
+py_library(
+    name = "pw_rpc",
+    srcs = [
+        "pw_rpc/__init__.py",
+        "pw_rpc/client.py",
+        "pw_rpc/client_utils.py",
+        ":pw_rpc_common_sources",
+    ],
+    imports = ["."],
+    deps = [
+        "//pw_protobuf/py:pw_protobuf",
+        "//pw_protobuf_compiler/py:pw_protobuf_compiler",
+        "//pw_rpc:internal_packet_proto_pb2",
+        "//pw_status/py:pw_status",
+        "//pw_stream/py:pw_stream",
+    ],
+)
+
+py_library(
+    name = "pw_rpc_benchmark",
+    srcs = [
+        "pw_rpc/benchmark/__init__.py",
+        "pw_rpc/benchmark/benchmark.py",
+        "pw_rpc/benchmark/benchmark_results.py",
+    ],
+    imports = ["."],
+    deps = [
+        ":pw_rpc",
+        "//pw_rpc:benchmark_py_pb2",
+        "//pw_rpc:benchmark_raw_rpc",
+    ],
+)
+
+pw_py_test(
+    name = "goodput_test",
+    size = "small",
+    srcs = [
+        "tests/benchmark/goodput_test.py",
+    ],
+    deps = [
+        ":pw_rpc",
+        ":pw_rpc_benchmark",
+        "//pw_protobuf_compiler:pw_protobuf_compiler_protos_py_pb2",
+        "//pw_rpc:benchmark_py_pb2",
+        "//pw_rpc:echo_py_pb2",
+        "//pw_rpc:internal_packet_proto_pb2",
+        "//pw_status/py:pw_status",
+        "//pw_system/py:pw_system_lib",
+    ],
+)
+
+pw_py_test(
+    name = "callback_client_test",
+    size = "small",
+    srcs = [
+        "tests/callback_client_test.py",
+    ],
+    data = [
+        "@com_google_protobuf//:protoc",
+    ],
+    env = {
+        "PROTOC": "$(rootpath @com_google_protobuf//:protoc)",
+    },
+    deps = [
+        ":pw_rpc",
+        "//pw_protobuf_compiler:pw_protobuf_compiler_protos_py_pb2",
+        "//pw_rpc:internal_packet_proto_pb2",
+        "//pw_status/py:pw_status",
+    ],
+)
+
+pw_py_test(
+    name = "client_test",
+    size = "small",
+    srcs = [
+        "tests/client_test.py",
+    ],
+    data = [
+        "@com_google_protobuf//:protoc",
+    ],
+    env = {
+        "PROTOC": "$(rootpath @com_google_protobuf//:protoc)",
+    },
+    deps = [
+        ":pw_rpc",
+        "//pw_rpc:internal_packet_proto_pb2",
+        "//pw_status/py:pw_status",
+    ],
+)
+
+pw_py_test(
+    name = "descriptors_test",
+    size = "small",
+    srcs = [
+        "tests/descriptors_test.py",
+    ],
+    data = [
+        "@com_google_protobuf//:protoc",
+    ],
+    env = {
+        "PROTOC": "$(rootpath @com_google_protobuf//:protoc)",
+    },
+    deps = [
+        ":pw_rpc",
+        "//pw_protobuf_compiler:pw_protobuf_compiler_protos_py_pb2",
+        "@com_google_protobuf//:protobuf_python",
+    ],
+)
+
+pw_py_test(
+    name = "ids_test",
+    size = "small",
+    srcs = [
+        "tests/ids_test.py",
+    ],
+    deps = [
+        ":pw_rpc",
+        "//pw_build/py:pw_build",
+        "//pw_protobuf_compiler:pw_protobuf_compiler_protos_py_pb2",
+    ],
+)
+
+pw_py_test(
+    name = "packets_test",
+    size = "small",
+    srcs = [
+        "tests/packets_test.py",
+    ],
+    deps = [
+        ":pw_rpc",
+        "//pw_rpc:internal_packet_proto_pb2",
+        "//pw_status/py:pw_status",
+    ],
+)
+
+pw_py_test(
+    name = "console_tools_test",
+    size = "small",
+    srcs = [
+        "tests/console_tools/console_tools_test.py",
+    ],
+    data = [
+        "@com_google_protobuf//:protoc",
+    ],
+    env = {
+        "PROTOC": "$(rootpath @com_google_protobuf//:protoc)",
+    },
+    deps = [
+        ":pw_rpc",
+    ],
+)
+
+pw_py_test(
+    name = "functions_test",
+    size = "small",
+    srcs = [
+        "tests/console_tools/functions_test.py",
+    ],
+    deps = [
+        ":pw_rpc",
+    ],
+)
+
+pw_py_test(
+    name = "watchdog_test",
+    size = "small",
+    srcs = [
+        "tests/console_tools/watchdog_test.py",
+    ],
+    deps = [
+        ":pw_rpc",
+    ],
+)
+
+sphinx_docs_library(
+    name = "docs",
+    srcs = [
+        "docs.rst",
+    ],
+    target_compatible_with = incompatible_with_mcu(),
+)

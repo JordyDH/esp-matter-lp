@@ -1,0 +1,89 @@
+# Copyright (c) 2022 Project CHIP Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: User Label Cluster Tests
+
+config:
+    nodeId: 0x12344321
+    cluster: "User Label"
+    endpoint: 0
+
+tests:
+    - label: "Wait for the commissioned device to be retrieved"
+      cluster: "DelayCommands"
+      command: "WaitForCommissionee"
+      arguments:
+          values:
+              - name: "nodeId"
+                value: nodeId
+
+    - label: "Attempt to write overly long item for label"
+      command: "writeAttribute"
+      attribute: "LabelList"
+      arguments:
+          value:
+              [
+                  {
+                      Label: "this is longer than sixteen characters",
+                      Value: "bedroom 2",
+                  },
+              ]
+      response:
+          error: CONSTRAINT_ERROR
+
+    - label: "Attempt to write overly long item for value"
+      command: "writeAttribute"
+      attribute: "LabelList"
+      arguments:
+          value:
+              [
+                  {
+                      Label: "test",
+                      Value: "this is longer than sixteen characters",
+                  },
+              ]
+      response:
+          error: CONSTRAINT_ERROR
+
+    - label: "Attempt to write a large label list"
+      command: "writeAttribute"
+      attribute: "LabelList"
+      arguments:
+          value: [
+                  # Example repeated user labels to blow up the maximum allowed
+                  { Label: "roomName", Value: "master bedroom 1" },
+                  { Label: "orientation", Value: "east" },
+                  { Label: "floor", Value: "2" },
+                  { Label: "roomType", Value: "bedroom" },
+                  { Label: "someKey5", Value: "someVal5" },
+                  { Label: "someKey6", Value: "someVal6" },
+                  { Label: "someKey7", Value: "someVal7" },
+                  { Label: "someKey8", Value: "someVal8" },
+                  { Label: "someKey9", Value: "someVal9" },
+                  { Label: "someKey10", Value: "someVal10" },
+                  { Label: "someKey11", Value: "someVal11" },
+                  { Label: "someKey12", Value: "someVal12" },
+                  { Label: "someKey13", Value: "someVal13" },
+                  { Label: "someKey14", Value: "someVal14" },
+                  { Label: "someKey15", Value: "someVal15" },
+                  { Label: "someKey16", Value: "someVal16" },
+                  { Label: "someKey17", Value: "someVal17" },
+                  { Label: "someKey18", Value: "someVal18" },
+                  { Label: "someKey19", Value: "someVal19" },
+                  { Label: "someKey20", Value: "someVal20" },
+              ]
+      response:
+          # When the cluster runs out of capacity to store these entries,
+          # we expect a RESOURCE_EXHAUSTED get returned.
+          error: RESOURCE_EXHAUSTED

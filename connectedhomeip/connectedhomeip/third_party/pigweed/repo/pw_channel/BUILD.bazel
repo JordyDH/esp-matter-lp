@@ -1,0 +1,248 @@
+# Copyright 2024 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_python//sphinxdocs:sphinx_docs_library.bzl", "sphinx_docs_library")
+load("//pw_build:compatibility.bzl", "incompatible_with_mcu")
+load("//pw_unit_test:pw_cc_test.bzl", "pw_cc_test")
+
+package(
+    default_visibility = ["//visibility:public"],
+)
+
+licenses(["notice"])
+
+cc_library(
+    name = "pw_channel",
+    hdrs = [
+        "public/pw_channel/channel.h",
+        "public/pw_channel/internal/channel_specializations.h",
+        "public/pw_channel/properties.h",
+    ],
+    features = ["-conversion_warnings"],
+    strip_include_prefix = "public",
+    tags = ["noclangtidy"],
+    deps = [
+        "//pw_assert:assert",
+        "//pw_async2:dispatcher",
+        "//pw_async2:poll",
+        "//pw_bytes",
+        "//pw_multibuf",
+        "//pw_result",
+        "//pw_span",
+        "//pw_status",
+        "//pw_toolchain:sibling_cast",
+    ],
+)
+
+pw_cc_test(
+    name = "channel_test",
+    srcs = ["channel_test.cc"],
+    features = ["-conversion_warnings"],
+    deps = [
+        ":pw_channel",
+        "//pw_allocator:testing",
+        "//pw_assert:check",
+        "//pw_compilation_testing:negative_compilation_testing",
+        "//pw_multibuf:allocator",
+        "//pw_multibuf:allocator_async",
+        "//pw_multibuf:simple_allocator",
+        "//pw_preprocessor",
+    ],
+)
+
+cc_library(
+    name = "forwarding_channel",
+    srcs = ["forwarding_channel.cc"],
+    hdrs = ["public/pw_channel/forwarding_channel.h"],
+    features = ["-conversion_warnings"],
+    strip_include_prefix = "public",
+    deps = [
+        ":pw_channel",
+        "//pw_async2:dispatcher",
+        "//pw_async2:poll",
+        "//pw_multibuf:allocator",
+        "//pw_multibuf:allocator_async",
+        "//pw_sync:lock_annotations",
+        "//pw_sync:mutex",
+    ],
+)
+
+pw_cc_test(
+    name = "forwarding_channel_test",
+    srcs = ["forwarding_channel_test.cc"],
+    features = ["-conversion_warnings"],
+    deps = [
+        ":forwarding_channel",
+        "//pw_allocator:testing",
+        "//pw_multibuf:header_chunk_region_tracker",
+        "//pw_multibuf:simple_allocator",
+        "//pw_string:string",
+    ],
+)
+
+cc_library(
+    name = "loopback_channel",
+    srcs = ["loopback_channel.cc"],
+    hdrs = ["public/pw_channel/loopback_channel.h"],
+    features = ["-conversion_warnings"],
+    strip_include_prefix = "public",
+    deps = [
+        ":pw_channel",
+        "//pw_async2:dispatcher",
+        "//pw_async2:poll",
+        "//pw_multibuf",
+        "//pw_multibuf:allocator",
+        "//pw_multibuf:allocator_async",
+    ],
+)
+
+pw_cc_test(
+    name = "loopback_channel_test",
+    srcs = ["loopback_channel_test.cc"],
+    features = ["-conversion_warnings"],
+    deps = [
+        ":loopback_channel",
+        ":pw_channel",
+        "//pw_allocator:testing",
+        "//pw_assert:check",
+        "//pw_async2:dispatcher",
+        "//pw_bytes",
+        "//pw_multibuf:allocator_async",
+        "//pw_multibuf:testing",
+        "//pw_status",
+    ],
+)
+
+cc_library(
+    name = "epoll_channel",
+    srcs = ["epoll_channel.cc"],
+    hdrs = ["public/pw_channel/epoll_channel.h"],
+    features = ["-conversion_warnings"],
+    strip_include_prefix = "public",
+    target_compatible_with = ["@platforms//os:linux"],
+    deps = [
+        ":pw_channel",
+        "//pw_async2:dispatcher",
+        "//pw_async2:poll",
+        "//pw_log",
+        "//pw_multibuf",
+        "//pw_multibuf:allocator",
+        "//pw_multibuf:allocator_async",
+        "//pw_status",
+    ],
+)
+
+pw_cc_test(
+    name = "epoll_channel_test",
+    srcs = ["epoll_channel_test.cc"],
+    features = ["-conversion_warnings"],
+    target_compatible_with = ["@platforms//os:linux"],
+    deps = [
+        ":epoll_channel",
+        ":pw_channel",
+        "//pw_assert:check",
+        "//pw_async2:dispatcher",
+        "//pw_bytes",
+        "//pw_multibuf:allocator_async",
+        "//pw_multibuf:testing",
+        "//pw_status",
+        "//pw_thread:sleep",
+        "//pw_thread:thread",
+        "//pw_thread_stl:options",
+    ],
+)
+
+cc_library(
+    name = "rp2_stdio_channel",
+    srcs = ["rp2_stdio_channel.cc"],
+    hdrs = ["public/pw_channel/rp2_stdio_channel.h"],
+    implementation_deps = ["//pw_assert:check"],
+    strip_include_prefix = "public",
+    target_compatible_with = [
+        "//pw_build/constraints/chipset:rp2040",
+    ],
+    deps = [
+        ":pw_channel",
+        "//pw_log",
+        "//pw_multibuf:allocator",
+        "//pw_multibuf:allocator_async",
+        "@pico-sdk//src/rp2_common/pico_stdlib",
+    ],
+)
+
+cc_library(
+    name = "stream_channel",
+    srcs = ["stream_channel.cc"],
+    hdrs = ["public/pw_channel/stream_channel.h"],
+    features = ["-conversion_warnings"],
+    strip_include_prefix = "public",
+    deps = [
+        ":pw_channel",
+        "//pw_async2:dispatcher",
+        "//pw_log",
+        "//pw_multibuf",
+        "//pw_multibuf:allocator",
+        "//pw_multibuf:allocator_async",
+        "//pw_status",
+        "//pw_stream",
+        "//pw_sync:interrupt_spin_lock",
+        "//pw_sync:thread_notification",
+        "//pw_thread:thread",
+    ],
+)
+
+pw_cc_test(
+    name = "stream_channel_test",
+    srcs = ["stream_channel_test.cc"],
+    features = ["-conversion_warnings"],
+    deps = [
+        ":stream_channel",
+        "//pw_async2:pend_func_task",
+        "//pw_bytes",
+        "//pw_multibuf:allocator_async",
+        "//pw_multibuf:testing",
+        "//pw_status",
+        "//pw_stream",
+        "//pw_stream:mpsc_stream",
+        "//pw_thread:test_thread_context",
+        "//pw_thread:thread",
+        "//pw_toolchain:globals",
+        "//pw_toolchain:no_destructor",
+    ],
+)
+
+filegroup(
+    name = "doxygen",
+    srcs = [
+        "public/pw_channel/channel.h",
+        "public/pw_channel/epoll_channel.h",
+        "public/pw_channel/forwarding_channel.h",
+        "public/pw_channel/loopback_channel.h",
+        "public/pw_channel/rp2_stdio_channel.h",
+        "public/pw_channel/stream_channel.h",
+    ],
+)
+
+sphinx_docs_library(
+    name = "docs",
+    srcs = [
+        "design.rst",
+        "docs.rst",
+        "guides.rst",
+        "reference.rst",
+    ],
+    prefix = "pw_channel/",
+    target_compatible_with = incompatible_with_mcu(),
+)

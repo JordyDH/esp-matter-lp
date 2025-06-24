@@ -1,0 +1,206 @@
+# Copyright 2020 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
+load("@rules_python//python:proto.bzl", "py_proto_library")
+load("@rules_python//sphinxdocs:sphinx_docs_library.bzl", "sphinx_docs_library")
+load("//pw_build:compatibility.bzl", "incompatible_with_mcu")
+load("//pw_build:copy_to_bin.bzl", "copy_to_bin")
+load("//pw_protobuf_compiler:pw_proto_filegroup.bzl", "pw_proto_filegroup")
+load(
+    "//pw_protobuf_compiler:pw_proto_library.bzl",
+    "nanopb_proto_library",
+    "pwpb_proto_library",
+)
+load("//pw_unit_test:pw_cc_test.bzl", "pw_cc_test")
+
+package(
+    default_visibility = ["//visibility:public"],
+    features = ["-layering_check"],
+)
+
+licenses(["notice"])
+
+pw_cc_test(
+    name = "nanopb_test",
+    srcs = ["nanopb_test.cc"],
+    deps = [":pw_protobuf_compiler_nanopb_protos_nanopb"],
+)
+
+pw_cc_test(
+    name = "pwpb_test",
+    srcs = ["pwpb_test.cc"],
+    features = ["-conversion_warnings"],
+    deps = [
+        "//pw_protobuf_compiler/pwpb_test_protos:pwpb_test_pw_proto",
+        "//pw_string",
+    ],
+)
+
+proto_library(
+    name = "pwpb_test_proto_no_prefix",
+    srcs = ["pwpb_no_prefix_test_protos/pwpb_test_no_prefix.proto"],
+    strip_import_prefix = "/pw_protobuf_compiler/pwpb_no_prefix_test_protos",
+    deps = [
+        "//pw_protobuf:field_options_proto",
+    ],
+)
+
+pwpb_proto_library(
+    name = "pwpb_test_pw_proto_no_prefix",
+    deps = [
+        ":pwpb_test_proto_no_prefix",
+    ],
+)
+
+pw_cc_test(
+    name = "pwpb_test_no_prefix",
+    srcs = ["pwpb_test_no_prefix.cc"],
+    features = ["-conversion_warnings"],
+    deps = [
+        ":pwpb_test_pw_proto_no_prefix",
+        "//pw_string",
+    ],
+)
+
+py_proto_library(
+    name = "pw_protobuf_compiler_protos_py_pb2",
+    deps = [":pw_protobuf_compiler_protos"],
+)
+
+proto_library(
+    name = "pw_protobuf_compiler_protos",
+    srcs = [
+        "pw_protobuf_compiler_protos/nested/more_nesting/test.proto",
+        "pw_protobuf_compiler_protos/test.proto",
+    ],
+    strip_import_prefix = "/pw_protobuf_compiler",
+)
+
+proto_library(
+    name = "pw_protobuf_compiler_nanopb_protos",
+    srcs = ["nanopb_test_protos/nanopb_test.proto"],
+    deps = ["@nanopb//:nanopb_proto"],
+)
+
+nanopb_proto_library(
+    name = "pw_protobuf_compiler_nanopb_protos_nanopb",
+    deps = [":pw_protobuf_compiler_nanopb_protos"],
+)
+
+py_proto_library(
+    name = "pw_protobuf_compiler_nanopb_protos_py_pb2",
+    deps = [":pw_protobuf_compiler_nanopb_protos"],
+)
+
+pw_cc_test(
+    name = "nested_packages_test",
+    srcs = ["nested_packages_test.cc"],
+    features = ["-conversion_warnings"],
+    deps = [
+        "//pw_protobuf_compiler/pw_nested_packages:aggregate_pwpb",
+        "//pw_protobuf_compiler/pw_nested_packages:aggregate_wrapper_pwpb",
+        "//pw_protobuf_compiler/pw_nested_packages/data_type/id:id_pwpb",
+        "//pw_protobuf_compiler/pw_nested_packages/data_type/thing:thing_pwpb",
+        "//pw_protobuf_compiler/pw_nested_packages/data_type/thing:type_of_thing_pwpb",
+    ],
+)
+
+sphinx_docs_library(
+    name = "docs",
+    srcs = [
+        "docs.rst",
+    ],
+    prefix = "pw_protobuf_compiler/",
+    target_compatible_with = incompatible_with_mcu(),
+)
+
+copy_to_bin(
+    name = "js_protos",
+    srcs = [
+        "pw_protobuf_compiler_protos/nested/more_nesting/test.proto",
+        "pw_protobuf_compiler_protos/test.proto",
+    ],
+)
+
+pw_proto_filegroup(
+    name = "prefix_tests_proto_with_options",
+    srcs = ["nanopb_test_protos/prefix_tests.proto"],
+    options_files = ["nanopb_test_protos/prefix_tests.options"],
+)
+
+proto_library(
+    name = "prefix_tests_default_proto",
+    srcs = [":prefix_tests_proto_with_options"],
+)
+
+nanopb_proto_library(
+    name = "prefix_tests_default_nanopb",
+    deps = [":prefix_tests_default_proto"],
+)
+
+pw_cc_test(
+    name = "prefix_default_test",
+    srcs = ["prefix_test.cc"],
+    local_defines = ["PW_PROTOBUF_COMPILER_IMPORT=DEFAULT"],
+    deps = [
+        ":prefix_tests_default_nanopb",
+        "//pw_status",
+        "//pw_string:util",
+    ],
+)
+
+proto_library(
+    name = "prefix_tests_strip_import_prefix_proto",
+    srcs = [":prefix_tests_proto_with_options"],
+    strip_import_prefix = "/pw_protobuf_compiler/nanopb_test_protos",
+)
+
+nanopb_proto_library(
+    name = "prefix_tests_strip_import_prefix_nanopb",
+    deps = [":prefix_tests_strip_import_prefix_proto"],
+)
+
+pw_cc_test(
+    name = "prefix_strip_import_prefix_test",
+    srcs = ["prefix_test.cc"],
+    local_defines = ["PW_PROTOBUF_COMPILER_IMPORT=STRIP_IMPORT_PREFIX"],
+    deps = [
+        ":prefix_tests_strip_import_prefix_nanopb",
+        "//pw_status",
+        "//pw_string:util",
+    ],
+)
+
+proto_library(
+    name = "prefix_tests_import_prefix_proto",
+    srcs = [":prefix_tests_proto_with_options"],
+    import_prefix = "some_prefix",
+    strip_import_prefix = "/pw_protobuf_compiler/nanopb_test_protos",
+)
+
+nanopb_proto_library(
+    name = "prefix_tests_import_prefix_nanopb",
+    deps = [":prefix_tests_import_prefix_proto"],
+)
+
+pw_cc_test(
+    name = "prefix_import_prefix_test",
+    srcs = ["prefix_test.cc"],
+    local_defines = ["PW_PROTOBUF_COMPILER_IMPORT=IMPORT_PREFIX"],
+    deps = [
+        ":prefix_tests_import_prefix_nanopb",
+        "//pw_status",
+        "//pw_string:util",
+    ],
+)

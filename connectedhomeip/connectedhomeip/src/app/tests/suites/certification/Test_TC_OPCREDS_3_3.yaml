@@ -1,0 +1,843 @@
+# Copyright (c) 2021 Project CHIP Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# Auto-generated scripts for harness use only, please review before automation. The endpoints and cluster names are currently set to default
+
+name: 15.3.1. [TC-OPCREDS-3.3] Attribute-NOCs, Commands [DUT-Client]
+
+PICS:
+    - OPCREDS.C
+
+config:
+    nodeId: 0x12344321
+    cluster: "Basic Information"
+    endpoint: 0
+
+tests:
+    - label: "Note"
+      verification: |
+          Chip-tool command used below are an example to verify the  DUT as client test cases. For certification test, we expect DUT should have a capability or way to run the equivalent command.
+      disabled: true
+
+    - label:
+          "Step 1: Factory Reset TH (to ensure NOC list is empty at the
+          beginning of the following steps)"
+      verification: |
+          On both DUT and TH side, on Raspi we do factory reset with the below command. The DUT for cert should follow vendor specific procedure for factory reset
+          sudo rm -rf /tmp/chip_*
+      disabled: true
+
+    - label: "Step 2: Start the commissioning process of TH with DUT"
+      verification: |
+          On dut(chip-tool) side:
+          ./chip-tool pairing ble-wifi 1 GRLPrivate_EXT matter123 20202021 3840 --trace_decode 1
+          [1641381202.376419][5628:5633] CHIP:CTL: Received success response 0x3df8
+
+          On TH(all-clusters-app)
+          ./all-clusters-app --wifi  --trace_decode 1
+          [1641381202.306840][4431:4431] CHIP:DL: NVS set: chip-config/regulatory-location = 0 (0x0)
+      disabled: true
+
+    - label:
+          "Step 3: Verify that TH receives AttestationRequest Command from DUT"
+      PICS: OPCREDS.C.C00.Tx
+      verification: |
+          Verify that the TH(all-clusters-app)  Receives AttestationRequest Command from DUT(chip-tool) in commissioning log
+
+          [1720691676.026] [2537:2537] [EM] >>> [E:41765r S:27758 M:74843053 (Ack:113637238)] (S) Msg RX from 0:FFFFFFFB00000000 [0000] --- Type 0000:10 (SecureChannel:StandaloneAck)
+          [1720691676.026] [2537:2537] [EM] Found matching exchange: 41765r, Delegate: (nil)
+          [1720691676.026] [2537:2537] [EM] Rxd Ack; Removing MessageCounter:113637238 from Retrans Table on exchange 41765r
+          [1720691676.031] [2537:2537] [DMG] << from UDP:[fe80::e65f:1ff:fe49:ae1a%eth0]:36167 | 74843054 | [Interaction Model  (1) / InvokeCommandRequest (0x08) / Session = 27758 / Exchange = 41767]
+          [1720691676.031] [2537:2537] [DMG] Header Flags =
+          [1720691676.031] [2537:2537] [DMG] {
+          [1720691676.032] [2537:2537] [DMG]     Exchange (0x05) =
+          [1720691676.032] [2537:2537] [DMG]     {
+          [1720691676.032] [2537:2537] [DMG]         Initiator = true
+          [1720691676.032] [2537:2537] [DMG]         NeedsAck = true
+          [1720691676.032] [2537:2537] [DMG]     }
+          [1720691676.032] [2537:2537] [DMG] }
+          [1720691676.032] [2537:2537] [DMG]
+          [1720691676.032] [2537:2537] [DMG] Decrypted Payload (64 bytes) =
+          [1720691676.032] [2537:2537] [DMG] {
+          [1720691676.032] [2537:2537] [DMG]     data = 1528002801360215370024000024013e2402001835013000207c68d54ee8c0f3f8776e9ee70759635be542b72023c0709a5b88c6c8cb80b53918181824ff0b18
+          [1720691676.032] [2537:2537] [DMG] }
+          [1720691676.032] [2537:2537] [DMG]
+          [1720691676.032] [2537:2537] [DMG]
+          [1720691676.032] [2537:2537] [DMG] Additional Fields =
+          [1720691676.032] [2537:2537] [DMG] {
+          [1720691676.032] [2537:2537] [DMG]     peer_address = UDP:[fe80::e65f:1ff:fe49:ae1a%eth0]:36167
+          [1720691676.032] [2537:2537] [DMG] }
+          [1720691676.032] [2537:2537] [DMG]
+          [1720691676.032] [2537:2537] [EM] >>> [E:41767r S:27758 M:74843054] (S) Msg RX from 0:FFFFFFFB00000000 [0000] --- Type 0001:08 (IM:InvokeCommandRequest)
+          [1720691676.032] [2537:2537] [EM] Handling via exchange: 41767r, Delegate: 0xaaaad99c9368
+          [1720691676.032] [2537:2537] [DMG] InvokeRequestMessage =
+          [1720691676.032] [2537:2537] [DMG] {
+          [1720691676.032] [2537:2537] [DMG]         suppressResponse = false,
+          [1720691676.032] [2537:2537] [DMG]         timedRequest = false,
+          [1720691676.032] [2537:2537] [DMG]         InvokeRequests =
+          [1720691676.032] [2537:2537] [DMG]         [
+          [1720691676.032] [2537:2537] [DMG]                 CommandDataIB =
+          [1720691676.032] [2537:2537] [DMG]                 {
+          [1720691676.032] [2537:2537] [DMG]                         CommandPathIB =
+          [1720691676.033] [2537:2537] [DMG]                         {
+          [1720691676.033] [2537:2537] [DMG]                                 EndpointId = 0x0,
+          [1720691676.033] [2537:2537] [DMG]                                 ClusterId = 0x3e,
+          [1720691676.033] [2537:2537] [DMG]                                 CommandId = 0x0,
+          [1720691676.033] [2537:2537] [DMG]                         },
+          [1720691676.033] [2537:2537] [DMG]
+          [1720691676.033] [2537:2537] [DMG]                         CommandFields =
+          [1720691676.033] [2537:2537] [DMG]                         {
+          [1720691676.033] [2537:2537] [DMG]                                 0x0 = [
+          [1720691676.033] [2537:2537] [DMG]                                                 0x7c, 0x68, 0xd5, 0x4e, 0xe8, 0xc0, 0xf3, 0xf8, 0x77, 0x6e, 0x9e, 0xe7, 0x07, 0x59, 0x63, 0x5b, 0xe5, 0x42, 0xb7, 0x20, 0x23, 0xc0, 0x70, 0x9a, 0x5b, 0x88, 0xc6, 0xc8, 0xcb, 0x80, 0xb5, 0x39,
+          [1720691676.033] [2537:2537] [DMG]                                 ] (32 bytes)
+          [1720691676.033] [2537:2537] [DMG]                         },
+          [1720691676.033] [2537:2537] [DMG]                 },
+          [1720691676.033] [2537:2537] [DMG]
+          [1720691676.033] [2537:2537] [DMG]         ],
+          [1720691676.033] [2537:2537] [DMG]
+          [1720691676.033] [2537:2537] [DMG]         InteractionModelRevision = 11
+          [1720691676.033] [2537:2537] [DMG] },
+          [1720691676.033] [2537:2537] [DMG] AccessControl: checking f=0 a=p s=0xFFFFFFFB00000000 t= c=0x0000_003E e=0 p=a
+          [1720691676.033] [2537:2537] [DMG] AccessControl: implicit admin (PASE)
+          [1720691676.033] [2537:2537] [DMG] Received command for Endpoint=0 Cluster=0x0000_003E Command=0x0000_0000
+          [1720691676.033] [2537:2537] [ZCL] OpCreds: Received an AttestationRequest command
+          [1720691676.034] [2537:2537] [DMG] >> to UDP:[fe80::e65f:1ff:fe49:ae1a%eth0]:36167 | 113637240 | [Secure Channel  (0) / Standalone Ack (0x10) / Session = 38450 / Exchange = 41767]
+          [1720691676.034] [2537:2537] [DMG] Header Flags =
+          [1720691676.034] [2537:2537] [DMG] {
+          [1720691676.034] [2537:2537] [DMG]     Exchange (0x02) =
+          [1720691676.034] [2537:2537] [DMG]     {
+          [1720691676.034] [2537:2537] [DMG]         AckMsg = 74843054
+          [1720691676.034] [2537:2537] [DMG]     }
+          [1720691676.034] [2537:2537] [DMG] }
+          [1720691676.034] [2537:2537] [DMG]
+          [1720691676.034] [2537:2537] [DMG] Additional Fields =
+          [1720691676.034] [2537:2537] [DMG] {
+          [1720691676.034] [2537:2537] [DMG]     peer_address = UDP:[fe80::e65f:1ff:fe49:ae1a%eth0]:36167
+          [1720691676.034] [2537:2537] [DMG] }
+          [1720691676.034] [2537:2537] [DMG]
+          [1720691676.034] [2537:2537] [EM] <<< [E:41767r S:27758 M:113637240 (Ack:74843054)] (S) Msg TX to 0:FFFFFFFB00000000 [0000] [UDP:[fe80::e65f:1ff:fe49:ae1a%eth0]:36167] --- Type 0000:10 (SecureChannel:StandaloneAck)
+          [1720691676.034] [2537:2537] [EM] Flushed pending ack for MessageCounter:74843054 on exchange 41767r
+          [1720691676.035] [2537:2537] [ZCL] OpCreds: AttestationRequest successful.
+      disabled: true
+
+    - label:
+          "Step 4: Verify that TH receives CertificateChainRequest Command from
+          DUT"
+      PICS: OPCREDS.C.C02.Tx
+      verification: |
+          Verify that the TH (all-clusters-app) Receives CertificateChainRequest Command from DUT  in commissioning log
+
+          [1720691676.009] [2537:2537] [DMG] Decrypted Payload (32 bytes) =
+          [1720691676.009] [2537:2537] [DMG] {
+          [1720691676.009] [2537:2537] [DMG]     data = 1528002801360215370024000024013e24020218350124000218181824ff0b18
+          [1720691676.009] [2537:2537] [DMG] }
+          [1720691676.009] [2537:2537] [DMG]
+          [1720691676.009] [2537:2537] [DMG]
+          [1720691676.009] [2537:2537] [DMG] Additional Fields =
+          [1720691676.009] [2537:2537] [DMG] {
+          [1720691676.009] [2537:2537] [DMG]     peer_address = UDP:[fe80::e65f:1ff:fe49:ae1a%eth0]:36167
+          [1720691676.009] [2537:2537] [DMG] }
+          [1720691676.009] [2537:2537] [DMG]
+          [1720691676.010] [2537:2537] [EM] >>> [E:41765r S:27758 M:74843050] (S) Msg RX from 0:FFFFFFFB00000000 [0000] --- Type 0001:08 (IM:InvokeCommandRequest)
+          [1720691676.010] [2537:2537] [EM] Handling via exchange: 41765r, Delegate: 0xaaaad99c9368
+          [1720691676.010] [2537:2537] [DMG] InvokeRequestMessage =
+          [1720691676.010] [2537:2537] [DMG] {
+          [1720691676.010] [2537:2537] [DMG]         suppressResponse = false,
+          [1720691676.010] [2537:2537] [DMG]         timedRequest = false,
+          [1720691676.010] [2537:2537] [DMG]         InvokeRequests =
+          [1720691676.010] [2537:2537] [DMG]         [
+          [1720691676.010] [2537:2537] [DMG]                 CommandDataIB =
+          [1720691676.010] [2537:2537] [DMG]                 {
+          [1720691676.010] [2537:2537] [DMG]                         CommandPathIB =
+          [1720691676.010] [2537:2537] [DMG]                         {
+          [1720691676.010] [2537:2537] [DMG]                                 EndpointId = 0x0,
+          [1720691676.010] [2537:2537] [DMG]                                 ClusterId = 0x3e,
+          [1720691676.010] [2537:2537] [DMG]                                 CommandId = 0x2,
+          [1720691676.010] [2537:2537] [DMG]                         },
+          [1720691676.010] [2537:2537] [DMG]
+          [1720691676.010] [2537:2537] [DMG]                         CommandFields =
+          [1720691676.010] [2537:2537] [DMG]                         {
+          [1720691676.010] [2537:2537] [DMG]                                 0x0 = 2 (unsigned),
+          [1720691676.010] [2537:2537] [DMG]                         },
+          [1720691676.010] [2537:2537] [DMG]                 },
+          [1720691676.010] [2537:2537] [DMG]
+          [1720691676.010] [2537:2537] [DMG]         ],
+          [1720691676.010] [2537:2537] [DMG]
+          [1720691676.010] [2537:2537] [DMG]         InteractionModelRevision = 11
+          [1720691676.010] [2537:2537] [DMG] },
+          [1720691676.011] [2537:2537] [DMG] AccessControl: checking f=0 a=p s=0xFFFFFFFB00000000 t= c=0x0000_003E e=0 p=a
+          [1720691676.011] [2537:2537] [DMG] AccessControl: implicit admin (PASE)
+          [1720691676.011] [2537:2537] [DMG] Received command for Endpoint=0 Cluster=0x0000_003E Command=0x0000_0002
+          [1720691676.011] [2537:2537] [ZCL] OpCreds: Certificate Chain request received for PAI
+          [1720691676.011] [2537:2537] [DMG] Command handler moving to [NewRespons]
+          [1720691676.011] [2537:2537] [DMG] Command handler moving to [ Preparing]
+          [1720691676.011] [2537:2537] [DMG] Command handler moving to [AddingComm]
+      disabled: true
+
+    - label: "Step 5a: Verify that the TH receives CSRRequest command from DUT"
+      PICS: OPCREDS.C.C04.Tx
+      verification: |
+          Verify that the TH (all-clusters-app) Receives CSRRequest command from DUT in commissioning log
+
+          [1720691676.043] [2537:2537] [EM] Rxd Ack; Removing MessageCounter:113637239 from Retrans Table on exchange 41766r
+          [1720691676.074] [2537:2537] [DMG] << from UDP:[fe80::e65f:1ff:fe49:ae1a%eth0]:36167 | 74843056 | [Interaction Model  (1) / InvokeCommandRequest (0x08) / Session = 27758 / Exchange = 41768]
+          [1720691676.075] [2537:2537] [DMG] Header Flags =
+          [1720691676.075] [2537:2537] [DMG] {
+          [1720691676.075] [2537:2537] [DMG]     Exchange (0x05) =
+          [1720691676.075] [2537:2537] [DMG]     {
+          [1720691676.075] [2537:2537] [DMG]         Initiator = true
+          [1720691676.075] [2537:2537] [DMG]         NeedsAck = true
+          [1720691676.075] [2537:2537] [DMG]     }
+          [1720691676.075] [2537:2537] [DMG] }
+          [1720691676.075] [2537:2537] [DMG]
+          [1720691676.075] [2537:2537] [DMG] Decrypted Payload (64 bytes) =
+          [1720691676.075] [2537:2537] [DMG] {
+          [1720691676.075] [2537:2537] [DMG]     data = 1528002801360215370024000024013e24020418350130002037353c156dff31a01df3e159a0385de766d3fb980705918594edeb19f504124018181824ff0b18
+          [1720691676.075] [2537:2537] [DMG] }
+          [1720691676.075] [2537:2537] [DMG]
+          [1720691676.075] [2537:2537] [DMG]
+          [1720691676.075] [2537:2537] [DMG] Additional Fields =
+          [1720691676.075] [2537:2537] [DMG] {
+          [1720691676.075] [2537:2537] [DMG]     peer_address = UDP:[fe80::e65f:1ff:fe49:ae1a%eth0]:36167
+          [1720691676.075] [2537:2537] [DMG] }
+          [1720691676.075] [2537:2537] [DMG]
+          [1720691676.075] [2537:2537] [EM] >>> [E:41768r S:27758 M:74843056] (S) Msg RX from 0:FFFFFFFB00000000 [0000] --- Type 0001:08 (IM:InvokeCommandRequest)
+          [1720691676.075] [2537:2537] [EM] Handling via exchange: 41768r, Delegate: 0xaaaad99c9368
+          [1720691676.075] [2537:2537] [DMG] InvokeRequestMessage =
+          [1720691676.075] [2537:2537] [DMG] {
+          [1720691676.075] [2537:2537] [DMG]         suppressResponse = false,
+          [1720691676.075] [2537:2537] [DMG]         timedRequest = false,
+          [1720691676.075] [2537:2537] [DMG]         InvokeRequests =
+          [1720691676.075] [2537:2537] [DMG]         [
+          [1720691676.075] [2537:2537] [DMG]                 CommandDataIB =
+          [1720691676.075] [2537:2537] [DMG]                 {
+          [1720691676.075] [2537:2537] [DMG]                         CommandPathIB =
+          [1720691676.075] [2537:2537] [DMG]                         {
+          [1720691676.075] [2537:2537] [DMG]                                 EndpointId = 0x0,
+          [1720691676.076] [2537:2537] [DMG]                                 ClusterId = 0x3e,
+          [1720691676.076] [2537:2537] [DMG]                                 CommandId = 0x4,
+          [1720691676.076] [2537:2537] [DMG]                         },
+          [1720691676.076] [2537:2537] [DMG]
+          [1720691676.076] [2537:2537] [DMG]                         CommandFields =
+          [1720691676.076] [2537:2537] [DMG]                         {
+          [1720691676.076] [2537:2537] [DMG]                                 0x0 = [
+          [1720691676.076] [2537:2537] [DMG]                                                 0x37, 0x35, 0x3c, 0x15, 0x6d, 0xff, 0x31, 0xa0, 0x1d, 0xf3, 0xe1, 0x59, 0xa0, 0x38, 0x5d, 0xe7, 0x66, 0xd3, 0xfb, 0x98, 0x07, 0x05, 0x91, 0x85, 0x94, 0xed, 0xeb, 0x19, 0xf5, 0x04, 0x12, 0x40,
+          [1720691676.076] [2537:2537] [DMG]                                 ] (32 bytes)
+          [1720691676.076] [2537:2537] [DMG]                         },
+          [1720691676.076] [2537:2537] [DMG]                 },
+          [1720691676.076] [2537:2537] [DMG]
+          [1720691676.076] [2537:2537] [DMG]         ],
+          [1720691676.076] [2537:2537] [DMG]
+          [1720691676.076] [2537:2537] [DMG]         InteractionModelRevision = 11
+          [1720691676.076] [2537:2537] [DMG] },
+          [1720691676.076] [2537:2537] [DMG] AccessControl: checking f=0 a=p s=0xFFFFFFFB00000000 t= c=0x0000_003E e=0 p=a
+          [1720691676.076] [2537:2537] [DMG] AccessControl: implicit admin (PASE)
+          [1720691676.076] [2537:2537] [DMG] Received command for Endpoint=0 Cluster=0x0000_003E Command=0x0000_0004
+          [1720691676.076] [2537:2537] [ZCL] OpCreds: Received a CSRRequest command
+          [1720691676.076] [2537:2537] [ZCL] OpCreds: Finding fabric with fabricIndex 0x0
+          [1720691676.076] [2537:2537] [DMG] >> to UDP:[fe80::e65f:1ff:fe49:ae1a%eth0]:36167 | 113637242 | [Secure Channel  (0) / Standalone Ack (0x10) / Session = 38450 / Exchange = 41768]
+          [1720691676.076] [2537:2537] [DMG] Header Flags =
+          [1720691676.077] [2537:2537] [DMG] {
+          [1720691676.077] [2537:2537] [DMG]     Exchange (0x02) =
+          [1720691676.077] [2537:2537] [DMG]     {
+          [1720691676.077] [2537:2537] [DMG]         AckMsg = 74843056
+          [1720691676.077] [2537:2537] [DMG]     }
+          [1720691676.077] [2537:2537] [DMG] }
+          [1720691676.077] [2537:2537] [DMG]
+          [1720691676.077] [2537:2537] [DMG] Additional Fields =
+          [1720691676.077] [2537:2537] [DMG] {
+          [1720691676.077] [2537:2537] [DMG]     peer_address = UDP:[fe80::e65f:1ff:fe49:ae1a%eth0]:36167
+          [1720691676.077] [2537:2537] [DMG] }
+      disabled: true
+
+    - label:
+          "Step 5b: Extract the CSRResponse values for future use from TH
+          NOCSRElements - which contains the Node Operational PublicKey from CSR
+          AttestationSignature"
+      verification: |
+          Extract the CSRResponse and NOCSRElements values from TH (all-clusters-app) in commissioning log
+
+          [1720691676.079] [2537:2537] [DMG] >> to UDP:[fe80::e65f:1ff:fe49:ae1a%eth0]:36167 | 113637243 | [Interaction Model  (1) / InvokeCommandResponse (0x09) / Session = 38450 / Exchange = 41768]
+          [1720691676.079] [2537:2537] [DMG] Header Flags =
+          [1720691676.079] [2537:2537] [DMG] {
+          [1720691676.079] [2537:2537] [DMG]     Exchange (0x06) =
+          [1720691676.080] [2537:2537] [DMG]     {
+          [1720691676.080] [2537:2537] [DMG]         AckMsg = 74843056
+          [1720691676.080] [2537:2537] [DMG]         NeedsAck = true
+          [1720691676.080] [2537:2537] [DMG]     }
+          [1720691676.080] [2537:2537] [DMG] }
+          [1720691676.080] [2537:2537] [DMG]
+          [1720691676.080] [2537:2537] [DMG] Decrypted Payload (343 bytes) =
+          [1720691676.080] [2537:2537] [DMG] {
+          [1720691676.080] [2537:2537] [DMG]     data = 1528003601153500370024000024013e2402051835013000f3153001cb3081c83070020100300e310c300a060355040a0c034353523059301306072a8648ce3d020106082a8648ce3d030107034200044a270345ab219ad87b15d3019b537913f9b4141b65086f20310e9c6beb10e1d1bb6c38408a4e3060e521ec23d003223aaf91be2b0d4aba01d5936f28e4e472b0a000300a06082a8648ce3d0403020348003045022100c74c410513566f3079690fa1d8abe9df58c0fc60cfaf5d704dbdfd2a8db9ac4602206b31521e0840b2b23e2c36f15b6b2ca41c041e0217fd19b5f64f7870b241596d30022037353c156dff31a01df3e159a0385de766d3fb980705918594edeb19f50412401830014028810eea9532046bec7c1bb243bb72991d82cffd686e6eec5bb44e0b477d06df4abe6fd462fabd6d8a85e0e76b16a9f0e1aa9a96e31c3cd61ebf95c3d6aaa0191818181824ff0b18
+          [1720691676.080] [2537:2537] [DMG] }
+          [1720691676.080] [2537:2537] [DMG]
+          [1720691676.080] [2537:2537] [DMG] NOCSR Elements =
+          [1720691676.080] [2537:2537] [DMG] {
+          [1720691676.080] [2537:2537] [DMG]     CSR (203) = 3081C83070020100300E310C300A060355040A0C034353523059301306072A8648CE3D020106082A8648CE3D030107034200044A270345AB219AD87B15D3019B537913F9B4141B65086F20310E9C6BEB10E1D1BB6C38408A4E3060E521EC23D003223AAF91BE2B0D4ABA01D5936F28E4E472B0A000300A06082A8648CE3D0403020348003045022100C74C410513566F3079690FA1D8ABE9DF58C0FC60CFAF5D704DBDFD2A8DB9AC4602206B31521E0840B2B23E2C36F15B6B2CA41C041E0217FD19B5F64F7870B241596D
+          [1720691676.080] [2537:2537] [DMG]     CSRNonce (32) = 37353C156DFF31A01DF3E159A0385DE766D3FB980705918594EDEB19F5041240
+          [1720691676.080] [2537:2537] [DMG] }
+          [1720691676.080] [2537:2537] [DMG]
+          [1720691676.080] [2537:2537] [DMG] CSR (203) =
+          [1720691676.080] [2537:2537] [DMG] {
+          -----BEGIN CERTIFICATE REQUEST-----
+          MIHIMHACAQAwDjEMMAoGA1UECgwDQ1NSMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcD
+          QgAESicDRashmth7FdMBm1N5E/m0FBtlCG8gMQ6ca+sQ4dG7bDhAik4wYOUh7CPQ
+          AyI6r5G+Kw1KugHVk28o5ORysKAAMAoGCCqGSM49BAMCA0gAMEUCIQDHTEEFE1Zv
+          MHlpD6HYq+nfWMD8YM+vXXBNvf0qjbmsRgIgazFSHghAsrI+LDbxW2sspBwEHgIX
+          /Rm19k94cLJBWW0=
+          -----END CERTIFICATE REQUEST-----
+          [1720691676.080] [2537:2537] [DMG] }
+          [1720691676.080] [2537:2537] [DMG]
+          [1720691676.080] [2537:2537] [DMG] InvokeResponseMessage =
+          [1720691676.080] [2537:2537] [DMG] {
+          [1720691676.080] [2537:2537] [DMG]         suppressResponse = false,
+          [1720691676.080] [2537:2537] [DMG]         InvokeResponseIBs =
+          [1720691676.080] [2537:2537] [DMG]         [
+          [1720691676.080] [2537:2537] [DMG]                 InvokeResponseIB =
+          [1720691676.080] [2537:2537] [DMG]                 {
+          [1720691676.080] [2537:2537] [DMG]                         CommandDataIB =
+          [1720691676.080] [2537:2537] [DMG]                         {
+          [1720691676.080] [2537:2537] [DMG]                                 CommandPathIB =
+          [1720691676.080] [2537:2537] [DMG]                                 {
+          [1720691676.080] [2537:2537] [DMG]                                         EndpointId = 0x0,
+          [1720691676.080] [2537:2537] [DMG]                                         ClusterId = 0x3e,
+          [1720691676.080] [2537:2537] [DMG]                                         CommandId = 0x5,
+          [1720691676.080] [2537:2537] [DMG]                                 },
+          [1720691676.080] [2537:2537] [DMG]
+          [1720691676.080] [2537:2537] [DMG]                                 CommandFields =
+          [1720691676.080] [2537:2537] [DMG]                                 {
+          [1720691676.080] [2537:2537] [DMG]                                         0x0 = [
+          [1720691676.081] [2537:2537] [DMG]                                                         0x15, 0x30, 0x01, 0xcb, 0x30, 0x81, 0xc8, 0x30, 0x70, 0x02, 0x01, 0x00, 0x30, 0x0e, 0x31, 0x0c, 0x30, 0x0a, 0x06, 0x03, 0x55, 0x04, 0x0a, 0x0c, 0x03, 0x43, 0x53, 0x52, 0x30, 0x59, 0x30, 0x13, 0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01, 0x06, 0x08, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x03, 0x01, 0x07, 0x03, 0x42, 0x00, 0x04, 0x4a, 0x27, 0x03, 0x45, 0xab, 0x21, 0x9a, 0xd8, 0x7b, 0x15, 0xd3, 0x01, 0x9b, 0x53, 0x79, 0x13, 0xf9, 0xb4, 0x14, 0x1b, 0x65, 0x08, 0x6f, 0x20, 0x31, 0x0e, 0x9c, 0x6b, 0xeb, 0x10, 0xe1, 0xd1, 0xbb, 0x6c, 0x38, 0x40, 0x8a, 0x4e, 0x30, 0x60, 0xe5, 0x21, 0xec, 0x23, 0xd0, 0x03, 0x22, 0x3a, 0xaf, 0x91, 0xbe, 0x2b, 0x0d, 0x4a, 0xba, 0x01, 0xd5, 0x93, 0x6f, 0x28, 0xe4, 0xe4, 0x72, 0xb0, 0xa0, 0x00, 0x30, 0x0a, 0x06, 0x08, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x04, 0x03, 0x02, 0x03, 0x48, 0x00, 0x30, 0x45, 0x02, 0x21, 0x00, 0xc7, 0x4c, 0x41, 0x05, 0x13, 0x56, 0x6f, 0x30, 0x79, 0x69, 0x0f, 0xa1, 0xd8, 0xab, 0xe9, 0xdf, 0x58, 0xc0, 0xfc, 0x60, 0xcf, 0xaf, 0x5d, 0x70, 0x4d, 0xbd, 0xfd, 0x2a, 0x8d, 0xb9, 0xac, 0x46, 0x02, 0x20, 0x6b, 0x31, 0x52, 0x1e, 0x08, 0x40, 0xb2, 0xb2, 0x3e, 0x2c, 0x36, 0xf1, 0x5b, 0x6b, 0x2c, 0xa4, 0x1c, 0x04, 0x1e, 0x02, 0x17, 0xfd, 0x19, 0xb5, 0xf6, 0x4f, 0x78, 0x70, 0xb2, 0x41, 0x59, 0x6d, 0x30, 0x02, 0x20, 0x37, 0x35, 0x3c, 0x15, 0x6d, 0xff, 0x31, 0xa0, 0x1d, 0xf3, 0xe1, 0x59, 0xa0, 0x38, 0x5d, 0xe7, 0x66, 0xd3, 0xfb, 0x98, 0x07, 0x05, 0x91, 0x85, 0x94, 0xed, 0xeb, 0x19, 0xf5, 0x04, 0x12, 0x40, 0x18,
+          [1720691676.081] [2537:2537] [DMG]                                         ] (243 bytes)
+          [1720691676.081] [2537:2537] [DMG]                                         0x1 = [
+          [1720691676.081] [2537:2537] [DMG]                                                         0x28, 0x81, 0x0e, 0xea, 0x95, 0x32, 0x04, 0x6b, 0xec, 0x7c, 0x1b, 0xb2, 0x43, 0xbb, 0x72, 0x99, 0x1d, 0x82, 0xcf, 0xfd, 0x68, 0x6e, 0x6e, 0xec, 0x5b, 0xb4, 0x4e, 0x0b, 0x47, 0x7d, 0x06, 0xdf, 0x4a, 0xbe, 0x6f, 0xd4, 0x62, 0xfa, 0xbd, 0x6d, 0x8a, 0x85, 0xe0, 0xe7, 0x6b, 0x16, 0xa9, 0xf0, 0xe1, 0xaa, 0x9a, 0x96, 0xe3, 0x1c, 0x3c, 0xd6, 0x1e, 0xbf, 0x95, 0xc3, 0xd6, 0xaa, 0xa0, 0x19,
+          [1720691676.081] [2537:2537] [DMG]                                         ] (64 bytes)
+          [1720691676.081] [2537:2537] [DMG]                                 },
+          [1720691676.081] [2537:2537] [DMG]                         },
+          [1720691676.081] [2537:2537] [DMG]
+          [1720691676.081] [2537:2537] [DMG]                 },
+          [1720691676.081] [2537:2537] [DMG]
+          [1720691676.081] [2537:2537] [DMG]         ],
+          [1720691676.081] [2537:2537] [DMG]
+          [1720691676.081] [2537:2537] [DMG]         InteractionModelRevision = 11
+          [1720691676.081] [2537:2537] [DMG] },
+          [1720691676.081] [2537:2537] [DMG]
+          [1720691676.081] [2537:2537] [DMG] Additional Fields =
+          [1720691676.081] [2537:2537] [DMG] {
+          [1720691676.081] [2537:2537] [DMG]     peer_address = UDP:[fe80::e65f:1ff:fe49:ae1a%eth0]:36167
+          [1720691676.081] [2537:2537] [DMG] }
+          [1720691676.081] [2537:2537] [DMG]
+          [1720691676.081] [2537:2537] [EM] <<< [E:41768r S:27758 M:113637243 (Ack:74843056)] (S) Msg TX to 0:FFFFFFFB00000000 [0000] [UDP:[fe80::e65f:1ff:fe49:ae1a%eth0]:36167] --- Type 0001
+      disabled: true
+
+    - label:
+          "Step 6: Verify that TH receives AddTrustedRootCertificate command
+          from DUT"
+      PICS: OPCREDS.C.C0b.Tx
+      verification: |
+          Verify that the TH (all-clusters-app) receives AddTrustedRootCertificate command from DUT  in commissioning log
+
+          [1720691676.098] [2537:2537] [DMG] Additional Fields =
+          [1720691676.098] [2537:2537] [DMG] {
+          [1720691676.098] [2537:2537] [DMG]     peer_address = UDP:[fe80::e65f:1ff:fe49:ae1a%eth0]:36167
+          [1720691676.098] [2537:2537] [DMG] }
+          [1720691676.098] [2537:2537] [DMG]
+          [1720691676.098] [2537:2537] [EM] >>> [E:41769r S:27758 M:74843058] (S) Msg RX from 0:FFFFFFFB00000000 [0000] --- Type 0001:08 (IM:InvokeCommandRequest)
+          [1720691676.098] [2537:2537] [EM] Handling via exchange: 41769r, Delegate: 0xaaaad99c9368
+          [1720691676.098] [2537:2537] [DMG] InvokeRequestMessage =
+          [1720691676.098] [2537:2537] [DMG] {
+          [1720691676.098] [2537:2537] [DMG]         suppressResponse = false,
+          [1720691676.098] [2537:2537] [DMG]         timedRequest = false,
+          [1720691676.098] [2537:2537] [DMG]         InvokeRequests =
+          [1720691676.098] [2537:2537] [DMG]         [
+          [1720691676.098] [2537:2537] [DMG]                 CommandDataIB =
+          [1720691676.098] [2537:2537] [DMG]                 {
+          [1720691676.099] [2537:2537] [DMG]                         CommandPathIB =
+          [1720691676.099] [2537:2537] [DMG]                         {
+          [1720691676.099] [2537:2537] [DMG]                                 EndpointId = 0x0,
+          [1720691676.099] [2537:2537] [DMG]                                 ClusterId = 0x3e,
+          [1720691676.099] [2537:2537] [DMG]                                 CommandId = 0xb,
+          [1720691676.099] [2537:2537] [DMG]                         },
+          [1720691676.099] [2537:2537] [DMG]
+          [1720691676.099] [2537:2537] [DMG]                         CommandFields =
+          [1720691676.099] [2537:2537] [DMG]                         {
+          [1720691676.099] [2537:2537] [DMG]                                 0x0 = [
+          [1720691676.099] [2537:2537] [DMG]                                                 0x15, 0x30, 0x01, 0x01, 0x01, 0x24, 0x02, 0x01, 0x37, 0x03, 0x24, 0x14, 0x01, 0x18, 0x26, 0x04, 0x80, 0x22, 0x81, 0x27, 0x26, 0x05, 0x80, 0x25, 0x4d, 0x3a, 0x37, 0x06, 0x24, 0x14, 0x01, 0x18, 0x24, 0x07, 0x01, 0x24, 0x08, 0x01, 0x30, 0x09, 0x41, 0x04, 0x2b, 0xa1, 0xae, 0xdb, 0x8f, 0xcf, 0xbd, 0xfe, 0xb1, 0xeb, 0xd4, 0xb7, 0xe1, 0x77, 0xba, 0x69, 0x59, 0xaa, 0xc4, 0x26, 0xe4, 0x90, 0xe9, 0x40, 0xbb, 0xc0, 0x69, 0xab, 0x3e, 0xcb, 0x5f, 0x11, 0x97, 0xe4, 0x67, 0x75, 0x5d, 0x4a, 0x82, 0x8f, 0xc2, 0x50, 0x82, 0x34, 0xea, 0xbf, 0xc0, 0x46, 0x7f, 0x2d, 0x60, 0x22, 0x4d, 0x33, 0xa2, 0xde, 0x3f, 0xa3, 0x30, 0xba, 0x1f, 0x6c, 0xdf, 0x23, 0x37, 0x0a, 0x35, 0x01, 0x29, 0x01, 0x18, 0x24, 0x02, 0x60, 0x30, 0x04, 0x14, 0x24, 0x54, 0xc7, 0x22, 0x5b, 0x7e, 0x25, 0x9a, 0x9f, 0xee, 0x54, 0x91, 0x23, 0x43, 0x28, 0xfd, 0x15, 0x49, 0x0e, 0xa8, 0x30, 0x05, 0x14, 0x24, 0x54, 0xc7, 0x22, 0x5b, 0x7e, 0x25, 0x9a, 0x9f, 0xee, 0x54, 0x91, 0x23, 0x43, 0x28, 0xfd, 0x15, 0x49, 0x0e, 0xa8, 0x18, 0x30, 0x0b, 0x40, 0xcc, 0x32, 0x98, 0xc2, 0x30, 0xe6, 0x45, 0xf2, 0x1f, 0x51, 0x6c, 0xe1, 0xf5, 0xc0, 0x3e, 0xb1, 0x59, 0xd1, 0xf9, 0x5e, 0x64, 0x6f, 0xfd, 0x1f, 0xf8, 0x6d, 0x09, 0x7f, 0x7f, 0xc9, 0x48, 0xe8, 0xde, 0x72, 0x88, 0xd6, 0x6e, 0xe1, 0x74, 0x33, 0x76, 0xc4, 0x64, 0xfc, 0xb6, 0xbc, 0xd7, 0x73, 0xe1, 0xc4, 0x2f, 0x3a, 0xa6, 0xa5, 0xc3, 0x13, 0xbb, 0xdf, 0xfc, 0xe7, 0x92, 0xc6, 0x45, 0x0f, 0x18,
+          [1720691676.099] [2537:2537] [DMG]                                 ] (231 bytes)
+          [1720691676.099] [2537:2537] [DMG]                         },
+          [1720691676.099] [2537:2537] [DMG]                 },
+          [1720691676.099] [2537:2537] [DMG]
+          [1720691676.099] [2537:2537] [DMG]         ],
+          [1720691676.099] [2537:2537] [DMG]
+          [1720691676.099] [2537:2537] [DMG]         InteractionModelRevision = 11
+          [1720691676.099] [2537:2537] [DMG] },
+          [1720691676.099] [2537:2537] [DMG] AccessControl: checking f=0 a=p s=0xFFFFFFFB00000000 t= c=0x0000_003E e=0 p=a
+          [1720691676.099] [2537:2537] [DMG] AccessControl: implicit admin (PASE)
+          [1720691676.099] [2537:2537] [DMG] Received command for Endpoint=0 Cluster=0x0000_003E Command=0x0000_000B
+          [1720691676.099] [2537:2537] [ZCL] OpCreds: Received an AddTrustedRootCertificate command
+          [1720691676.100] [2537:2537] [DMG] >> to UDP:[fe80::e65f:1ff:fe49:ae1a%eth0]:36167 | 113637244 | [Secure Channel  (0) / Standalone Ack (0x10) / Session = 38450 / Exchange = 41769]
+          [1720691676.100] [2537:2537] [DMG] Header Flags =
+      disabled: true
+
+    - label: "Step 7a: Verify that TH receives AddNOC Command from DUT"
+      PICS: OPCREDS.C.C06.Tx
+      verification: |
+          Verify that the TH (all-clusters-app) receives AddNOC command from DUT in commissioning log
+
+          [1720691676.111] [2537:2537] [EM] >>> [E:41770r S:27758 M:74843060] (S) Msg RX from 0:FFFFFFFB00000000 [0000] --- Type 0001:08 (IM:InvokeCommandRequest)
+          [1720691676.111] [2537:2537] [EM] Handling via exchange: 41770r, Delegate: 0xaaaad99c9368
+          [1720691676.111] [2537:2537] [DMG] InvokeRequestMessage =
+          [1720691676.111] [2537:2537] [DMG] {
+          [1720691676.111] [2537:2537] [DMG]         suppressResponse = false,
+          [1720691676.111] [2537:2537] [DMG]         timedRequest = false,
+          [1720691676.111] [2537:2537] [DMG]         InvokeRequests =
+          [1720691676.111] [2537:2537] [DMG]         [
+          [1720691676.111] [2537:2537] [DMG]                 CommandDataIB =
+          [1720691676.111] [2537:2537] [DMG]                 {
+          [1720691676.111] [2537:2537] [DMG]                         CommandPathIB =
+          [1720691676.111] [2537:2537] [DMG]                         {
+          [1720691676.111] [2537:2537] [DMG]                                 EndpointId = 0x0,
+          [1720691676.111] [2537:2537] [DMG]                                 ClusterId = 0x3e,
+          [1720691676.111] [2537:2537] [DMG]                                 CommandId = 0x6,
+          [1720691676.111] [2537:2537] [DMG]                         },
+          [1720691676.111] [2537:2537] [DMG]
+          [1720691676.111] [2537:2537] [DMG]                         CommandFields =
+          [1720691676.111] [2537:2537] [DMG]                         {
+          [1720691676.111] [2537:2537] [DMG]                                 0x0 = [
+          [1720691676.111] [2537:2537] [DMG]                                                 0x15, 0x30, 0x01, 0x01, 0x01, 0x24, 0x02, 0x01, 0x37, 0x03, 0x24, 0x13, 0x02, 0x18, 0x26, 0x04, 0x80, 0x22, 0x81, 0x27, 0x26, 0x05, 0x80, 0x25, 0x4d, 0x3a, 0x37, 0x06, 0x24, 0x15, 0x01, 0x24, 0x11, 0x01, 0x18, 0x24, 0x07, 0x01, 0x24, 0x08, 0x01, 0x30, 0x09, 0x41, 0x04, 0x4a, 0x27, 0x03, 0x45, 0xab, 0x21, 0x9a, 0xd8, 0x7b, 0x15, 0xd3, 0x01, 0x9b, 0x53, 0x79, 0x13, 0xf9, 0xb4, 0x14, 0x1b, 0x65, 0x08, 0x6f, 0x20, 0x31, 0x0e, 0x9c, 0x6b, 0xeb, 0x10, 0xe1, 0xd1, 0xbb, 0x6c, 0x38, 0x40, 0x8a, 0x4e, 0x30, 0x60, 0xe5, 0x21, 0xec, 0x23, 0xd0, 0x03, 0x22, 0x3a, 0xaf, 0x91, 0xbe, 0x2b, 0x0d, 0x4a, 0xba, 0x01, 0xd5, 0x93, 0x6f, 0x28, 0xe4, 0xe4, 0x72, 0xb0, 0x37, 0x0a, 0x35, 0x01, 0x28, 0x01, 0x18, 0x24, 0x02, 0x01, 0x36, 0x03, 0x04, 0x02, 0x04, 0x01, 0x18, 0x30, 0x04, 0x14, 0xc5, 0x8c, 0xaa, 0x91, 0x3e, 0x06, 0x86, 0xb4, 0x91, 0xd2, 0x34, 0x99, 0xeb, 0xe3, 0x8b, 0x10, 0x7f, 0xa1, 0x7d, 0x86, 0x30, 0x05, 0x14, 0x09, 0x03, 0x79, 0xf4, 0x13, 0xa2, 0xde, 0xe5, 0x49, 0x95, 0x8f, 0xd8, 0x79, 0x95, 0xea, 0xf9, 0xcf, 0xc6, 0x34, 0x24, 0x18, 0x30, 0x0b, 0x40, 0x17, 0x0c, 0x5f, 0x4f, 0xdb, 0x33, 0x79, 0x62, 0xd8, 0x53, 0x13, 0x84, 0x2e, 0xc8, 0xd6, 0x44, 0x62, 0x5a, 0x88, 0x16, 0x7d, 0xa9, 0xc8, 0xcb, 0x69, 0x58, 0xaa, 0x6d, 0x24, 0x37, 0x6e, 0xdf, 0x78, 0x73, 0x7f, 0x55, 0x41, 0xac, 0xe9, 0xff, 0x01, 0xe9, 0xcb, 0x94, 0xd4, 0xcf, 0x1f, 0x9a, 0x70, 0xc9, 0x42, 0xe6, 0xa9, 0x0a, 0x1a, 0xcb, 0x29, 0xb5, 0xf0, 0xab, 0x86, 0x19, 0xcf, 0xac, 0x18,
+          [1720691676.112] [2537:2537] [DMG]                                 ] (241 bytes)
+          [1720691676.112] [2537:2537] [DMG]                                 0x1 = [
+          [1720691676.112] [2537:2537] [DMG]                                                 0x15, 0x30, 0x01, 0x01, 0x01, 0x24, 0x02, 0x01, 0x37, 0x03, 0x24, 0x14, 0x01, 0x18, 0x26, 0x04, 0x80, 0x22, 0x81, 0x27, 0x26, 0x05, 0x80, 0x25, 0x4d, 0x3a, 0x37, 0x06, 0x24, 0x13, 0x02, 0x18, 0x24, 0x07, 0x01, 0x24, 0x08, 0x01, 0x30, 0x09, 0x41, 0x04, 0x2a, 0xb1, 0xeb, 0xcb, 0xcc, 0x54, 0x41, 0xd4, 0xd9, 0xc6, 0x4e, 0x96, 0xe7, 0xa2, 0x2f, 0xd6, 0xd9, 0xa9, 0xdb, 0xd5, 0xdd, 0xb0, 0x41, 0xd5, 0x88, 0xc6, 0xd9, 0x2a, 0xd3, 0xe0, 0xbb, 0x20, 0x50, 0x77, 0x09, 0x9d, 0x77, 0x49, 0x5c, 0xa9, 0x6e, 0xae, 0x12, 0x61, 0x3f, 0x4a, 0x36, 0x74, 0x07, 0xfb, 0x71, 0xc9, 0x5f, 0x14, 0x10, 0x96, 0x53, 0xa1, 0xa1, 0x07, 0x67, 0x24, 0x9b, 0xfc, 0x37, 0x0a, 0x35, 0x01, 0x29, 0x01, 0x18, 0x24, 0x02, 0x60, 0x30, 0x04, 0x14, 0x09, 0x03, 0x79, 0xf4, 0x13, 0xa2, 0xde, 0xe5, 0x49, 0x95, 0x8f, 0xd8, 0x79, 0x95, 0xea, 0xf9, 0xcf, 0xc6, 0x34, 0x24, 0x30, 0x05, 0x14, 0x24, 0x54, 0xc7, 0x22, 0x5b, 0x7e, 0x25, 0x9a, 0x9f, 0xee, 0x54, 0x91, 0x23, 0x43, 0x28, 0xfd, 0x15, 0x49, 0x0e, 0xa8, 0x18, 0x30, 0x0b, 0x40, 0xde, 0xc8, 0x17, 0xaa, 0x07, 0xa8, 0x60, 0xdc, 0xfb, 0x62, 0xc2, 0xf4, 0x70, 0x05, 0x4d, 0xc0, 0xa5, 0x1a, 0xf3, 0xd0, 0xe6, 0x7e, 0xa4, 0x5d, 0x1e, 0x24, 0x83, 0x5c, 0xb6, 0x89, 0x5d, 0x77, 0x68, 0xef, 0x6e, 0xdf, 0xf8, 0xfb, 0x70, 0xa3, 0x84, 0xf1, 0x3d, 0xa5, 0x81, 0xb6, 0x83, 0x1b, 0x7c, 0x7f, 0x4f, 0x5d, 0x77, 0xfe, 0xc7, 0xd5, 0x29, 0x8a, 0xf0, 0x5b, 0xd6, 0x32, 0xf7, 0x76, 0x18,
+          [1720691676.112] [2537:2537] [DMG]                                 ] (231 bytes)
+          [1720691676.112] [2537:2537] [DMG]                                 0x2 = [
+          [1720691676.112] [2537:2537] [DMG]                                                 0x74, 0x65, 0x6d, 0x70, 0x6f, 0x72, 0x61, 0x72, 0x79, 0x20, 0x69, 0x70, 0x6b, 0x20, 0x30, 0x31,
+          [1720691676.112] [2537:2537] [DMG]                                 ] (16 bytes)
+          [1720691676.112] [2537:2537] [DMG]                                 0x3 = 112233 (unsigned),
+          [1720691676.112] [2537:2537] [DMG]                                 0x4 = 65521 (unsigned),
+          [1720691676.112] [2537:2537] [DMG]                         },
+          [1720691676.112] [2537:2537] [DMG]                 },
+          [1720691676.112] [2537:2537] [DMG]
+          [1720691676.112] [2537:2537] [DMG]         ],
+          [1720691676.112] [2537:2537] [DMG]
+          [1720691676.112] [2537:2537] [DMG]         InteractionModelRevision = 11
+          [1720691676.112] [2537:2537] [DMG] },
+          [1720691676.112] [2537:2537] [DMG] AccessControl: checking f=0 a=p s=0xFFFFFFFB00000000 t= c=0x0000_003E e=0 p=a
+          [1720691676.112] [2537:2537] [DMG] AccessControl: implicit admin (PASE)
+          [1720691676.112] [2537:2537] [DMG] Received command for Endpoint=0 Cluster=0x0000_003E Command=0x0000_0006
+          [1720691676.112] [2537:2537] [ZCL] OpCreds: Received an AddNOC command
+          [1720691676.113] [2537:2537] [DMG] >> to UDP:[fe80::e65f:1ff:fe49:ae1a%eth0]:36167 | 113637246 | [Secure Channel  (0) / Standalone Ack (0x10) / Session = 38450 / Exchange = 41770]
+          [1720691676.113] [2537:2537] [DMG] Header Flags =
+      disabled: true
+
+    - label:
+          "Step 7b: TH saves the following values as: NOCValue as nocvalue1
+          ICACValue as icacvalue1 IpkValue as ipkvalue1 CaseAdminSubject as
+          caseadmin1 AdminVendorId as adminvendorid1"
+      verification: |
+          Save the following from above log
+
+          1. NOCvalue as nocvalue1
+          Example:
+
+          [1689679303.613238][52705:52705] CHIP:DMG: NOCValue (241) =
+          [1689679303.613248][52705:52705] CHIP:DMG: {
+          FTABAQEkAgE3AyQTAhgmBIAigScmBYAlTTo3BiQVASQRARgkBwEkCAEwCUEE8pTUqjDa1BZovbDiSsDYMLC6M1yId8W2CvYrmFz/ISOVGXMU0wJZY6RQG0rLiiIC7MwQ7WV8/3+uj5kSs5PBzTcKNQEoARgkAgE2AwQCBAEYMAQUs00EaB5LCRmJqaXyveEf3F7OqU0wBRTFGM2bF8Z8SgUB8p6ELVeKY9TCvhgwC0BZrpcyQkCthOGq+TugsOyOk4sUCOjkJQzlMBLerQp+n8QcQisZD/GIINhEC6Yw5nxOyd2sZrENcjy7XQUMtSVsGA==
+          [1689679303.613255][52705:52705] CHIP:DMG: }
+
+          2. ICACValue as icacvalue1
+          Example:
+
+          [1689679303.613261][52705:52705] CHIP:DMG: ICACValue (231) =
+          [1689679303.613269][52705:52705] CHIP:DMG: {
+          FTABAQEkAgE3AyQUARgmBIAigScmBYAlTTo3BiQTAhgkBwEkCAEwCUEEUAg7aniWmRLpt+x1PABmWvQjHuE+Q2IgXbwY8GBlQ2P65I4MW9VZgJ4uCD9Uuoof9qte8fjge1W94b4952PvrDcKNQEpARgkAmAwBBTFGM2bF8Z8SgUB8p6ELVeKY9TCvjAFFM+bPzZDej58jIru6AOFJgpPSmvzGDALQIqwnkbsSrXjw4r0aDZvDOVFF9M7fyOZfcZjYnHDGl/eVfLeX2hhO2rMVa4OoTe09+K5Tl4aWZ7/X6O3Ombf29AY
+          [1689679303.613277][52705:52705] CHIP:DMG: }
+
+          3. IpkValue as ipkvalue1
+          Example:
+
+           0x2 = [
+          [1689679303.613506][52705:52705] CHIP:DMG:                                                 0x74, 0x65, 0x6d, 0x70, 0x6f, 0x72, 0x61, 0x72, 0x79, 0x20, 0x69, 0x70, 0x6b, 0x20, 0x30, 0x31,
+
+          4. CaseAdminSubject as caseadmin1
+          Example:
+
+          0x3 = 112233,
+
+          5. AdminVendorId as adminvendorid1
+          Example:
+
+          0x4 = 65521,
+      disabled: true
+
+    - label:
+          "Step 8: Extract the following FabricDescriptorStruct values from TH
+          RootPublicKey VendorID FabricID NodeID Label"
+      verification: |
+          ./chip-tool operationalcredentials read fabrics 1 0 --fabric-filtered 0 --trace_decode 1
+
+          Extract that the following on TH (all-clusters-app) to verfy in the next step
+          1. RootPublicKey
+          2. VendorID
+          3. FabricID
+          4. NodeID
+          5. Label
+
+          [1720690525.192] [2401:2401] [DMG]
+          [1720690525.192] [2401:2401] [DMG] ReportDataMessage =
+          [1720690525.192] [2401:2401] [DMG] {
+          [1720690525.192] [2401:2401] [DMG]         AttributeReportIBs =
+          [1720690525.192] [2401:2401] [DMG]         [
+          [1720690525.192] [2401:2401] [DMG]                 AttributeReportIB =
+          [1720690525.192] [2401:2401] [DMG]                 {
+          [1720690525.192] [2401:2401] [DMG]                         AttributeDataIB =
+          [1720690525.192] [2401:2401] [DMG]                         {
+          [1720690525.192] [2401:2401] [DMG]                                 DataVersion = 0x3aff7739,
+          [1720690525.192] [2401:2401] [DMG]                                 AttributePathIB =
+          [1720690525.192] [2401:2401] [DMG]                                 {
+          [1720690525.192] [2401:2401] [DMG]                                         Endpoint = 0x0,
+          [1720690525.192] [2401:2401] [DMG]                                         Cluster = 0x3e,
+          [1720690525.192] [2401:2401] [DMG]                                         Attribute = 0x0000_0001,
+          [1720690525.192] [2401:2401] [DMG]                                 }
+          [1720690525.192] [2401:2401] [DMG]
+          [1720690525.192] [2401:2401] [DMG]                                 Data = [
+          [1720690525.192] [2401:2401] [DMG]
+          [1720690525.192] [2401:2401] [DMG]                                         {
+          [1720690525.192] [2401:2401] [DMG]                                                 0x1 = [
+          [1720690525.193] [2401:2401] [DMG]                                                                 0x04, 0x6b, 0xc8, 0xe7, 0x50, 0x37, 0x5e, 0xb5, 0xc9, 0xc8, 0xf3, 0x0a, 0x8b, 0x1e, 0xcc, 0xc9, 0x97, 0xfe, 0x26, 0xec, 0xb6, 0x23, 0xa6, 0x04, 0xf0, 0xaa, 0x78, 0xd2, 0xc4, 0x40, 0x73, 0xc9, 0x3b, 0x21, 0xbd, 0xd9, 0x28, 0xb6, 0x09, 0x0b, 0xa9, 0x60, 0xa3, 0x7d, 0xe5, 0xa0, 0x63, 0x44, 0x2f, 0x37, 0xf3, 0x80, 0x1c, 0xea, 0xaf, 0x48, 0xb4, 0x87, 0x08, 0xf8, 0xee, 0x1f, 0x0f, 0xab, 0xab,
+          [1720690525.193] [2401:2401] [DMG]                                                 ] (65 bytes)
+          [1720690525.193] [2401:2401] [DMG]                                                 0x2 = 65521 (unsigned),
+          [1720690525.193] [2401:2401] [DMG]                                                 0x3 = 1 (unsigned),
+          [1720690525.193] [2401:2401] [DMG]                                                 0x4 = 1 (unsigned),
+          [1720690525.193] [2401:2401] [DMG]                                                 0x5 = "" (0 chars),
+          [1720690525.193] [2401:2401] [DMG]                                                 0xfe = 1 (unsigned),
+          [1720690525.193] [2401:2401] [DMG]                                         },
+          [1720690525.193] [2401:2401] [DMG]                                 ],
+          [1720690525.193] [2401:2401] [DMG]                         },
+          [1720690525.193] [2401:2401] [DMG]
+          [1720690525.193] [2401:2401] [DMG]                 },
+          [1720690525.193] [2401:2401] [DMG]
+          [1720690525.193] [2401:2401] [DMG]         ],
+          [1720690525.193] [2401:2401] [DMG]
+          [1720690525.193] [2401:2401] [DMG]         SuppressResponse = true,
+          [1720690525.193] [2401:2401] [DMG]         InteractionModelRevision = 11
+          [1720690525.193] [2401:2401] [DMG] }
+          [1720690525.193] [2401:2401] [DMG]
+          [1720690525.193] [2401:2401] [DMG] Additional Fields =
+          [1720690525.193] [2401:2401] [DMG] {
+          [1720690525.193] [2401:2401] [DMG]     peer_address = UDP:[fe80::e65f:1ff:fe49:ae1a%eth0]:45224
+      disabled: true
+
+    - label:
+          "Step 9: Verify that the size of RootPublicKey is within 65 octstr.
+          Verify that the NodeID is the same as the chip-node-id in the NOC sent
+          with AddNOC Command. Verify that the VendorID is the same as the
+          AdminVendorID sent with AddNOC Command. Verify that the FabricID is
+          the same as the matter-fabric-id field from the operational
+          certificate. Verify that the size of Label has a maximum value of 32
+          bytes."
+      verification: |
+          Verify that the following  on TH (all-clusters-app) log
+
+          1. Verify RootPublicKey (0x1) is within 65 octstr in below log
+          2. Verify NodeID (0x2) is same as chip-node-id
+          3. Verify VendorID (0x3) is same AdminVendorID , Verify if the DUT  vendor ID matches with
+          4. Verify the FabricID (0x4) is same as matter-fabric-id
+          5. Verify the size of Label is maximum of 32 bytes
+
+          [1720690525.192] [2401:2401] [DMG]
+          [1720690525.192] [2401:2401] [DMG] ReportDataMessage =
+          [1720690525.192] [2401:2401] [DMG] {
+          [1720690525.192] [2401:2401] [DMG]         AttributeReportIBs =
+          [1720690525.192] [2401:2401] [DMG]         [
+          [1720690525.192] [2401:2401] [DMG]                 AttributeReportIB =
+          [1720690525.192] [2401:2401] [DMG]                 {
+          [1720690525.192] [2401:2401] [DMG]                         AttributeDataIB =
+          [1720690525.192] [2401:2401] [DMG]                         {
+          [1720690525.192] [2401:2401] [DMG]                                 DataVersion = 0x3aff7739,
+          [1720690525.192] [2401:2401] [DMG]                                 AttributePathIB =
+          [1720690525.192] [2401:2401] [DMG]                                 {
+          [1720690525.192] [2401:2401] [DMG]                                         Endpoint = 0x0,
+          [1720690525.192] [2401:2401] [DMG]                                         Cluster = 0x3e,
+          [1720690525.192] [2401:2401] [DMG]                                         Attribute = 0x0000_0001,
+          [1720690525.192] [2401:2401] [DMG]                                 }
+          [1720690525.192] [2401:2401] [DMG]
+          [1720690525.192] [2401:2401] [DMG]                                 Data = [
+          [1720690525.192] [2401:2401] [DMG]
+          [1720690525.192] [2401:2401] [DMG]                                         {
+          [1720690525.192] [2401:2401] [DMG]                                                 0x1 = [
+          [1720690525.193] [2401:2401] [DMG]                                                                 0x04, 0x6b, 0xc8, 0xe7, 0x50, 0x37, 0x5e, 0xb5, 0xc9, 0xc8, 0xf3, 0x0a, 0x8b, 0x1e, 0xcc, 0xc9, 0x97, 0xfe, 0x26, 0xec, 0xb6, 0x23, 0xa6, 0x04, 0xf0, 0xaa, 0x78, 0xd2, 0xc4, 0x40, 0x73, 0xc9, 0x3b, 0x21, 0xbd, 0xd9, 0x28, 0xb6, 0x09, 0x0b, 0xa9, 0x60, 0xa3, 0x7d, 0xe5, 0xa0, 0x63, 0x44, 0x2f, 0x37, 0xf3, 0x80, 0x1c, 0xea, 0xaf, 0x48, 0xb4, 0x87, 0x08, 0xf8, 0xee, 0x1f, 0x0f, 0xab, 0xab,
+          [1720690525.193] [2401:2401] [DMG]                                                 ] (65 bytes)
+          [1720690525.193] [2401:2401] [DMG]                                                 0x2 = 65521 (unsigned),
+          [1720690525.193] [2401:2401] [DMG]                                                 0x3 = 1 (unsigned),
+          [1720690525.193] [2401:2401] [DMG]                                                 0x4 = 1 (unsigned),
+          [1720690525.193] [2401:2401] [DMG]                                                 0x5 = "" (0 chars),
+          [1720690525.193] [2401:2401] [DMG]                                                 0xfe = 1 (unsigned),
+          [1720690525.193] [2401:2401] [DMG]                                         },
+          [1720690525.193] [2401:2401] [DMG]                                 ],
+          [1720690525.193] [2401:2401] [DMG]                         },
+          [1720690525.193] [2401:2401] [DMG]
+          [1720690525.193] [2401:2401] [DMG]                 },
+          [1720690525.193] [2401:2401] [DMG]
+          [1720690525.193] [2401:2401] [DMG]         ],
+          [1720690525.193] [2401:2401] [DMG]
+          [1720690525.193] [2401:2401] [DMG]         SuppressResponse = true,
+          [1720690525.193] [2401:2401] [DMG]         InteractionModelRevision = 11
+          [1720690525.193] [2401:2401] [DMG] }
+          [1720690525.193] [2401:2401] [DMG]
+          [1720690525.193] [2401:2401] [DMG] Additional Fields =
+          [1720690525.193] [2401:2401] [DMG] {
+          [1720690525.193] [2401:2401] [DMG]     peer_address = UDP:[fe80::e65f:1ff:fe49:ae1a%eth0]:45224
+      disabled: true
+
+    - label:
+          "Step 10: Verify that the public Key extracted NOCValue of the AddNOC
+          matches the Node Operational Public Key extracted from CSRResponse"
+      verification: |
+          Not verifiable (out of scope)
+      disabled: true
+
+    - label: "Step 11: Trigger the DUT to send UpdateNOC to TH"
+      PICS: OPCREDS.C.C07.Tx
+      verification: |
+          During commissioning, Verify that UpdateNOC Command is received in TH (all-clusters-app)
+
+          [1720691676.110] [2537:2537] [DMG] {
+          [1720691676.110] [2537:2537] [DMG]     Exchange (0x05) =
+          [1720691676.110] [2537:2537] [DMG]     {
+          [1720691676.110] [2537:2537] [DMG]         Initiator = true
+          [1720691676.110] [2537:2537] [DMG]         NeedsAck = true
+          [1720691676.110] [2537:2537] [DMG]     }
+          [1720691676.110] [2537:2537] [DMG] }
+          [1720691676.110] [2537:2537] [DMG]
+          [1720691676.110] [2537:2537] [DMG] Decrypted Payload (536 bytes) =
+          [1720691676.110] [2537:2537] [DMG] {
+          [1720691676.110] [2537:2537] [DMG]     data = 1528002801360215370024000024013e2402061835013000f11530010101240201370324130218260480228127260580254d3a370624150124110118240701240801300941044a270345ab219ad87b15d3019b537913f9b4141b65086f20310e9c6beb10e1d1bb6c38408a4e3060e521ec23d003223aaf91be2b0d4aba01d5936f28e4e472b0370a350128011824020136030402040118300414c58caa913e0686b491d23499ebe38b107fa17d86300514090379f413a2dee549958fd87995eaf9cfc6342418300b40170c5f4fdb337962d85313842ec8d644625a88167da9c8cb6958aa6d24376edf78737f5541ace9ff01e9cb94d4cf1f9a70c942e6a90a1acb29b5f0ab8619cfac183001e71530010101240201370324140118260480228127260580254d3a370624130218240701240801300941042ab1ebcbcc5441d4d9c64e96e7a22fd6d9a9dbd5ddb041d588c6d92ad3e0bb205077099d77495ca96eae12613f4a367407fb71c95f14109653a1a10767249bfc370a3501290118240260300414090379f413a2dee549958fd87995eaf9cfc634243005142454c7225b7e259a9fee5491234328fd15490ea818300b40dec817aa07a860dcfb62c2f470054dc0a51af3d0e67ea45d1e24835cb6895d7768ef6edff8fb70a384f13da581b6831b7c7f4f5d77fec7d5298af05bd632f7761830021074656d706f726172792069706b203031260369b601002504f1ff18181824ff0b18
+          [1720691676.110] [2537:2537] [DMG] }
+          [1720691676.110] [2537:2537] [DMG]
+          [1720691676.110] [2537:2537] [DMG] NOCValue (241) =
+          [1720691676.110] [2537:2537] [DMG] {
+          FTABAQEkAgE3AyQTAhgmBIAigScmBYAlTTo3BiQVASQRARgkBwEkCAEwCUEESicDRashmth7FdMBm1N5E/m0FBtlCG8gMQ6ca+sQ4dG7bDhAik4wYOUh7CPQAyI6r5G+Kw1KugHVk28o5ORysDcKNQEoARgkAgE2AwQCBAEYMAQUxYyqkT4GhrSR0jSZ6+OLEH+hfYYwBRQJA3n0E6Le5UmVj9h5ler5z8Y0JBgwC0AXDF9P2zN5YthTE4QuyNZEYlqIFn2pyMtpWKptJDdu33hzf1VBrOn/AenLlNTPH5pwyULmqQoayym18KuGGc+sGA==
+          [1720691676.110] [2537:2537] [DMG] }
+          [1720691676.110] [2537:2537] [DMG]
+          [1720691676.110] [2537:2537] [DMG] ICACValue (231) =
+          [1720691676.110] [2537:2537] [DMG] {
+          FTABAQEkAgE3AyQUARgmBIAigScmBYAlTTo3BiQTAhgkBwEkCAEwCUEEKrHry8xUQdTZxk6W56Iv1tmp29XdsEHViMbZKtPguyBQdwmdd0lcqW6uEmE/SjZ0B/txyV8UEJZToaEHZySb/DcKNQEpARgkAmAwBBQJA3n0E6Le5UmVj9h5ler5z8Y0JDAFFCRUxyJbfiWan+5UkSNDKP0VSQ6oGDALQN7IF6oHqGDc+2LC9HAFTcClGvPQ5n6kXR4kg1y2iV13aO9u3/j7cKOE8T2lgbaDG3x/T113/sfVKYrwW9Yy93YY
+          [1720691676.110] [2537:2537] [DMG] }
+          [1720691676.110] [2537:2537] [DMG]
+          [1720691676.111] [2537:2537] [DMG]
+          [1720691676.111] [2537:2537] [DMG] Additional Fields =
+          [1720691676.111] [2537:2537] [DMG] {
+      disabled: true
+
+    - label: "Step 12: Trigger the DUT to send UpdateFabricLabel to TH"
+      PICS: OPCREDS.C.C09.Tx
+      verification: |
+          ./chip-tool operationalcredentials update-fabric-label node1 1 0
+
+          ON TH(all-clusters-app) Verify that TH receives UpdateFabricLabel Command from DUT successfully.
+          [1720690667.618] [2401:2401] [EM] Handling via exchange: 53457r, Delegate: 0xaaaaab219368
+          [1720690667.618] [2401:2401] [DMG] InvokeRequestMessage =
+          [1720690667.618] [2401:2401] [DMG] {
+          [1720690667.618] [2401:2401] [DMG]         suppressResponse = false,
+          [1720690667.618] [2401:2401] [DMG]         timedRequest = false,
+          [1720690667.618] [2401:2401] [DMG]         InvokeRequests =
+          [1720690667.618] [2401:2401] [DMG]         [
+          [1720690667.618] [2401:2401] [DMG]                 CommandDataIB =
+          [1720690667.618] [2401:2401] [DMG]                 {
+          [1720690667.618] [2401:2401] [DMG]                         CommandPathIB =
+          [1720690667.618] [2401:2401] [DMG]                         {
+          [1720690667.618] [2401:2401] [DMG]                                 EndpointId = 0x0,
+          [1720690667.618] [2401:2401] [DMG]                                 ClusterId = 0x3e,
+          [1720690667.618] [2401:2401] [DMG]                                 CommandId = 0x9,
+          [1720690667.619] [2401:2401] [DMG]                         },
+          [1720690667.619] [2401:2401] [DMG]
+          [1720690667.619] [2401:2401] [DMG]                         CommandFields =
+          [1720690667.619] [2401:2401] [DMG]                         {
+          [1720690667.619] [2401:2401] [DMG]                                 0x0 = "node1" (5 chars),
+          [1720690667.619] [2401:2401] [DMG]                         },
+          [1720690667.619] [2401:2401] [DMG]                 },
+          [1720690667.619] [2401:2401] [DMG]
+          [1720690667.619] [2401:2401] [DMG]         ],
+          [1720690667.619] [2401:2401] [DMG]
+          [1720690667.619] [2401:2401] [DMG]         InteractionModelRevision = 11
+          [1720690667.619] [2401:2401] [DMG] },
+          [1720690667.619] [2401:2401] [DMG] AccessControl: checking f=1 a=c s=0x000000000001B669 t= c=0x0000_003E e=0 p=a
+          [1720690667.619] [2401:2401] [DMG] AccessControl: allowed
+      disabled: true
+
+    - label: "Step 13: Trigger the DUT to Read SupportedFabrics from TH"
+      PICS: OPCREDS.C.A0002
+      verification: |
+          ./chip-tool operationalcredentials read supported-fabrics 1 0
+
+          On TH(all-clusters-app), Verify that TH receives read SupportedFabrics attribute from DUT successfully
+
+          [1720690734.362] [2401:2401] [EM] Handling via exchange: 58383r, Delegate: 0xaaaaab219368
+          [1720690734.362] [2401:2401] [IM] Received Read request
+          [1720690734.362] [2401:2401] [DMG] ReadRequestMessage =
+          [1720690734.362] [2401:2401] [DMG] {
+          [1720690734.362] [2401:2401] [DMG]         AttributePathIBs =
+          [1720690734.362] [2401:2401] [DMG]         [
+          [1720690734.362] [2401:2401] [DMG]                 AttributePathIB =
+          [1720690734.362] [2401:2401] [DMG]                 {
+          [1720690734.362] [2401:2401] [DMG]                         Endpoint = 0x0,
+          [1720690734.362] [2401:2401] [DMG]                         Cluster = 0x3e,
+          [1720690734.362] [2401:2401] [DMG]                         Attribute = 0x0000_0002,
+          [1720690734.362] [2401:2401] [DMG]                 }
+          [1720690734.362] [2401:2401] [DMG]
+          [1720690734.362] [2401:2401] [DMG]         ],
+          [1720690734.362] [2401:2401] [DMG]
+          [1720690734.362] [2401:2401] [DMG]         isFabricFiltered = true,
+          [1720690734.362] [2401:2401] [DMG]         InteractionModelRevision = 11
+          [1720690734.362] [2401:2401] [DMG] },
+          [1720690734.362] [2401:2401] [DMG] IM RH moving to [CanStartReporting]
+          [1720690734.362] [2401:2401] [DMG] Building Reports for ReadHandler with LastReportGeneration = 0x0000000000000000 DirtyGeneration = 0x0000000000000000
+          [1720690734.362] [2401:2401] [DMG] <RE:Run> Cluster 3e, Attribute 2 is dirty
+          [1720690734.362] [2401:2401] [DMG] Reading attribute: Cluster=0x0000_003E Endpoint=0 AttributeId=0x0000_0002 (expanded=0)
+      disabled: true
+
+    - label:
+          "Step 14: Trigger the DUT to read CommissionedFabrics attribute from
+          TH"
+      PICS: OPCREDS.C.A0003
+      verification: |
+          ./chip-tool operationalcredentials read commissioned-fabrics 1 0
+
+          On TH(all-clusters-app), Verify that TH receives read CommissionedFabrics attribute from DUT successfully.
+
+          [1720690759.037] [2401:2401] [EM] Handling via exchange: 8730r, Delegate: 0xaaaaab219368
+          [1720690759.037] [2401:2401] [IM] Received Read request
+          [1720690759.037] [2401:2401] [DMG] ReadRequestMessage =
+          [1720690759.037] [2401:2401] [DMG] {
+          [1720690759.037] [2401:2401] [DMG]         AttributePathIBs =
+          [1720690759.037] [2401:2401] [DMG]         [
+          [1720690759.037] [2401:2401] [DMG]                 AttributePathIB =
+          [1720690759.037] [2401:2401] [DMG]                 {
+          [1720690759.037] [2401:2401] [DMG]                         Endpoint = 0x0,
+          [1720690759.037] [2401:2401] [DMG]                         Cluster = 0x3e,
+          [1720690759.037] [2401:2401] [DMG]                         Attribute = 0x0000_0003,
+          [1720690759.037] [2401:2401] [DMG]                 }
+          [1720690759.037] [2401:2401] [DMG]
+          [1720690759.037] [2401:2401] [DMG]         ],
+          [1720690759.037] [2401:2401] [DMG]
+          [1720690759.037] [2401:2401] [DMG]         isFabricFiltered = true,
+          [1720690759.037] [2401:2401] [DMG]         InteractionModelRevision = 11
+          [1720690759.037] [2401:2401] [DMG] },
+          [1720690759.037] [2401:2401] [DMG] IM RH moving to [CanStartReporting]
+          [1720690759.037] [2401:2401] [DMG] Building Reports for ReadHandler with LastReportGeneration = 0x0000000000000000 DirtyGeneration = 0x0000000000000000
+          [1720690759.037] [2401:2401] [DMG] <RE:Run> Cluster 3e, Attribute 3 is dirty
+          [1720690759.037] [2401:2401] [DMG] Reading attribute: Cluster=0x0000_003E Endpoint=0 AttributeId=0x0000_0003 (expanded=0)
+      disabled: true
+
+    - label:
+          "Step 15: Trigger the DUT to read TrustedRootCertificates attribute
+          from TH"
+      PICS: OPCREDS.C.A0004
+      verification: |
+          ./chip-tool operationalcredentials read trusted-root-certificates 1 0
+
+           On TH(all-clusters-app), Verify that TH receives read TrustedRootCertificates from DUT successfully.
+           [1720690787.895] [2401:2401] [EM] Handling via exchange: 45935r, Delegate: 0xaaaaab219368
+           [1720690787.895] [2401:2401] [IM] Received Read request
+           [1720690787.895] [2401:2401] [DMG] ReadRequestMessage =
+           [1720690787.895] [2401:2401] [DMG] {
+           [1720690787.895] [2401:2401] [DMG]         AttributePathIBs =
+           [1720690787.895] [2401:2401] [DMG]         [
+           [1720690787.895] [2401:2401] [DMG]                 AttributePathIB =
+           [1720690787.895] [2401:2401] [DMG]                 {
+           [1720690787.895] [2401:2401] [DMG]                         Endpoint = 0x0,
+           [1720690787.895] [2401:2401] [DMG]                         Cluster = 0x3e,
+           [1720690787.895] [2401:2401] [DMG]                         Attribute = 0x0000_0004,
+           [1720690787.895] [2401:2401] [DMG]                 }
+           [1720690787.896] [2401:2401] [DMG]
+           [1720690787.896] [2401:2401] [DMG]         ],
+           [1720690787.896] [2401:2401] [DMG]
+           [1720690787.896] [2401:2401] [DMG]         isFabricFiltered = true,
+           [1720690787.896] [2401:2401] [DMG]         InteractionModelRevision = 11
+           [1720690787.896] [2401:2401] [DMG] },
+           [1720690787.896] [2401:2401] [DMG] IM RH moving to [CanStartReporting]
+           [1720690787.896] [2401:2401] [DMG] Building Reports for ReadHandler with LastReportGeneration = 0x0000000000000000 DirtyGeneration = 0x0000000000000000
+           [1720690787.896] [2401:2401] [DMG] <RE:Run> Cluster 3e, Attribute 4 is dirty
+           [1720690787.896] [2401:2401] [DMG] Reading attribute: Cluster=0x0000_003E Endpoint=0 AttributeId=0x0000_0004 (expanded=0)
+      disabled: true
+
+    - label:
+          "Step 16: Trigger the DUT to read CurrentFabricIndex attribute from TH"
+      PICS: OPCREDS.C.A0005
+      verification: |
+          ./chip-tool operationalcredentials read   current-fabric-index   1 0
+
+          On TH(all-clusters-app), Verify that TH receives read CurrentFabricIndex from DUT successfully.
+          00001B669 [2E0F] --- Type 0001:02 (IM:ReadRequest)
+          [1720690810.143] [2401:2401] [EM] Handling via exchange: 58403r, Delegate: 0xaaaaab219368
+          [1720690810.143] [2401:2401] [IM] Received Read request
+          [1720690810.143] [2401:2401] [DMG] ReadRequestMessage =
+          [1720690810.143] [2401:2401] [DMG] {
+          [1720690810.143] [2401:2401] [DMG]         AttributePathIBs =
+          [1720690810.143] [2401:2401] [DMG]         [
+          [1720690810.143] [2401:2401] [DMG]                 AttributePathIB =
+          [1720690810.143] [2401:2401] [DMG]                 {
+          [1720690810.143] [2401:2401] [DMG]                         Endpoint = 0x0,
+          [1720690810.143] [2401:2401] [DMG]                         Cluster = 0x3e,
+          [1720690810.143] [2401:2401] [DMG]                         Attribute = 0x0000_0005,
+          [1720690810.143] [2401:2401] [DMG]                 }
+          [1720690810.143] [2401:2401] [DMG]
+          [1720690810.143] [2401:2401] [DMG]         ],
+          [1720690810.143] [2401:2401] [DMG]
+          [1720690810.143] [2401:2401] [DMG]         isFabricFiltered = true,
+          [1720690810.143] [2401:2401] [DMG]         InteractionModelRevision = 11
+          [1720690810.143] [2401:2401] [DMG] },
+          [1720690810.143] [2401:2401] [DMG] IM RH moving to [CanStartReporting]
+          [1720690810.144] [2401:2401] [DMG] Building Reports for ReadHandler with LastReportGeneration = 0x0000000000000000 DirtyGeneration = 0x0000000000000000
+          [1720690810.144] [2401:2401] [DMG] <RE:Run> Cluster 3e, Attribute 5 is dirty
+          [1720690810.144] [2401:2401] [DMG] Reading attribute: Cluster=0x000
+      disabled: true
+
+    - label: "Step 17: Trigger the DUT to send RemoveFabric command to TH"
+      PICS: OPCREDS.C.C0a.Tx
+      verification: |
+          ./chip-tool operationalcredentials remove-fabric 1 1 0
+
+          On TH(all-clusters-app), Verify that TH receives RemoveFabric Command for the FabricID saved from FabricDescriptor
+
+          [1720691521.510] [2497:2497] [EM] >>> [E:54592r S:29126 M:138609799] (S) Msg RX from 1:000000000001B669 [5C12] --- Type 0001:08 (IM:InvokeCommandRequest)
+          [1720691521.510] [2497:2497] [EM] Handling via exchange: 54592r, Delegate: 0xaaaae7e69368
+          [1720691521.510] [2497:2497] [DMG] InvokeRequestMessage =
+          [1720691521.510] [2497:2497] [DMG] {
+          [1720691521.510] [2497:2497] [DMG]         suppressResponse = false,
+          [1720691521.510] [2497:2497] [DMG]         timedRequest = false,
+          [1720691521.510] [2497:2497] [DMG]         InvokeRequests =
+          [1720691521.511] [2497:2497] [DMG]         [
+          [1720691521.511] [2497:2497] [DMG]                 CommandDataIB =
+          [1720691521.511] [2497:2497] [DMG]                 {
+          [1720691521.511] [2497:2497] [DMG]                         CommandPathIB =
+          [1720691521.511] [2497:2497] [DMG]                         {
+          [1720691521.511] [2497:2497] [DMG]                                 EndpointId = 0x0,
+          [1720691521.511] [2497:2497] [DMG]                                 ClusterId = 0x3e,
+          [1720691521.511] [2497:2497] [DMG]                                 CommandId = 0xa,
+          [1720691521.511] [2497:2497] [DMG]                         },
+          [1720691521.511] [2497:2497] [DMG]
+          [1720691521.511] [2497:2497] [DMG]                         CommandFields =
+          [1720691521.511] [2497:2497] [DMG]                         {
+          [1720691521.511] [2497:2497] [DMG]                                 0x0 = 1 (unsigned),
+          [1720691521.511] [2497:2497] [DMG]                         },
+          [1720691521.511] [2497:2497] [DMG]                 },
+          [1720691521.511] [2497:2497] [DMG]
+          [1720691521.511] [2497:2497] [DMG]         ],
+          [1720691521.511] [2497:2497] [DMG]
+          [1720691521.511] [2497:2497] [DMG]         InteractionModelRevision = 11
+          [1720691521.511] [2497:2497] [DMG] },
+          [1720691521.511] [2497:2497] [DMG] AccessControl: checking f=1 a=c s=0x000000000001B669 t= c=0x0000_003E e=0 p=a
+          [1720691521.511] [2497:2497] [DMG] AccessControl: allowed
+      disabled: true

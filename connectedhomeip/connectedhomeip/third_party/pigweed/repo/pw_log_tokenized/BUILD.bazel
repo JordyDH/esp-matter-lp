@@ -1,0 +1,196 @@
+# Copyright 2020 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_python//sphinxdocs:sphinx_docs_library.bzl", "sphinx_docs_library")
+load("//pw_build:compatibility.bzl", "incompatible_with_mcu")
+load("//pw_build:pw_facade.bzl", "pw_facade")
+load("//pw_unit_test:pw_cc_test.bzl", "pw_cc_test")
+
+package(
+    default_visibility = ["//visibility:public"],
+)
+
+licenses(["notice"])
+
+cc_library(
+    name = "headers",
+    hdrs = [
+        "public/pw_log_tokenized/config.h",
+        "public/pw_log_tokenized/log_tokenized.h",
+        "public/pw_log_tokenized/metadata.h",
+    ],
+    strip_include_prefix = "public",
+    deps = [
+        ":config_override",
+        "//pw_log:pw_log.facade",
+        "//pw_polyfill",
+        "//pw_tokenizer",
+    ],
+)
+
+label_flag(
+    name = "config_override",
+    build_setting_default = "//pw_build:default_module_config",
+)
+
+cc_library(
+    name = "pw_log_tokenized",
+    srcs = ["log_tokenized.cc"],
+    hdrs = [
+        "public_overrides/pw_log_backend/log_backend.h",
+        "public_overrides/pw_log_backend/log_backend_uses_pw_tokenizer.h",
+    ],
+    strip_include_prefix = "public_overrides",
+    tags = ["noclangtidy"],
+    deps = [
+        ":handler.facade",
+        ":headers",
+        "//pw_log:pw_log.facade",
+        "//pw_tokenizer",
+    ],
+)
+
+cc_library(
+    name = "gcc_partially_tokenized",
+    hdrs = [
+        "gcc_partially_tokenized_public_overrides/pw_log_backend/log_backend.h",
+    ],
+    strip_include_prefix = "gcc_partially_tokenized_public_overrides",
+    deps = [
+        ":gcc_partially_tokenized_private",
+        ":headers",
+    ],
+)
+
+cc_library(
+    name = "gcc_partially_tokenized_private",
+    srcs = ["log_tokenized.cc"],
+    hdrs = [
+        "public/pw_log_tokenized/gcc_partially_tokenized.h",
+    ],
+    strip_include_prefix = "public",
+    deps = [
+        ":handler",
+        ":headers",
+        "//pw_log:pw_log.facade",
+        "//pw_log_string:handler",
+    ],
+)
+
+alias(
+    name = "impl",
+    actual = ":handler",
+    features = ["-conversion_warnings"],
+)
+
+pw_facade(
+    name = "handler",
+    hdrs = ["public/pw_log_tokenized/handler.h"],
+    backend = ":handler_backend",
+    features = ["-conversion_warnings"],
+    strip_include_prefix = "public",
+    deps = ["//pw_preprocessor"],
+)
+
+label_flag(
+    name = "handler_backend",
+    build_setting_default = ":base64_over_hdlc",
+    features = ["-conversion_warnings"],
+)
+
+# There is no default backend for now.
+cc_library(
+    name = "backend_multiplexer",
+    visibility = ["//targets:__pkg__"],
+)
+
+cc_library(
+    name = "base64",
+    hdrs = ["public/pw_log_tokenized/base64.h"],
+    strip_include_prefix = "public",
+    deps = [
+        ":headers",  # Only config.h is needed
+        "//pw_tokenizer:base64",
+    ],
+)
+
+cc_library(
+    name = "base64_over_hdlc",
+    srcs = ["base64_over_hdlc.cc"],
+    features = ["-conversion_warnings"],
+    tags = ["noclangtidy"],
+    deps = [
+        ":base64",
+        ":handler.facade",
+        "//pw_hdlc",
+        "//pw_span",
+        "//pw_stream:sys_io_stream",
+        "//pw_string:string",
+        "//pw_tokenizer:base64",
+    ],
+)
+
+pw_cc_test(
+    name = "log_tokenized_test",
+    srcs = [
+        "log_tokenized_test.cc",
+        "log_tokenized_test_c.c",
+        "pw_log_tokenized_private/test_utils.h",
+    ],
+    deps = [
+        ":base64",
+        ":headers",
+        "//pw_preprocessor",
+    ],
+)
+
+pw_cc_test(
+    name = "metadata_test",
+    srcs = [
+        "metadata_test.cc",
+    ],
+    deps = [":headers"],
+)
+
+pw_cc_test(
+    name = "tokenized_args_test",
+    srcs = [
+        "tokenized_args_test.cc",
+    ],
+    deps = [
+        ":headers",
+        "//pw_log:args",
+        "//pw_tokenizer",
+    ],
+)
+
+filegroup(
+    name = "doxygen",
+    srcs = [
+        "public/pw_log_tokenized/base64.h",
+        "public/pw_log_tokenized/config.h",
+        "public/pw_log_tokenized/handler.h",
+        "public/pw_log_tokenized/metadata.h",
+    ],
+)
+
+sphinx_docs_library(
+    name = "docs",
+    srcs = [
+        "docs.rst",
+    ],
+    prefix = "pw_log_tokenized/",
+    target_compatible_with = incompatible_with_mcu(),
+)

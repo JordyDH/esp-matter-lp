@@ -1,0 +1,119 @@
+# Copyright 2023 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_python//sphinxdocs:sphinx_docs_library.bzl", "sphinx_docs_library")
+load("//pw_build:compatibility.bzl", "boolean_constraint_value", "incompatible_with_mcu")
+load("//pw_unit_test:pw_cc_test.bzl", "pw_cc_test")
+
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])
+
+boolean_constraint_value(
+    name = "compatible",
+)
+
+cc_library(
+    name = "spi",
+    srcs = [
+        "spi.cc",
+    ],
+    hdrs = [
+        "public/pw_spi_mcuxpresso/spi.h",
+    ],
+    implementation_deps = ["//pw_assert:check"],
+    strip_include_prefix = "public",
+    target_compatible_with = [":compatible"],
+    deps = [
+        "//pw_chrono:system_clock",
+        "//pw_log",
+        "//pw_spi:chip_selector",
+        "//pw_spi:initiator",
+        "//pw_status",
+        "//pw_sync:binary_semaphore",
+        "//pw_sync:lock_annotations",
+        "//pw_sync:mutex",
+        "//targets:mcuxpresso_sdk",
+    ],
+)
+
+cc_library(
+    name = "flexio_spi",
+    srcs = [
+        "flexio_spi.cc",
+    ],
+    hdrs = [
+        "public/pw_spi_mcuxpresso/flexio_spi.h",
+    ],
+    strip_include_prefix = "public",
+    target_compatible_with = [":compatible"],
+    deps = [
+        "//pw_digital_io",
+        "//pw_log",
+        "//pw_spi:chip_selector",
+        "//pw_spi:initiator",
+        "//pw_status",
+        "//pw_sync:binary_semaphore",
+        "//pw_sync:lock_annotations",
+        "//pw_sync:mutex",
+        "//targets:mcuxpresso_sdk",
+    ],
+)
+
+cc_library(
+    name = "responder",
+    srcs = ["responder.cc"],
+    hdrs = [
+        "public/pw_spi_mcuxpresso/responder.h",
+    ],
+    strip_include_prefix = "public",
+    target_compatible_with = [":compatible"],
+    deps = [
+        "//pw_assert:check",
+        "//pw_dma_mcuxpresso",
+        "//pw_function",
+        "//pw_log",
+        "//pw_span:cast",
+        "//pw_spi:initiator",
+        "//pw_spi:responder",
+        "//pw_status",
+        "//targets:mcuxpresso_sdk",
+        "//third_party/fuchsia:stdcompat",
+    ],
+)
+
+pw_cc_test(
+    name = "spi_test",
+    srcs = ["spi_test.cc"],
+    deps = [
+        ":spi",
+        "//pw_spi:device",
+    ],
+)
+
+pw_cc_test(
+    name = "flexio_spi_test",
+    srcs = ["flexio_spi_test.cc"],
+    deps = [":flexio_spi"],
+)
+
+sphinx_docs_library(
+    name = "docs",
+    srcs = [
+        "docs.rst",
+    ],
+    prefix = "pw_spi_mcuxpresso/",
+    target_compatible_with = incompatible_with_mcu(),
+)

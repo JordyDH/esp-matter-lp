@@ -1,0 +1,251 @@
+# Copyright 2023 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_python//sphinxdocs:sphinx_docs_library.bzl", "sphinx_docs_library")
+load("//pw_build:compatibility.bzl", "incompatible_with_mcu")
+load("//pw_unit_test:pw_cc_test.bzl", "pw_cc_test")
+
+package(
+    default_visibility = ["//pw_bluetooth_sapphire:__subpackages__"],
+    features = ["-layering_check"],
+)
+
+cc_library(
+    name = "config",
+    srcs = [],
+    hdrs = [
+        "public/pw_bluetooth_sapphire/config.h",
+    ],
+    defines = select({
+        "@platforms//os:fuchsia": [
+            "PW_BLUETOOTH_SAPPHIRE_INSPECT_ENABLED",
+            "PW_BLUETOOTH_SAPPHIRE_TRACE_ENABLED",
+        ],
+        "//conditions:default": [],
+    }),
+    strip_include_prefix = "public",
+)
+
+cc_library(
+    name = "central",
+    srcs = ["central.cc"],
+    hdrs = ["public/pw_bluetooth_sapphire/central.h"],
+    features = ["-conversion_warnings"],
+    strip_include_prefix = "public",
+    tags = ["noclangtidy"],
+    deps = [
+        ":connection",
+        ":uuid",
+        "//pw_bluetooth:pw_bluetooth2",
+        "//pw_bluetooth_sapphire/host/gap",
+        "//pw_multibuf:allocator",
+    ],
+)
+
+cc_library(
+    name = "connection",
+    srcs = [
+        "connection.cc",
+        "connection_options.cc",
+    ],
+    hdrs = [
+        "public/pw_bluetooth_sapphire/internal/connection.h",
+        "public/pw_bluetooth_sapphire/internal/connection_options.h",
+    ],
+    features = ["-conversion_warnings"],
+    strip_include_prefix = "public",
+    tags = ["noclangtidy"],
+    visibility = ["//visibility:private"],
+    deps = [
+        ":uuid",
+        "//pw_bluetooth:pw_bluetooth2",
+        "//pw_bluetooth_sapphire/host/gap",
+    ],
+)
+
+cc_library(
+    name = "uuid",
+    hdrs = [
+        "public/pw_bluetooth_sapphire/internal/uuid.h",
+    ],
+    features = ["-conversion_warnings"],
+    strip_include_prefix = "public",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//pw_bluetooth:pw_bluetooth2",
+        "//pw_bluetooth_sapphire/host/common",
+        "//pw_span",
+    ],
+)
+
+cc_library(
+    name = "discovery_filter",
+    srcs = [
+        "discovery_filter.cc",
+    ],
+    hdrs = [
+        "public/pw_bluetooth_sapphire/internal/discovery_filter.h",
+    ],
+    features = ["-conversion_warnings"],
+    strip_include_prefix = "public",
+    visibility = ["//visibility:private"],
+    deps = [
+        ":uuid",
+        "//pw_bluetooth:pw_bluetooth2",
+        "//pw_bluetooth_sapphire/host/hci",
+    ],
+)
+
+cc_library(
+    name = "lease",
+    hdrs = [
+        "public/pw_bluetooth_sapphire/lease.h",
+    ],
+    strip_include_prefix = "public",
+    deps = [
+        ":config",
+        "//pw_function",
+        "//pw_result",
+    ],
+)
+
+cc_library(
+    name = "null_lease_provider",
+    hdrs = [
+        "public/pw_bluetooth_sapphire/null_lease_provider.h",
+    ],
+    strip_include_prefix = "public",
+    deps = [
+        ":lease",
+    ],
+)
+
+cc_library(
+    name = "fake_lease_provider",
+    hdrs = [
+        "public/pw_bluetooth_sapphire/fake_lease_provider.h",
+    ],
+    strip_include_prefix = "public",
+    deps = [
+        ":lease",
+    ],
+)
+
+cc_library(
+    name = "power_delegate",
+    hdrs = ["public/pw_bluetooth_sapphire/power_delegate.h"],
+    strip_include_prefix = "public",
+    deps = [":lease"],
+)
+
+pw_cc_test(
+    name = "lease_test",
+    srcs = ["lease_test.cc"],
+    deps = [
+        ":lease",
+    ],
+)
+
+pw_cc_test(
+    name = "null_lease_provider_test",
+    srcs = [
+        "null_lease_provider_test.cc",
+    ],
+    deps = [
+        ":null_lease_provider",
+    ],
+)
+
+pw_cc_test(
+    name = "fake_lease_provider_test",
+    srcs = [
+        "fake_lease_provider_test.cc",
+    ],
+    deps = [
+        ":fake_lease_provider",
+    ],
+)
+
+pw_cc_test(
+    name = "central_test",
+    srcs = ["central_test.cc"],
+    features = ["-conversion_warnings"],
+    test_main = "//pw_bluetooth_sapphire/host/testing:gtest_main",
+    deps = [
+        ":central",
+        ":discovery_filter",
+        ":uuid",
+        "//pw_async:fake_dispatcher",
+        "//pw_async2:pend_func_task",
+        "//pw_bluetooth_sapphire/host/gap:testing",
+        "//pw_multibuf:testing",
+    ],
+)
+
+cc_library(
+    name = "peripheral",
+    srcs = ["peripheral.cc"],
+    hdrs = ["public/pw_bluetooth_sapphire/peripheral.h"],
+    features = ["-conversion_warnings"],
+    includes = ["public"],
+    tags = ["noclangtidy"],
+    deps = [
+        "//pw_bluetooth:pw_bluetooth2",
+        "//pw_bluetooth_sapphire/host/gap",
+        "//pw_sync:mutex",
+    ],
+)
+
+pw_cc_test(
+    name = "peripheral_test",
+    srcs = ["peripheral_test.cc"],
+    features = ["-conversion_warnings"],
+    test_main = "//pw_bluetooth_sapphire/host/testing:gtest_main",
+    deps = [
+        ":peripheral",
+        "//pw_async:fake_dispatcher",
+        "//pw_async2:pend_func_task",
+        "//pw_bluetooth_sapphire/host/gap:testing",
+    ],
+)
+
+filegroup(
+    name = "doxygen",
+    srcs = [
+        "public/pw_bluetooth_sapphire/central.h",
+        "public/pw_bluetooth_sapphire/fake_lease_provider.h",
+        "public/pw_bluetooth_sapphire/lease.h",
+        "public/pw_bluetooth_sapphire/null_lease_provider.h",
+        "public/pw_bluetooth_sapphire/peripheral.h",
+        "public/pw_bluetooth_sapphire/power_delegate.h",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+sphinx_docs_library(
+    name = "docs",
+    srcs = [
+        "docs.rst",
+        "fuchsia.rst",
+        "reference.rst",
+        "size_report.rst",
+        "//pw_bluetooth_sapphire/host/att:docs",
+        "//pw_bluetooth_sapphire/host/gap:docs",
+        "//pw_bluetooth_sapphire/host/l2cap:docs",
+    ],
+    prefix = "pw_bluetooth_sapphire/",
+    target_compatible_with = incompatible_with_mcu(),
+    visibility = ["//visibility:public"],
+)

@@ -1,0 +1,56 @@
+<!--
+Copyright 2024 The Pigweed Authors
+
+Licensed under the Apache License, Version 2.0 (the "License"); you may not
+use this file except in compliance with the License. You may obtain a copy of
+the License at
+
+    https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+License for the specific language governing permissions and limitations under
+the License.
+-->
+
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <style>
+          body {
+            margin: 0;
+            }
+
+          #console-container {
+            height: 100vh;
+          }
+
+          #logs-container, #repl-container {
+            overflow: hidden;
+          }
+        </style>
+        <title>Pigweed Console</title>
+    </head>
+    <body>
+        <main id="console-container"></main>
+        <script src="https://unpkg.com/pigweedjs@0.0.22/dist/pw_console.umd.js"></script>
+        <script>
+          // TODO: b/355005802 - Ideally their should be an API to pass this to instead.
+          async function initStateToDefault(){
+            const res = await fetch("defaultconfig.json")
+            const json = await res.json()
+            localStorage.setItem("logViewerState", JSON.stringify(json))
+          }
+          // Set a default log viewer config
+          if (!localStorage.getItem("logViewerState")) {
+            initStateToDefault();
+          }
+        </script>
+        <script>
+          PWConsole.renderPWConsole(document.querySelector("#console-container"), "/ws")
+        </script>
+    </body>
+</html>

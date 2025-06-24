@@ -1,0 +1,113 @@
+# Copyright 2020 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_python//sphinxdocs:sphinx_docs_library.bzl", "sphinx_docs_library")
+load("//pw_build:compatibility.bzl", "incompatible_with_mcu")
+
+package(
+    default_visibility = ["//visibility:public"],
+)
+
+licenses(["notice"])
+
+cc_library(
+    name = "check_backend",
+    hdrs = [
+        "check_backend_public_overrides/pw_assert_backend/check_backend.h",
+    ],
+    strip_include_prefix = "check_backend_public_overrides",
+    deps = [":check_backend_private"],
+)
+
+cc_library(
+    name = "check_backend_private",
+    hdrs = [
+        "public/pw_assert_log/check_log.h",
+    ],
+    strip_include_prefix = "public",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//pw_log",
+        "//pw_preprocessor",
+    ],
+)
+
+cc_library(
+    name = "assert_backend",
+    srcs = [
+        "assert_log.cc",
+    ],
+    hdrs = [
+        "assert_backend_public_overrides/pw_assert_backend/assert_backend.h",
+    ],
+    strip_include_prefix = "assert_backend_public_overrides",
+    deps = [
+        ":assert_backend_private",
+        "//pw_assert:config",
+        "//pw_log",
+        "//pw_preprocessor",
+    ],
+)
+
+cc_library(
+    name = "assert_backend_private",
+    hdrs = [
+        "public/pw_assert_log/assert_log.h",
+    ],
+    strip_include_prefix = "public",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//pw_log",
+        "//pw_preprocessor",
+    ],
+)
+
+# TODO: https://pwbug.dev/378564135 - Remove this target once all users are
+# migrated to using :assert_backend and :check_backend.
+cc_library(
+    name = "check_and_assert_backend",
+    srcs = [
+        "assert_log.cc",
+    ],
+    hdrs = [
+        "assert_backend_public_overrides/pw_assert_backend/assert_backend.h",
+        "check_backend_public_overrides/pw_assert_backend/check_backend.h",
+        "public/pw_assert_log/assert_log.h",
+        "public/pw_assert_log/check_log.h",
+    ],
+    includes = [
+        "assert_backend_public_overrides",
+        "check_backend_public_overrides",
+        "public",
+    ],
+    deps = [
+        "//pw_assert:check.facade",
+        "//pw_assert:config",
+        "//pw_log",
+        "//pw_preprocessor",
+    ],
+)
+
+# There is no "impl" target: pw_assert_log doesn't have potential circular
+# dependencies.
+
+sphinx_docs_library(
+    name = "docs",
+    srcs = [
+        "docs.rst",
+    ],
+    prefix = "pw_assert_log/",
+    target_compatible_with = incompatible_with_mcu(),
+)

@@ -1,0 +1,164 @@
+# Copyright 2024 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("//pw_fuzzer:fuzzer.bzl", "pw_cc_fuzz_test")
+load("//pw_unit_test:pw_cc_test.bzl", "pw_cc_test")
+
+package(
+    default_visibility = ["//visibility:public"],
+    features = ["-layering_check"],
+)
+
+cc_library(
+    name = "definitions",
+    srcs = [
+        "error.cc",
+        "packet.cc",
+        "types.cc",
+    ],
+    hdrs = [
+        "public/pw_bluetooth_sapphire/internal/host/sm/error.h",
+        "public/pw_bluetooth_sapphire/internal/host/sm/packet.h",
+        "public/pw_bluetooth_sapphire/internal/host/sm/smp.h",
+        "public/pw_bluetooth_sapphire/internal/host/sm/types.h",
+    ],
+    features = ["-conversion_warnings"],
+    implementation_deps = [
+        "//pw_bluetooth_sapphire/lib/cpp-string",
+        "//pw_preprocessor",
+        "//pw_string",
+    ],
+    strip_include_prefix = "public",
+    tags = ["noclangtidy"],
+    deps = [
+        "//pw_bluetooth_sapphire/host/common",
+        "//pw_bluetooth_sapphire/host/hci-spec",
+        "//pw_chrono:system_clock",
+        "//third_party/fuchsia:fit",
+    ],
+)
+
+cc_library(
+    name = "sm",
+    srcs = [
+        "ecdh_key.cc",
+        "pairing_channel.cc",
+        "pairing_phase.cc",
+        "phase_1.cc",
+        "phase_2_legacy.cc",
+        "phase_2_secure_connections.cc",
+        "phase_3.cc",
+        "sc_stage_1_just_works_numeric_comparison.cc",
+        "sc_stage_1_passkey.cc",
+        "security_manager.cc",
+        "security_request_phase.cc",
+        "util.cc",
+    ],
+    hdrs = [
+        "public/pw_bluetooth_sapphire/internal/host/sm/delegate.h",
+        "public/pw_bluetooth_sapphire/internal/host/sm/ecdh_key.h",
+        "public/pw_bluetooth_sapphire/internal/host/sm/pairing_channel.h",
+        "public/pw_bluetooth_sapphire/internal/host/sm/pairing_phase.h",
+        "public/pw_bluetooth_sapphire/internal/host/sm/phase_1.h",
+        "public/pw_bluetooth_sapphire/internal/host/sm/phase_2_legacy.h",
+        "public/pw_bluetooth_sapphire/internal/host/sm/phase_2_secure_connections.h",
+        "public/pw_bluetooth_sapphire/internal/host/sm/phase_3.h",
+        "public/pw_bluetooth_sapphire/internal/host/sm/sc_stage_1.h",
+        "public/pw_bluetooth_sapphire/internal/host/sm/sc_stage_1_just_works_numeric_comparison.h",
+        "public/pw_bluetooth_sapphire/internal/host/sm/sc_stage_1_passkey.h",
+        "public/pw_bluetooth_sapphire/internal/host/sm/security_manager.h",
+        "public/pw_bluetooth_sapphire/internal/host/sm/security_request_phase.h",
+        "public/pw_bluetooth_sapphire/internal/host/sm/util.h",
+    ],
+    features = ["-conversion_warnings"],
+    strip_include_prefix = "public",
+    tags = ["noclangtidy"],
+    deps = [
+        ":definitions",
+        "//pw_bluetooth_sapphire/host/common",
+        "//pw_bluetooth_sapphire/host/gap:definitions",
+        "//pw_bluetooth_sapphire/host/gap:peer",
+        "//pw_bluetooth_sapphire/host/hci",
+        "//pw_bluetooth_sapphire/host/l2cap",
+        "//pw_bluetooth_sapphire/lib/cpp-string",
+        "//pw_crypto:aes",
+        "//pw_crypto:aes_cmac",
+        "//third_party/fuchsia:fit",
+        "@boringssl//:crypto",
+    ],
+)
+
+cc_library(
+    name = "testing",
+    srcs = [
+        "test_security_manager.cc",
+    ],
+    hdrs = [
+        "public/pw_bluetooth_sapphire/internal/host/sm/fake_phase_listener.h",
+        "public/pw_bluetooth_sapphire/internal/host/sm/test_security_manager.h",
+    ],
+    features = ["-conversion_warnings"],
+    strip_include_prefix = "public",
+    tags = ["noclangtidy"],
+    deps = [
+        ":definitions",
+        ":sm",
+        "//pw_bluetooth_sapphire/host/common",
+        "//pw_bluetooth_sapphire/host/gap:definitions",
+        "//pw_bluetooth_sapphire/host/hci",
+        "//pw_bluetooth_sapphire/host/hci-spec",
+        "//pw_bluetooth_sapphire/host/l2cap",
+    ],
+)
+
+pw_cc_test(
+    name = "sm_test",
+    srcs = [
+        "ecdh_key_test.cc",
+        "error_test.cc",
+        "packet_test.cc",
+        "pairing_channel_test.cc",
+        "pairing_phase_test.cc",
+        "phase_1_test.cc",
+        "phase_2_legacy_test.cc",
+        "phase_2_secure_connections_test.cc",
+        "phase_3_test.cc",
+        "sc_stage_1_just_works_numeric_comparison_test.cc",
+        "sc_stage_1_passkey_test.cc",
+        "security_manager_test.cc",
+        "security_request_phase_test.cc",
+        "types_test.cc",
+        "util_test.cc",
+    ],
+    features = ["-conversion_warnings"],
+    test_main = "//pw_bluetooth_sapphire/host/testing:gtest_main",
+    deps = [
+        ":sm",
+        ":testing",
+        "//pw_bluetooth_sapphire:fake_lease_provider",
+        "//pw_bluetooth_sapphire/host/hci:testing",
+        "//pw_bluetooth_sapphire/host/l2cap:testing",
+        "//pw_bluetooth_sapphire/host/testing",
+        "//pw_bluetooth_sapphire/host/testing:mock_controller",
+        "//pw_bluetooth_sapphire/host/testing:test_helpers",
+    ],
+)
+
+pw_cc_fuzz_test(
+    name = "valid_packet_reader_fuzzer",
+    srcs = ["valid_packet_reader_parse_sdu_fuzztest.cc"],
+    features = ["-conversion_warnings"],
+    deps = [":definitions"],
+)

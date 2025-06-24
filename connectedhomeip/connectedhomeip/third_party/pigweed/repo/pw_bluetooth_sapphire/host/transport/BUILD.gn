@@ -1,0 +1,105 @@
+# Copyright 2023 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+import("//build_overrides/pigweed.gni")
+import("$dir_pw_build/target_types.gni")
+import("$dir_pw_unit_test/test.gni")
+
+config("public_include_path") {
+  include_dirs = [ "public" ]
+}
+
+pw_source_set("transport") {
+  sources = [
+    "acl_data_channel.cc",
+    "acl_data_packet.cc",
+    "command_channel.cc",
+    "control_packets.cc",
+    "error.cc",
+    "iso_data_channel.cc",
+    "link_type.cc",
+    "sco_data_channel.cc",
+    "sco_data_packet.cc",
+    "transport.cc",
+  ]
+  public = [
+    "public/pw_bluetooth_sapphire/internal/host/transport/acl_data_channel.h",
+    "public/pw_bluetooth_sapphire/internal/host/transport/acl_data_packet.h",
+    "public/pw_bluetooth_sapphire/internal/host/transport/command_channel.h",
+    "public/pw_bluetooth_sapphire/internal/host/transport/control_packets.h",
+    "public/pw_bluetooth_sapphire/internal/host/transport/data_buffer_info.h",
+    "public/pw_bluetooth_sapphire/internal/host/transport/emboss_packet.h",
+    "public/pw_bluetooth_sapphire/internal/host/transport/error.h",
+    "public/pw_bluetooth_sapphire/internal/host/transport/iso_data_channel.h",
+    "public/pw_bluetooth_sapphire/internal/host/transport/link_type.h",
+    "public/pw_bluetooth_sapphire/internal/host/transport/packet.h",
+    "public/pw_bluetooth_sapphire/internal/host/transport/sco_data_channel.h",
+    "public/pw_bluetooth_sapphire/internal/host/transport/sco_data_packet.h",
+    "public/pw_bluetooth_sapphire/internal/host/transport/slab_allocators.h",
+    "public/pw_bluetooth_sapphire/internal/host/transport/transport.h",
+  ]
+  public_configs = [ ":public_include_path" ]
+  public_deps = [
+    "$dir_pw_async:dispatcher",
+    "$dir_pw_async:task",
+    "$dir_pw_bluetooth:emboss_hci_group",
+    "$dir_pw_bluetooth_sapphire:lease",
+    "$dir_pw_bluetooth_sapphire/host/common",
+    "$dir_pw_bluetooth_sapphire/host/hci-spec",
+    "$dir_pw_third_party/fuchsia:fit",
+    dir_pw_bluetooth,
+  ]
+}
+
+pw_source_set("testing") {
+  testonly = pw_unit_test_TESTONLY
+  sources = [
+    "fake_sco_data_channel.cc",
+    "mock_acl_data_channel.cc",
+  ]
+  public = [
+    "public/pw_bluetooth_sapphire/internal/host/transport/fake_acl_connection.h",
+    "public/pw_bluetooth_sapphire/internal/host/transport/fake_sco_data_channel.h",
+    "public/pw_bluetooth_sapphire/internal/host/transport/mock_acl_data_channel.h",
+  ]
+  public_configs = [ ":public_include_path" ]
+  public_deps = [ ":transport" ]
+}
+
+pw_test("transport_test") {
+  sources = [
+    "acl_data_channel_test.cc",
+    "command_channel_test.cc",
+    "control_packets_test.cc",
+    "iso_data_channel_test.cc",
+    "packet_test.cc",
+    "sco_data_channel_test.cc",
+    "sco_data_packet_test.cc",
+    "slab_allocators_test.cc",
+    "transport_test.cc",
+  ]
+  test_main = "$dir_pw_bluetooth_sapphire/host/testing:gtest_main"
+  deps = [
+    ":testing",
+    ":transport",
+    "$dir_pw_bluetooth:emboss_hci_test",
+    "$dir_pw_bluetooth_sapphire/host/testing",
+    "$dir_pw_bluetooth_sapphire/host/testing:mock_controller",
+    "$dir_pw_bluetooth_sapphire/host/testing:test_helpers",
+  ]
+}
+
+pw_test_group("tests") {
+  tests = [ ":transport_test" ]
+}

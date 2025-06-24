@@ -1,0 +1,93 @@
+# Copyright 2024 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+load("@rules_python//python:defs.bzl", "py_library")
+load("@rules_python//sphinxdocs:sphinx_docs_library.bzl", "sphinx_docs_library")
+load("//pw_build:compatibility.bzl", "incompatible_with_mcu")
+load("//pw_build:python.bzl", "pw_py_binary", "pw_py_test")
+
+package(default_visibility = ["//visibility:public"])
+
+py_library(
+    name = "pw_sensor",
+    srcs = [
+        "pw_sensor/__init__.py",
+        "pw_sensor/constants_generator.py",
+        "pw_sensor/sensor_desc.py",
+        "pw_sensor/validator.py",
+    ],
+    data = [
+        ":base_schemas",
+        ":pw_sensor/templates/cpp_constants.jinja",
+    ],
+    imports = ["."],
+    deps = [
+        "@pigweed_python_packages//jinja2",
+        "@pigweed_python_packages//jsonschema",
+        "@pigweed_python_packages//pyyaml",
+    ],
+)
+
+pw_py_binary(
+    name = "constants_generator",
+    srcs = [
+        "pw_sensor/constants_generator.py",
+    ],
+    data = [
+        ":pw_sensor/templates/cpp_constants.jinja",
+    ],
+    imports = ["."],
+    deps = [
+        ":pw_sensor",
+        "@pigweed_python_packages//jinja2",
+        "@pigweed_python_packages//pyyaml",
+    ],
+)
+
+pw_py_binary(
+    name = "sensor_desc",
+    srcs = ["pw_sensor/sensor_desc.py"],
+    imports = ["."],
+    deps = [
+        ":pw_sensor",
+        "@pigweed_python_packages//pyyaml",
+    ],
+)
+
+filegroup(
+    name = "base_schemas",
+    srcs = [
+        "pw_sensor/dependency_schema.json",
+        "pw_sensor/metadata_schema.json",
+        "pw_sensor/resolved_schema.json",
+    ],
+)
+
+pw_py_test(
+    name = "validator_test",
+    srcs = ["validator_test.py"],
+    deps = [
+        ":pw_sensor",
+        "@pigweed_python_packages//jsonschema",
+        "@pigweed_python_packages//pyyaml",
+    ],
+)
+
+sphinx_docs_library(
+    name = "docs",
+    srcs = [
+        "docs.rst",
+    ],
+    target_compatible_with = incompatible_with_mcu(),
+)

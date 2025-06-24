@@ -1,0 +1,551 @@
+# Copyright 2024 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+module(
+    name = "pigweed",
+    version = "0.0.1",
+)
+
+register_execution_platforms("@local_config_platform//:host")
+
+bazel_dep(name = "aspect_bazel_lib", version = "2.8.1")
+bazel_dep(name = "aspect_rules_js", version = "2.1.0")
+bazel_dep(name = "bazel_skylib", version = "1.7.1")
+bazel_dep(name = "boringssl", version = "0.20240913.0")
+bazel_dep(name = "freertos", version = "10.5.1.bcr.2")
+bazel_dep(name = "gazelle", version = "0.40.0", repo_name = "bazel_gazelle")
+bazel_dep(name = "googletest", version = "1.15.0", repo_name = "com_google_googletest")
+bazel_dep(name = "nanopb", version = "0.4.9.1")
+bazel_dep(name = "pico-sdk", version = "2.1.1")
+bazel_dep(name = "picotool", version = "2.1.1")
+bazel_dep(name = "platforms", version = "0.0.10")
+
+# LINT.IfChange(protobuf)
+bazel_dep(name = "protobuf", version = "28.2", repo_name = "com_google_protobuf")
+# LINT.ThenChange(pw_env_setup/py/pw_env_setup/cipd_setup/pigweed.json,pw_env_setup/py/pw_env_setup/virtualenv_setup/constraint.list:protobuf)
+
+# A transitive dependency requires this.
+bazel_dep(name = "re2", version = "2024-07-02.bcr.1")
+bazel_dep(name = "rules_android", version = "0.1.1")
+bazel_dep(name = "rules_cc", version = "0.1.1")
+bazel_dep(name = "rules_fuzzing", version = "0.5.2")
+bazel_dep(name = "rules_go", version = "0.52.0", repo_name = "io_bazel_rules_go")
+bazel_dep(name = "rules_java", version = "8.6.1")
+bazel_dep(name = "rules_jvm_external", version = "6.6")
+bazel_dep(name = "rules_libusb", version = "0.1.0-rc1")
+bazel_dep(name = "rules_license", version = "1.0.0")
+bazel_dep(name = "rules_nodejs", version = "6.3.0")
+bazel_dep(name = "rules_platform", version = "0.1.0")
+bazel_dep(name = "rules_probe_rs", version = "0.0.2")
+bazel_dep(name = "rules_python", version = "0.40.0")
+bazel_dep(name = "rules_rust", version = "0.59.2")
+
+# LINT.IfChange(emboss)
+bazel_dep(name = "emboss", version = "2024.1017.203246", repo_name = "com_google_emboss")
+# LINT.ThenChange(/pw_package/py/pw_package/packages/emboss.py:emboss)
+
+bazel_dep(name = "hedron_compile_commands", dev_dependency = True)
+bazel_dep(name = "rules_doxygen", version = "2.2.0", dev_dependency = True)
+
+# Repository overrides
+# ====================
+
+# TODO: https://pwbug.dev/349880767 - Point this back to the upstream repo once
+# this PR is merged.
+archive_override(
+    module_name = "hedron_compile_commands",
+    strip_prefix = "bazel-compile-commands-extractor-163521345aa6366fd1ed801b989b668b5c806f69",
+    urls = ["https://github.com/chadnorvell/bazel-compile-commands-extractor/archive/163521345aa6366fd1ed801b989b668b5c806f69.tar.gz"],
+)
+
+# TODO: https://pwbug.dev/372510795 - A `bazel_dep` on this version propagates
+# to downstream projects, which causes breakages since downstream is still
+# pre-Bazel 8.0.0. When all downstream projects are flipped to Bazel 8.0.0,
+# remove this and update the rules_android bazel_dep requirement.
+single_version_override(
+    module_name = "rules_android",
+    version = "0.6.0",
+)
+
+# TODO: https://pwbug.dev/354268150 - Switch back to a release once this commit
+# makes it into one. Downstream projects generally don't need this commit, it's
+# only required for interop with the Fuchsia SDK.
+git_override(
+    module_name = "googletest",
+    commit = "e54519b09463cec3aea77a1739e02c97ca766da5",
+    remote = "https://pigweed.googlesource.com/third_party/github/google/googletest.git",
+)
+
+single_version_override(
+    module_name = "rules_rust",
+    patch_strip = 1,
+    patches = [
+        # Adds prototype functionality for documenting multiple crates in one
+        # HTML output directory.  While the approach in this patch may have
+        # issues scaling to giant mono-repos, it is appropriate for embedded
+        # projects and minimally invasive and should be easy to maintain.  Once
+        # the `rules_rust` community decides on a way to propperly support this,
+        # we will migrate to that solution.
+        # https://github.com/konkers/rules_rust/tree/wip/rustdoc
+        "//pw_rust/bazel_patches:0002-PROTOTYPE-Add-ability-to-document-multiple-crates-at.patch",
+
+        # Adds more thumbv6m, thumbv8m, and thumbv8m triples
+        # TODO: https://pwbug.dev/392707726 - Upstream below patch
+        "//pw_rust/bazel_patches:0003-Add-thumbv6m-and-more-thumbv7m-and-thumbv8m-triples.patch",
+
+        # Adds ability to specify a subdirectory, relative to the target's BUILD
+        # file, where the rust sources live.  Without this `gen_rust_project`
+        # gets the path to those files wrong.
+        # TODO: https://pwbug.dev/3392708481 - Upstream below patch
+        "//pw_rust/bazel_patches:0004-Add-rust_srcs_subdir-to-rust_analyzer_toolchain.patch",
+    ],
+)
+
+# Transitive deps not in BCR
+# ==========================
+http_archive = use_repo_rule(
+    "@bazel_tools//tools/build_defs/repo:http.bzl",
+    "http_archive",
+)
+
+# TODO(b/370523804): Remove this once the following issues are addressed in a
+# released version of rules_fuzzing
+# https://github.com/bazel-contrib/rules_fuzzing/issues/257
+non_module_dependencies = use_extension("@rules_fuzzing//fuzzing/private:extensions.bzl", "non_module_dependencies")
+use_repo(
+    non_module_dependencies,
+    "rules_fuzzing_oss_fuzz",
+)
+
+git_repository = use_repo_rule(
+    "@bazel_tools//tools/build_defs/repo:git.bzl",
+    "git_repository",
+)
+
+git_repository(
+    name = "bazel_clang_tidy",
+    commit = "db677011c7363509a288a9fb3bf0a50830bbf791",
+    remote = "https://github.com/erenon/bazel_clang_tidy.git",
+)
+
+# Configure libusb
+# ================
+#
+# The rules_libusb lets you configure which actual libusb version to use.
+libusb = use_extension("@rules_libusb//:extensions.bzl", "libusb")
+libusb.source_release(min_version = "1.0.27")
+use_repo(libusb, "libusb")
+
+xcode_sdk_repository = use_repo_rule("//pw_toolchain:xcode.bzl", "xcode_sdk_repository")
+
+xcode_sdk_repository(
+    name = "macos_sysroot",
+    build_file = "//pw_toolchain/host_clang:macos_sysroot.BUILD",
+)
+
+cipd_client_repository = use_repo_rule("//pw_env_setup/bazel/cipd_setup:cipd_rules.bzl", "_cipd_client_repository")
+
+cipd_client_repository(name = "cipd_client")
+
+cipd_repository = use_repo_rule("//pw_env_setup/bazel/cipd_setup:cipd_rules.bzl", "cipd_repository")
+
+# Fetch llvm toolchain.
+cipd_repository(
+    name = "llvm_toolchain",
+    build_file = "//pw_toolchain/build_external:llvm_clang.BUILD",
+    path = "fuchsia/third_party/clang/${os}-${arch}",
+    tag = "git_revision:553da9634dc4bae215e6c850d2de3186d09f9da5",
+)
+
+# Fetch linux sysroot for host builds.
+cipd_repository(
+    name = "linux_sysroot",
+    build_file = "//pw_toolchain/host_clang:linux_sysroot.BUILD",
+    path = "fuchsia/third_party/sysroot/bionic",
+    tag = "git_revision:702eb9654703a7cec1cadf93a7e3aa269d053943",
+)
+
+# Fetch gcc-arm-none-eabi toolchain.
+cipd_repository(
+    name = "gcc_arm_none_eabi_toolchain",
+    build_file = "//pw_toolchain/build_external:arm_none_eabi_gcc.BUILD",
+    path = "fuchsia/third_party/armgcc/${os}-${arch}",
+    tag = "version:2@12.2.MPACBTI-Rel1.1",
+)
+
+# Fetch the Zephyr toolchain
+cipd_repository(
+    name = "zephyr_toolchain",
+    build_file = "//pw_toolchain/build_external:zephyr.BUILD",
+    path = "infra/3pp/tools/zephyr_sdk/${os}-${arch}",
+    tag = "version:3@0.17.0",
+)
+
+register_toolchains(
+    "//pw_toolchain:cc_toolchain_cortex-m0",
+    "//pw_toolchain:cc_toolchain_cortex-m0plus",
+    "//pw_toolchain:cc_toolchain_cortex-m33",
+    "//pw_toolchain/arm_gcc:arm_gcc_cc_toolchain_cortex-m3",
+    "//pw_toolchain/arm_gcc:arm_gcc_cc_toolchain_cortex-m4",
+    "//pw_toolchain/host_clang:host_cc_toolchain_linux",
+    "//pw_toolchain/host_clang:host_cc_toolchain_macos",
+    "//pw_toolchain/riscv_clang:riscv_clang_cc_toolchain_rv32imc",
+    "//pw_toolchain/riscv_clang:riscv_clang_cc_toolchain_rv32imac",
+    dev_dependency = True,
+)
+
+register_toolchains(
+    "//pw_toolchain/fuchsia:all",
+    dev_dependency = True,
+)
+
+# Rust toolchains
+pw_rust = use_extension("//pw_toolchain/rust:extensions.bzl", "pw_rust")
+pw_rust.toolchain(cipd_tag = "rust_revision:77a455303bf08da8eef6236b2b4422a77cd25c42")
+use_repo(pw_rust, "pw_rust_toolchains")
+
+register_toolchains(
+    "@pw_rust_toolchains//:all",
+    dev_dependency = True,
+)
+
+crate = use_extension("@rules_rust//crate_universe:extension.bzl", "crate")
+crate.from_cargo(
+    name = "crates_no_std",
+    cargo_lockfile = "//third_party/crates_io/crates_no_std:Cargo.lock",
+    manifests = ["//third_party/crates_io/crates_no_std:Cargo.toml"],
+    # crate_universe's defaults do not include some embedded triples so the
+    # triples are listed explicitly.
+    supported_platform_triples = [
+        # Host platforms
+        "aarch64-unknown-linux-gnu",
+        "x86_64-unknown-linux-gnu",
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+
+        # Target platforms
+        "thumbv6m-none-eabi",
+        "thumbv7m-none-eabi",
+        "thumbv8m.main-none-eabihf",
+        "riscv32imc-unknown-none-elf",
+        "riscv32imac-unknown-none-elf",
+    ],
+)
+use_repo(crate, "crates_no_std")
+
+# Enable necessary features for `compiler_builtins` to build.
+crate.annotation(
+    crate = "compiler_builtins",
+    rustc_flags = ["-Zallow-features=abi_unadjusted,asm_experimental_arch,naked_functions,repr_simd,cfg_target_has_atomic,compiler_builtins,core_intrinsics,linkage"],
+)
+crate.from_cargo(
+    name = "crates_std",
+    cargo_lockfile = "//third_party/crates_io/crates_std:Cargo.lock",
+    manifests = ["//third_party/crates_io/crates_std:Cargo.toml"],
+)
+use_repo(crate, "crates_std")
+
+pw_rust_crates = use_extension("@pigweed//pw_build:pw_rust_crates_extension.bzl", "pw_rust_crates_extension")
+use_repo(pw_rust_crates, "rust_crates")
+
+# Get probe-rs
+# ============
+
+# TODO: https://pwbug.dev/346388161 - Re enable use of rules_probe_rs once rp2350
+# support is upstreamed.
+#
+# probe_rs = use_extension("@rules_probe_rs//probe_rs:extensions.bzl", "probe_rs")
+# probe_rs.tools(
+#     name = "probe_rs",
+#     version = "0.24.0",
+# )
+# use_repo(probe_rs, "probe_rs")
+
+# Use pre-release prebuilts for RP2350 support.
+cipd_repository(
+    name = "probe_rs",
+    build_file = "@pigweed//third_party/probe-rs:probe-rs.BUILD.bazel",
+    path = "pigweed/third_party/probe-rs/${os}-${arch}",
+    tag = "git_revision:37660106aba307cbab5cf6c2b0da57b72b6dc4e9",
+)
+
+# Configure Python toolchains and pip dependencies.
+# =================================================
+python = use_extension("@rules_python//python/extensions:python.bzl", "python")
+python.toolchain(
+    # Allows building as root in a docker container. Required by oss-fuzz.
+    ignore_root_user_error = True,
+    is_default = True,
+    python_version = "3.12",
+)
+use_repo(python, "pythons_hub")
+
+pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
+pip.parse(
+    hub_name = "pigweed_python_packages",
+    python_version = "3.10",
+    requirements_darwin = "//pw_env_setup/py:pw_env_setup/virtualenv_setup/upstream_requirements_darwin_lock.txt",
+    requirements_linux = "//pw_env_setup/py:pw_env_setup/virtualenv_setup/upstream_requirements_linux_lock.txt",
+    requirements_windows = "//pw_env_setup/py:pw_env_setup/virtualenv_setup/upstream_requirements_windows_lock.txt",
+)
+pip.parse(
+    hub_name = "pigweed_python_packages",
+    python_version = "3.11",
+    requirements_darwin = "//pw_env_setup/py:pw_env_setup/virtualenv_setup/upstream_requirements_darwin_lock.txt",
+    requirements_linux = "//pw_env_setup/py:pw_env_setup/virtualenv_setup/upstream_requirements_linux_lock.txt",
+    requirements_windows = "//pw_env_setup/py:pw_env_setup/virtualenv_setup/upstream_requirements_windows_lock.txt",
+)
+pip.parse(
+    hub_name = "pigweed_python_packages",
+    python_version = "3.12",
+    requirements_darwin = "//pw_env_setup/py:pw_env_setup/virtualenv_setup/upstream_requirements_darwin_lock.txt",
+    requirements_linux = "//pw_env_setup/py:pw_env_setup/virtualenv_setup/upstream_requirements_linux_lock.txt",
+    requirements_windows = "//pw_env_setup/py:pw_env_setup/virtualenv_setup/upstream_requirements_windows_lock.txt",
+)
+use_repo(pip, "pigweed_python_packages")
+
+# TODO: b/354241571 - The next two lines are only required because the Fuchsia
+# SDK doesn't correctly restrict the target platform compatibility of all its
+# targets. We should remove them once the bug is fixed.
+register_toolchains("@pythons_hub//:all")
+
+register_toolchains("@rules_python//python/runtime_env_toolchains:all")
+
+# Configure Go dependencies
+# =========================
+go_deps = use_extension("@bazel_gazelle//:extensions.bzl", "go_deps")
+go_deps.from_file(go_mod = "//:go.mod")
+use_repo(go_deps, "org_golang_google_grpc", "org_golang_google_grpc_examples", "org_golang_google_protobuf")
+
+# Configure Java dependencies
+# ===========================
+maven = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
+maven.install(
+    name = "pigweed_maven_deps",
+    artifacts = [
+        "com.google.auto.value:auto-value-annotations:1.8.2",
+        "com.google.auto.value:auto-value:1.8.2",
+        "com.google.code.findbugs:jsr305:3.0.2",
+        "com.google.flogger:flogger-system-backend:0.7.1",
+        "com.google.flogger:flogger:0.7.1",
+        "com.google.guava:failureaccess:1.0.2",
+        "com.google.guava:guava:31.0.1-jre",
+        "com.google.truth:truth:1.1.3",
+        "org.mockito:mockito-core:4.1.0",
+    ],
+    repositories = [
+        "https://maven.google.com/",
+        "https://jcenter.bintray.com/",
+        "https://repo1.maven.org/maven2",
+    ],
+)
+use_repo(maven, "pigweed_maven_deps")
+
+# QEMU prebuilts
+# ==============
+cipd_repository(
+    name = "qemu",
+    build_file = "//third_party/qemu:qemu.BUILD",
+    path = "fuchsia/third_party/qemu/${platform}",
+    tag = "git_revision:aa90f1161bb17a4863e16ec2f75104cff0752d4e",
+)
+
+# Vendored libraries
+# ==================
+
+# TODO: https://pwbug.dev/378531541 - These are one-off external libraries that
+# are NOT in the BCR that downstream users may need to override/unify to their
+# expected version.
+
+# TODO: https://pwbug.dev/354749299 - Use the BCR version of mbedtls.
+http_archive(
+    name = "mbedtls",
+    build_file = "//:third_party/mbedtls/mbedtls.BUILD.bazel",
+    sha256 = "241c68402cef653e586be3ce28d57da24598eb0df13fcdea9d99bfce58717132",
+    strip_prefix = "mbedtls-2.28.8",
+    url = "https://github.com/Mbed-TLS/mbedtls/releases/download/v2.28.8/mbedtls-2.28.8.tar.bz2",
+)
+
+# TODO: https://github.com/bazelbuild/bazel/issues/23077 - Make these
+# bazel_deps dev_dependencies once archive_override has a build_file argument.
+http_archive(
+    name = "stm32f4xx_hal_driver",
+    build_file = "//third_party/stm32cube:stm32_hal_driver.BUILD.bazel",
+    sha256 = "d0427a3830f0c23dd4810952321b8209be7b3c50897d1fc2d79587435cc3a379",
+    strip_prefix = "stm32f4xx-hal-driver-1.8.0",
+    urls = ["https://github.com/STMicroelectronics/stm32f4xx-hal-driver/archive/refs/tags/v1.8.0.tar.gz"],
+)
+
+http_archive(
+    name = "cmsis_device_f4",
+    build_file = "//third_party/stm32cube:cmsis_device.BUILD.bazel",
+    sha256 = "1d9612ecaaab8708c88be2c9573927f2e5e9a911aa2c1427182b545ed5ed0fd6",
+    strip_prefix = "cmsis-device-f4-2.6.8",
+    urls = ["https://github.com/STMicroelectronics/cmsis-device-f4/archive/refs/tags/v2.6.8.tar.gz"],
+)
+
+http_archive(
+    name = "cmsis_core",
+    build_file = "//third_party/stm32cube:cmsis_core.BUILD.bazel",
+    sha256 = "32f226c31d7d1ff4a504404400603e047b99f405cd0c9a8f417f1f250251b829",
+    strip_prefix = "cmsis-core-5.4.0_cm4",
+    urls = ["https://github.com/STMicroelectronics/cmsis-core/archive/refs/tags/v5.4.0_cm4.tar.gz"],
+)
+
+git_repository(
+    name = "mcuxpresso",
+    commit = "0cc0caa0c44fc9ceae1ad4c0a9e3b79e8b38d751",
+    # temporary point to antmicro github fork until SDK generated files
+    # will be pushed to: https://pigweed.googlesource.com/pigweed/mcuxpresso-sdk
+    remote = "https://github.com/antmicro/mcuxpresso-sdk.git",
+)
+
+# Other Pigweed-specific dependencies
+# ===================================
+cipd_repository(
+    name = "bloaty",
+    path = "fuchsia/third_party/bloaty/${os=linux,mac}-amd64",
+    tag = "git_revision:c057ba4f43db0506d4ba8c096925b054b02a8bd3",
+)
+
+cipd_repository(
+    name = "buildifier",
+    path = "infra/3pp/tools/buildifier/${platform}",
+    tag = "version:3@v8.0.3",
+)
+
+# Set up legacy pw_transfer test binaries.
+# Required by: pigweed.
+# Used in modules: //pw_transfer.
+cipd_repository(
+    name = "pw_transfer_test_binaries",
+    # Only ever needed if you run the pw_transfer unit tests.
+    dev_dependency = True,
+    path = "pigweed/pw_transfer_test_binaries/${os=linux}-${arch=amd64}",
+    tag = "version:pw_transfer_test_binaries_528098d588f307881af83f769207b8e6e1b57520-linux-amd64-cipd.cipd",
+)
+
+workspace_and_buildfile = use_repo_rule("//pw_build/bazel_internal:workspace_and_buildfile.bzl", "workspace_and_buildfile")
+
+workspace_and_buildfile(
+    name = "pw_build_external_runfile_resource",
+    build_file = "//pw_build:test_data/external_py_runfiles.BUILD",
+    dev_dependency = True,
+)
+
+# Doxygen setup
+# =============
+
+# Get executables.
+cipd_repository(
+    name = "doxygen_linux_amd64",
+    path = "pigweed/third_party/doxygen/linux-amd64",
+    tag = "version:1.9.6-1",
+)
+
+cipd_repository(
+    name = "doxygen_mac_amd64",
+    path = "pigweed/third_party/doxygen/mac-amd64",
+    tag = "version:1.9.6-1",
+)
+
+cipd_repository(
+    name = "doxygen_mac_arm64",
+    path = "pigweed/third_party/doxygen/mac-arm64",
+    tag = "version:1.9.6",
+)
+
+cipd_repository(
+    name = "doxygen_windows_amd64",
+    path = "pigweed/third_party/doxygen/windows-amd64",
+    tag = "version:1.9.6-1",
+)
+
+# Configure rules_doxygen to use our executables.
+doxygen_extension = use_extension("@rules_doxygen//:extensions.bzl", "doxygen_extension", dev_dependency = True)
+doxygen_extension.configuration(
+    executable = "@doxygen_linux_amd64//:bin/doxygen",
+    platform = "linux",
+)
+doxygen_extension.configuration(
+    executable = "@doxygen_mac_amd64//:doxygen",
+    platform = "mac",
+)
+doxygen_extension.configuration(
+    executable = "@doxygen_mac_arm64//:doxygen",
+    platform = "mac-arm",
+)
+doxygen_extension.configuration(
+    executable = "@doxygen_windows_amd64//:windows.exe",
+    platform = "windows",
+)
+use_repo(doxygen_extension, "doxygen")
+
+# Configure Node.js dependencies
+# ==============================
+
+node = use_extension("@rules_nodejs//nodejs:extensions.bzl", "node", dev_dependency = True)
+node.toolchain(node_version = "20.12.1")
+
+npm = use_extension("@aspect_rules_js//npm:extensions.bzl", "npm", dev_dependency = True)
+npm.npm_translate_lock(
+    name = "npm",
+    pnpm_lock = "//:pnpm-lock.yaml",
+)
+use_repo(npm, "npm")
+
+# Setup Fuchsia SDK.
+# ==================
+FUCHSIA_SDK_VERSION = "version:27.20250226.5.1"
+
+cipd_repository(
+    name = "fuchsia_sdk",
+    path = "fuchsia/sdk/core/fuchsia-bazel-rules/linux-amd64",
+    tag = FUCHSIA_SDK_VERSION,
+)
+
+cipd_repository(
+    name = "rules_fuchsia",
+    path = "fuchsia/development/rules_fuchsia",
+    tag = FUCHSIA_SDK_VERSION,
+)
+
+fuchsia_clang_repository = use_repo_rule("@rules_fuchsia//fuchsia/workspace:fuchsia_clang_repository.bzl", "fuchsia_clang_repository")
+
+fuchsia_clang_repository(
+    name = "fuchsia_clang",
+    cipd_tag = "git_revision:aea60ab94db4729bad17daa86ccfc411d48a1699",
+)
+
+cipd_repository(
+    name = "fuchsia_products_metadata",
+    path = "fuchsia/development/product_bundles/v2",
+    tag = FUCHSIA_SDK_VERSION,
+)
+
+fuchsia_products_repository = use_repo_rule("//pw_build/bazel_internal/fuchsia_sdk_workspace:products.bzl", "fuchsia_products_repository")
+
+fuchsia_products_repository(
+    name = "fuchsia_products",
+    metadata_file = "@fuchsia_products_metadata//:product_bundles.json",
+)
+
+register_toolchains(
+    "//pw_toolchain/fuchsia:fuchsia_sdk_toolchain",
+    dev_dependency = True,
+)
+
+fake_fuchsia_sdk_extension = use_extension("@com_google_googletest//:fake_fuchsia_sdk.bzl", "fuchsia_sdk", dev_dependency = True)
+
+override_repo(fake_fuchsia_sdk_extension, "fuchsia_sdk")

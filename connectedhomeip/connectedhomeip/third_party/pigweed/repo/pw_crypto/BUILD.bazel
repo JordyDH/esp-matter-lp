@@ -1,0 +1,236 @@
+# Copyright 2021 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_python//sphinxdocs:sphinx_docs_library.bzl", "sphinx_docs_library")
+load("//pw_build:compatibility.bzl", "host_backend_alias", "incompatible_with_mcu")
+load("//pw_build:pw_facade.bzl", "pw_facade")
+load("//pw_unit_test:pw_cc_test.bzl", "pw_cc_test")
+
+package(
+    default_visibility = ["//visibility:public"],
+    features = ["-layering_check"],
+)
+
+licenses(["notice"])
+
+pw_facade(
+    name = "sha256",
+    hdrs = [
+        "public/pw_crypto/sha256.h",
+    ],
+    backend = ":sha256_backend",
+    strip_include_prefix = "public",
+    deps = [
+        "//pw_bytes",
+        "//pw_log",
+        "//pw_status",
+        "//pw_stream",
+    ],
+)
+
+label_flag(
+    name = "sha256_backend",
+    build_setting_default = ":unspecified_sha256_backend",
+)
+
+host_backend_alias(
+    name = "unspecified_sha256_backend",
+    backend = ":sha256_mbedtls",
+)
+
+cc_library(
+    name = "sha256_mbedtls",
+    srcs = ["sha256_mbedtls.cc"],
+    hdrs = [
+        "public/pw_crypto/sha256_mbedtls.h",
+        "public_overrides/mbedtls/pw_crypto/sha256_backend.h",
+    ],
+    includes = [
+        "public",
+        "public_overrides/mbedtls",
+    ],
+    deps = [
+        ":sha256.facade",
+        "@mbedtls",
+    ],
+)
+
+pw_cc_test(
+    name = "sha256_test",
+    srcs = ["sha256_test.cc"],
+    deps = [":sha256"],
+)
+
+cc_library(
+    name = "sha256_mock",
+    srcs = ["sha256_mock.cc"],
+    hdrs = [
+        "public/pw_crypto/sha256_mock.h",
+        "public_overrides/mock/pw_crypto/sha256_backend.h",
+    ],
+    includes = [
+        "public",
+        "public_overrides/mock",
+    ],
+    deps = [":sha256.facade"],
+)
+
+pw_cc_test(
+    name = "sha256_mock_test",
+    srcs = ["sha256_mock_test.cc"],
+    deps = [":sha256_mock"],
+)
+
+pw_facade(
+    name = "ecdsa",
+    hdrs = [
+        "public/pw_crypto/ecdsa.h",
+    ],
+    backend = ":ecdsa_backend",
+    strip_include_prefix = "public",
+    deps = [
+        "//pw_bytes",
+        "//pw_status",
+    ],
+)
+
+label_flag(
+    name = "ecdsa_backend",
+    build_setting_default = ":unspecified_ecdsa_backend",
+)
+
+host_backend_alias(
+    name = "unspecified_ecdsa_backend",
+    backend = ":ecdsa_mbedtls",
+)
+
+cc_library(
+    name = "ecdsa_mbedtls",
+    srcs = ["ecdsa_mbedtls.cc"],
+    deps = [
+        ":ecdsa.facade",
+        "//pw_function",
+        "//pw_log",
+        "//pw_span:cast",
+        "@mbedtls",
+    ],
+)
+
+pw_cc_test(
+    name = "ecdsa_test",
+    srcs = ["ecdsa_test.cc"],
+    deps = [":ecdsa"],
+)
+
+pw_facade(
+    name = "aes",
+    hdrs = [
+        "public/pw_crypto/aes.h",
+        "public/pw_crypto/aes_backend_defs.h",
+    ],
+    backend = ":aes_backend",
+    features = ["-conversion_warnings"],
+    includes = ["public"],
+    deps = [
+        "//pw_bytes",
+        "//pw_log",
+        "//pw_status",
+    ],
+)
+
+cc_library(
+    name = "aes_cmac",
+    hdrs = ["public/pw_crypto/aes_cmac.h"],
+    features = ["-conversion_warnings"],
+    deps = [":aes"],
+)
+
+label_flag(
+    name = "aes_backend",
+    build_setting_default = ":unspecified_aes_backend",
+)
+
+host_backend_alias(
+    name = "unspecified_aes_backend",
+    backend = ":aes_mbedtls",
+)
+
+cc_library(
+    name = "aes_boringssl",
+    srcs = ["aes_boringssl.cc"],
+    hdrs = [
+        "public/pw_crypto/aes_boringssl.h",
+        "public_overrides/boringssl/pw_crypto/aes_backend.h",
+    ],
+    features = ["-conversion_warnings"],
+    implementation_deps = ["//pw_assert:check"],
+    includes = ["public_overrides/boringssl"],
+    target_compatible_with = incompatible_with_mcu() + select({
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
+    deps = [
+        ":aes.facade",
+        "//pw_span:cast",
+        "@boringssl//:crypto",
+    ],
+)
+
+cc_library(
+    name = "aes_mbedtls",
+    srcs = ["aes_mbedtls.cc"],
+    hdrs = [
+        "public/pw_crypto/aes_mbedtls.h",
+        "public_overrides/mbedtls/pw_crypto/aes_backend.h",
+    ],
+    features = ["-conversion_warnings"],
+    implementation_deps = ["//pw_assert:check"],
+    includes = ["public_overrides/mbedtls"],
+    deps = [
+        ":aes.facade",
+        "@mbedtls",
+    ],
+)
+
+pw_cc_test(
+    name = "aes_test",
+    srcs = [
+        "aes_test.cc",
+    ],
+    features = ["-conversion_warnings"],
+    deps = [
+        ":aes",
+        ":aes_cmac",
+        "//pw_assert:assert",
+        "//pw_containers:vector",
+    ],
+)
+
+filegroup(
+    name = "doxygen",
+    srcs = [
+        "public/pw_crypto/ecdsa.h",
+        "public/pw_crypto/sha256.h",
+    ],
+)
+
+sphinx_docs_library(
+    name = "docs",
+    srcs = [
+        "docs.rst",
+    ],
+    prefix = "pw_crypto/",
+    target_compatible_with = incompatible_with_mcu(),
+)

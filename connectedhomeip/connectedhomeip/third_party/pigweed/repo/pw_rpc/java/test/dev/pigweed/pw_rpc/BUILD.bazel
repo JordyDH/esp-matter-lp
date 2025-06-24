@@ -1,0 +1,194 @@
+# Copyright 2021 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+# Tests for the generic pw_rpc client.
+
+load("@com_google_protobuf//bazel:java_lite_proto_library.bzl", "java_lite_proto_library")
+load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
+load("@rules_java//java:defs.bzl", "java_library", "java_test")
+load("//pw_build:compatibility.bzl", "incompatible_with_mcu")
+
+licenses(["notice"])
+
+java_library(
+    name = "test_client",
+    testonly = True,
+    srcs = ["TestClient.java"],
+    target_compatible_with = incompatible_with_mcu(),
+    visibility = [
+        "__pkg__",
+        "//pw_transfer/java/test/dev/pigweed/pw_transfer:__pkg__",
+    ],
+    deps = [
+        "//pw_rpc:packet_proto_java_lite",
+        "//pw_rpc/java/main/dev/pigweed/pw_rpc:client_lite",
+        "@com_google_protobuf//java/lite",
+        "@pigweed_maven_deps//:com_google_code_findbugs_jsr305",
+        "@pigweed_maven_deps//:com_google_guava_guava",
+    ],
+)
+
+java_test(
+    name = "ClientTest",
+    size = "small",
+    srcs = ["ClientTest.java"],
+    target_compatible_with = incompatible_with_mcu(),
+    test_class = "dev.pigweed.pw_rpc.ClientTest",
+    deps = [
+        ":test_proto_java",
+        "//pw_rpc:packet_proto_java_lite",
+        "//pw_rpc/java/main/dev/pigweed/pw_rpc:client_lite",
+        "@com_google_protobuf//java/lite",
+        "@pigweed_maven_deps//:com_google_flogger_flogger_system_backend",
+        "@pigweed_maven_deps//:com_google_guava_guava",
+        "@pigweed_maven_deps//:com_google_truth_truth",
+        "@pigweed_maven_deps//:org_mockito_mockito_core",
+    ],
+)
+
+java_test(
+    name = "EndpointTest",
+    size = "small",
+    srcs = ["EndpointTest.java"],
+    target_compatible_with = incompatible_with_mcu(),
+    test_class = "dev.pigweed.pw_rpc.EndpointTest",
+    deps = [
+        ":test_proto_java",
+        "//pw_rpc:packet_proto_java_lite",
+        "//pw_rpc/java/main/dev/pigweed/pw_rpc:client_lite",
+        "@com_google_protobuf//java/lite",
+        "@pigweed_maven_deps//:com_google_flogger_flogger_system_backend",
+        "@pigweed_maven_deps//:com_google_guava_guava",
+        "@pigweed_maven_deps//:com_google_truth_truth",
+        "@pigweed_maven_deps//:org_mockito_mockito_core",
+    ],
+)
+
+java_test(
+    name = "FutureCallTest",
+    size = "small",
+    srcs = ["FutureCallTest.java"],
+    target_compatible_with = incompatible_with_mcu(),
+    test_class = "dev.pigweed.pw_rpc.FutureCallTest",
+    deps = [
+        ":test_proto_java",
+        "//pw_rpc:packet_proto_java_lite",
+        "//pw_rpc/java/main/dev/pigweed/pw_rpc:client_lite",
+        "@com_google_protobuf//java/lite",
+        "@pigweed_maven_deps//:com_google_flogger_flogger_system_backend",
+        "@pigweed_maven_deps//:com_google_guava_guava",
+        "@pigweed_maven_deps//:com_google_truth_truth",
+        "@pigweed_maven_deps//:org_mockito_mockito_core",
+    ],
+)
+
+java_test(
+    name = "IdsTest",
+    size = "small",
+    srcs = ["IdsTest.java"],
+    target_compatible_with = incompatible_with_mcu(),
+    test_class = "dev.pigweed.pw_rpc.IdsTest",
+    deps = [
+        "//pw_rpc/java/main/dev/pigweed/pw_rpc:client_lite",
+        "@pigweed_maven_deps//:com_google_flogger_flogger_system_backend",
+        "@pigweed_maven_deps//:com_google_truth_truth",
+    ],
+)
+
+java_test(
+    name = "PacketsTest",
+    size = "small",
+    srcs = ["PacketsTest.java"],
+    target_compatible_with = incompatible_with_mcu(),
+    test_class = "dev.pigweed.pw_rpc.PacketsTest",
+    deps = [
+        "//pw_rpc:packet_proto_java_lite",
+        "//pw_rpc/java/main/dev/pigweed/pw_rpc:client_lite",
+        "@com_google_protobuf//java/lite",
+        "@pigweed_maven_deps//:com_google_flogger_flogger_system_backend",
+        "@pigweed_maven_deps//:com_google_truth_truth",
+    ],
+)
+
+java_test(
+    name = "ServiceTest",
+    size = "small",
+    srcs = ["ServiceTest.java"],
+    target_compatible_with = incompatible_with_mcu(),
+    test_class = "dev.pigweed.pw_rpc.ServiceTest",
+    deps = [
+        ":test_proto_java",
+        "//pw_rpc/java/main/dev/pigweed/pw_rpc:client_lite",
+        "@pigweed_maven_deps//:com_google_flogger_flogger_system_backend",
+        "@pigweed_maven_deps//:com_google_truth_truth",
+    ],
+)
+
+java_test(
+    name = "StreamObserverCallTest",
+    size = "small",
+    srcs = ["StreamObserverCallTest.java"],
+    target_compatible_with = incompatible_with_mcu(),
+    test_class = "dev.pigweed.pw_rpc.StreamObserverCallTest",
+    deps = [
+        ":test_proto_java",
+        "//pw_rpc:packet_proto_java_lite",
+        "//pw_rpc/java/main/dev/pigweed/pw_rpc:client_lite",
+        "@pigweed_maven_deps//:com_google_flogger_flogger_system_backend",
+        "@pigweed_maven_deps//:com_google_guava_guava",
+        "@pigweed_maven_deps//:com_google_truth_truth",
+        "@pigweed_maven_deps//:org_mockito_mockito_core",
+    ],
+)
+
+java_test(
+    name = "StreamObserverMethodClientTest",
+    size = "small",
+    srcs = ["StreamObserverMethodClientTest.java"],
+    target_compatible_with = incompatible_with_mcu(),
+    test_class = "dev.pigweed.pw_rpc.StreamObserverMethodClientTest",
+    deps = [
+        ":test_proto_java",
+        "//pw_rpc:packet_proto_java_lite",
+        "//pw_rpc/java/main/dev/pigweed/pw_rpc:client_lite",
+        "@com_google_protobuf//java/lite",
+        "@pigweed_maven_deps//:com_google_flogger_flogger_system_backend",
+        "@pigweed_maven_deps//:com_google_guava_guava",
+        "@pigweed_maven_deps//:com_google_truth_truth",
+        "@pigweed_maven_deps//:org_mockito_mockito_core",
+    ],
+)
+
+test_suite(
+    name = "pw_rpc",
+    tests = [
+        ":ClientTest",
+        ":EndpointTest",
+        ":FutureCallTest",
+        ":IdsTest",
+        ":PacketsTest",
+        ":StreamObserverCallTest",
+        ":StreamObserverMethodClientTest",
+    ],
+)
+
+proto_library(
+    name = "test_proto",
+    srcs = ["test.proto"],
+)
+
+java_lite_proto_library(
+    name = "test_proto_java",
+    deps = [":test_proto"],
+)

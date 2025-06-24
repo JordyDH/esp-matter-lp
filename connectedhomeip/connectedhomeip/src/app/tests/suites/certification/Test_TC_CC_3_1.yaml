@@ -1,0 +1,561 @@
+# Copyright (c) 2021 Project CHIP Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: 25.3.1. [TC-CC-3.1] Hue MoveTo functionality with server as DUT
+
+PICS:
+    - CC.S
+
+config:
+    nodeId: 0x12344321
+    cluster: "Color Control"
+    endpoint: 1
+    timeout: 200
+
+tests:
+    - label: "Step 1: Wait for the commissioned device to be retrieved"
+      cluster: "DelayCommands"
+      command: "WaitForCommissionee"
+      arguments:
+          values:
+              - name: "nodeId"
+                value: nodeId
+
+    - label: "Step 1a: TH writes 0 to the Options attribute"
+      PICS: CC.S.F00 && CC.S.A000f
+      command: "writeAttribute"
+      attribute: "Options"
+      arguments:
+          value: 0
+
+    - label: "Step 1b: TH sends On command to DUT"
+      PICS: OO.S.C01.Rsp
+      cluster: "On/Off"
+      command: "On"
+
+    - label:
+          "Step 2a: TH sends MoveToHue command to DUT with Hue=60,
+          Direction=0x00 (shortest distance) and TransitionTime=0 (immediately)"
+      PICS: CC.S.F00 && CC.S.C00.Rsp
+      command: "MoveToHue"
+      arguments:
+          values:
+              - name: "Hue"
+                value: 60
+              - name: "Direction"
+                value: 0
+              - name: "TransitionTime"
+                value: 0
+              - name: "OptionsMask"
+                value: 0
+              - name: "OptionsOverride"
+                value: 0
+
+    - label: "Wait 100ms"
+      PICS: CC.S.F00
+      cluster: "DelayCommands"
+      command: "WaitForMs"
+      arguments:
+          values:
+              - name: "ms"
+                value: 100
+
+    - label:
+          "Step 2b: TH sends MoveToHue command to DUT with Hue=120,
+          Direction=0x00 (shortest distance) and TransitionTime=300 (30s)"
+      PICS: CC.S.F00 && CC.S.C00.Rsp
+      command: "MoveToHue"
+      arguments:
+          values:
+              - name: "Hue"
+                value: 120
+              - name: "Direction"
+                value: 0
+              - name: "TransitionTime"
+                value: 300
+              - name: "OptionsMask"
+                value: 0
+              - name: "OptionsOverride"
+                value: 0
+
+    - label: "Wait 10s"
+      PICS: CC.S.F00
+      cluster: "DelayCommands"
+      command: "WaitForMs"
+      arguments:
+          values:
+              - name: "ms"
+                value: 10000
+
+    # In 10s, the value will have changed by (120-60)*10/30 = 20. A 15% tolerance is 3, so value must be in range 80+/-3 => [77, 83]
+    - label: "Step 2c: TH reads CurrentHue attribute from DUT"
+      PICS: CC.S.F00 && CC.S.A0000
+      command: "readAttribute"
+      attribute: "CurrentHue"
+      response:
+          constraints:
+              minValue: 77
+              maxValue: 83
+
+    - label: "Wait 10s"
+      PICS: CC.S.F00
+      cluster: "DelayCommands"
+      command: "WaitForMs"
+      arguments:
+          values:
+              - name: "ms"
+                value: 10000
+
+    # In 20s, the value will have changed by (120-60)*20/30 = 40. A 15% tolerance is 6, so value must be in range 100+/-6 => [94, 106]
+    - label: "Step 2d: TH reads CurrentHue attribute from DUT"
+      PICS: CC.S.F00 && CC.S.A0000
+      command: "readAttribute"
+      attribute: "CurrentHue"
+      response:
+          constraints:
+              minValue: 94
+              maxValue: 106
+
+    - label: "Wait 10s"
+      PICS: CC.S.F00
+      cluster: "DelayCommands"
+      command: "WaitForMs"
+      arguments:
+          values:
+              - name: "ms"
+                value: 10000
+
+    # In 30s, the value will have changed by (120-60)*30/30 = 60. A 15% tolerance is 9, so value must be in range 120+/-9 => [111, 129]
+    - label: "Step 2e: TH reads CurrentHue attribute from DUT"
+      PICS: CC.S.F00 && CC.S.A0000
+      command: "readAttribute"
+      attribute: "CurrentHue"
+      response:
+          constraints:
+              minValue: 111
+              maxValue: 129
+
+    - label: "Wait 5s"
+      PICS: CC.S.F00
+      cluster: "DelayCommands"
+      command: "WaitForMs"
+      arguments:
+          values:
+              - name: "ms"
+                value: 5000
+
+    - label: "Step 2f: H reads CurrentHue attribute from DUT"
+      PICS: CC.S.F00 && CC.S.A0000
+      command: "readAttribute"
+      attribute: "CurrentHue"
+      response:
+          constraints:
+              minValue: 111
+              maxValue: 129
+
+    - label:
+          "Step 3a: TH sends MoveToHue command to DUT with Hue=60,
+          Direction=0x00 (Shortest distance) and TransitionTime=0 (immediately)"
+      PICS: CC.S.F00 && CC.S.C00.Rsp
+      command: "MoveToHue"
+      arguments:
+          values:
+              - name: "Hue"
+                value: 60
+              - name: "Direction"
+                value: 0
+              - name: "TransitionTime"
+                value: 0
+              - name: "OptionsMask"
+                value: 0
+              - name: "OptionsOverride"
+                value: 0
+
+    - label: "Wait 100ms"
+      PICS: CC.S.F00
+      cluster: "DelayCommands"
+      command: "WaitForMs"
+      arguments:
+          values:
+              - name: "ms"
+                value: 100
+
+    - label:
+          "Step 3b: TH sends MoveToHue command to DUT with Hue=135,
+          Direction=0x01 (longest distance) and TransitionTime=300 (30s)"
+      PICS: CC.S.F00 && CC.S.C00.Rsp
+      command: "MoveToHue"
+      arguments:
+          values:
+              - name: "Hue"
+                value: 135
+              - name: "Direction"
+                value: 1
+              - name: "TransitionTime"
+                value: 300
+              - name: "OptionsMask"
+                value: 0
+              - name: "OptionsOverride"
+                value: 0
+
+    - label: "Wait 5s"
+      PICS: CC.S.F00
+      cluster: "DelayCommands"
+      command: "WaitForMs"
+      arguments:
+          values:
+              - name: "ms"
+                value: 5000
+
+    # In 30s, the value will have changed by 180 (total change)
+    # In 5s, the value will have changed by 180*5/30 = 30. A 15% tolerance is 4.5, so ~5, and value must be in range 30+/-5 => [25, 35]
+    - label: "Step 3c: TH reads CurrentHue attribute from DUT"
+      PICS: CC.S.F00 && CC.S.A0000
+      command: "readAttribute"
+      attribute: "CurrentHue"
+      response:
+          constraints:
+              minValue: 25
+              maxValue: 35
+
+    - label: "Wait 15s"
+      PICS: CC.S.F00
+      cluster: "DelayCommands"
+      command: "WaitForMs"
+      arguments:
+          values:
+              - name: "ms"
+                value: 15000
+
+    # In 20s, the value will have changed by 180*20/30 = 120. A 15% tolerance is 18, so value must be in range
+    # 60-120 = 255-60 = 195+/-18 => [177, 213]
+    - label: "Step 3d: TH reads CurrentHue attribute from DUT"
+      PICS: CC.S.F00 && CC.S.A0000
+      command: "readAttribute"
+      attribute: "CurrentHue"
+      response:
+          constraints:
+              minValue: 177
+              maxValue: 213
+
+    - label: "Wait 10s"
+      PICS: CC.S.F00
+      cluster: "DelayCommands"
+      command: "WaitForMs"
+      arguments:
+          values:
+              - name: "ms"
+                value: 10000
+
+    # In 30s, the value will have changed by 180*30/30 = 180. A 15% tolerance is 27, so value must be in range
+    # 60-180 = 255-120 = 135+/-27 => [108, 162]
+    - label: "Step 3e: TH reads CurrentHue attribute from DUT"
+      PICS: CC.S.F00 && CC.S.A0000
+      command: "readAttribute"
+      attribute: "CurrentHue"
+      response:
+          constraints:
+              minValue: 108
+              maxValue: 162
+
+    - label: "Wait 5s"
+      PICS: CC.S.F00
+      cluster: "DelayCommands"
+      command: "WaitForMs"
+      arguments:
+          values:
+              - name: "ms"
+                value: 5000
+
+    - label: "Step 3f: TH reads CurrentHue attribute from DUT"
+      PICS: CC.S.F00 && CC.S.A0000
+      command: "readAttribute"
+      attribute: "CurrentHue"
+      response:
+          constraints:
+              minValue: 108
+              maxValue: 162
+
+    - label:
+          "Step 4a: TH sends MoveToHue command to DUT with Hue=60,
+          Direction=0x00 (shortest distance) and TransitionTime=0 (immediately)."
+      PICS: CC.S.F00 && CC.S.C00.Rsp
+      command: "MoveToHue"
+      arguments:
+          values:
+              - name: "Hue"
+                value: 60
+              - name: "Direction"
+                value: 0
+              - name: "TransitionTime"
+                value: 0
+              - name: "OptionsMask"
+                value: 0
+              - name: "OptionsOverride"
+                value: 0
+
+    - label: "Wait 100ms"
+      PICS: CC.S.F00
+      cluster: "DelayCommands"
+      command: "WaitForMs"
+      arguments:
+          values:
+              - name: "ms"
+                value: 100
+
+    - label:
+          "Step 4b: H sends MoveToHue command to DUT with Hue=120,
+          Direction=0x02 (up) and TransitionTime=300 (30s)"
+      PICS: CC.S.F00 && CC.S.C00.Rsp
+      command: "MoveToHue"
+      arguments:
+          values:
+              - name: "Hue"
+                value: 120
+              - name: "Direction"
+                value: 2
+              - name: "TransitionTime"
+                value: 300
+              - name: "OptionsMask"
+                value: 0
+              - name: "OptionsOverride"
+                value: 0
+
+    - label: "Wait 10s"
+      PICS: CC.S.F00
+      cluster: "DelayCommands"
+      command: "WaitForMs"
+      arguments:
+          values:
+              - name: "ms"
+                value: 10000
+
+    # In 10s, the value will have changed by (120-60)*10/30 = 20. A 15% tolerance is 3, so value must be in range 80+/-3 => [77, 83]
+    - label: "Step 4c: TH reads CurrentHue attribute from DUT"
+      PICS: CC.S.F00 && CC.S.A0000
+      command: "readAttribute"
+      attribute: "CurrentHue"
+      response:
+          constraints:
+              minValue: 77
+              maxValue: 83
+
+    - label: "Wait 10s"
+      PICS: CC.S.F00
+      cluster: "DelayCommands"
+      command: "WaitForMs"
+      arguments:
+          values:
+              - name: "ms"
+                value: 10000
+
+    # In 20s, the value will have changed by (120-60)*20/30 = 40. A 15% tolerance is 6, so value must be in range 100+/-6 => [94, 106]
+    - label: "Step 4d: TH reads CurrentHue attribute from DUT"
+      PICS: CC.S.F00 && CC.S.A0000
+      command: "readAttribute"
+      attribute: "CurrentHue"
+      response:
+          constraints:
+              minValue: 94
+              maxValue: 106
+
+    - label: "Wait 10s"
+      PICS: CC.S.F00
+      cluster: "DelayCommands"
+      command: "WaitForMs"
+      arguments:
+          values:
+              - name: "ms"
+                value: 10000
+
+    # In 30s, the value will have changed by (120-60)*30/30 = 60. A 15% tolerance is 9, so value must be in range 120+/-9 => [111, 129]
+    - label: "Step 4e: TH reads CurrentHue attribute from DUT"
+      PICS: CC.S.F00 && CC.S.A0000
+      command: "readAttribute"
+      attribute: "CurrentHue"
+      response:
+          constraints:
+              minValue: 111
+              maxValue: 129
+
+    - label: "Wait 5s"
+      PICS: CC.S.F00
+      cluster: "DelayCommands"
+      command: "WaitForMs"
+      arguments:
+          values:
+              - name: "ms"
+                value: 5000
+
+    - label: "Step 4f: TH reads CurrentHue attribute from DUT"
+      PICS: CC.S.F00 && CC.S.A0000
+      command: "readAttribute"
+      attribute: "CurrentHue"
+      response:
+          constraints:
+              minValue: 111
+              maxValue: 129
+
+    - label:
+          "Step 5a: TH sends MoveToHue command to DUT with Hue=120,
+          Direction=0x00 (shortest distance) and TransitionTime=0 (immediately)"
+      PICS: CC.S.F00 && CC.S.C00.Rsp
+      command: "MoveToHue"
+      arguments:
+          values:
+              - name: "Hue"
+                value: 120
+              - name: "Direction"
+                value: 0
+              - name: "TransitionTime"
+                value: 0
+              - name: "OptionsMask"
+                value: 0
+              - name: "OptionsOverride"
+                value: 0
+
+    - label: "Wait 100ms"
+      PICS: CC.S.F00
+      cluster: "DelayCommands"
+      command: "WaitForMs"
+      arguments:
+          values:
+              - name: "ms"
+                value: 100
+
+    - label:
+          "Step 5b: TH sends MoveToHue command to DUT with Hue=60,
+          Direction=0x03 (down) and TransitionTime=300 (30s)"
+      PICS: CC.S.F00 && CC.S.C00.Rsp
+      command: "MoveToHue"
+      arguments:
+          values:
+              - name: "Hue"
+                value: 60
+              - name: "Direction"
+                value: 3
+              - name: "TransitionTime"
+                value: 300
+              - name: "OptionsMask"
+                value: 0
+              - name: "OptionsOverride"
+                value: 0
+
+    - label: "Wait 10s"
+      PICS: CC.S.F00
+      cluster: "DelayCommands"
+      command: "WaitForMs"
+      arguments:
+          values:
+              - name: "ms"
+                value: 10000
+
+    # In 10s, the value will have changed by (120-60)*10/30 = 20. A 15% tolerance is 3, so value must be in range 100+/-3 => [97, 103]
+    - label: "Step 5c: TH reads CurrentHue attribute from DUT"
+      PICS: CC.S.F00 && CC.S.A0000
+      command: "readAttribute"
+      attribute: "CurrentHue"
+      response:
+          constraints:
+              minValue: 97
+              maxValue: 103
+
+    - label: "Wait 10s"
+      PICS: CC.S.F00
+      cluster: "DelayCommands"
+      command: "WaitForMs"
+      arguments:
+          values:
+              - name: "ms"
+                value: 10000
+
+    # In 20s, the value will have changed by (120-60)*20/30 = 40. A 15% tolerance is 6, so value must be in range 80+/-6 => [74, 86]
+    - label: "Step 5d: TH reads CurrentHue attribute from DUT"
+      PICS: CC.S.F00 && CC.S.A0000
+      command: "readAttribute"
+      attribute: "CurrentHue"
+      response:
+          constraints:
+              minValue: 74
+              maxValue: 86
+
+    - label: "Wait 10s"
+      PICS: CC.S.F00
+      cluster: "DelayCommands"
+      command: "WaitForMs"
+      arguments:
+          values:
+              - name: "ms"
+                value: 10000
+
+    # In 30s, the value will have changed by (120-60)*30/30 = 60. A 15% tolerance is 9, so value must be in range 60+/-9 => [51, 69]
+    - label: "Step 5e: TH reads CurrentHue attribute from DUT"
+      PICS: CC.S.F00 && CC.S.A0000
+      command: "readAttribute"
+      attribute: "CurrentHue"
+      response:
+          constraints:
+              minValue: 51
+              maxValue: 69
+
+    - label: "Wait 5s"
+      PICS: CC.S.F00
+      cluster: "DelayCommands"
+      command: "WaitForMs"
+      arguments:
+          values:
+              - name: "ms"
+                value: 5000
+
+    - label: "Step 5f: TH reads CurrentHue attribute from DUT"
+      PICS: CC.S.F00 && CC.S.A0000
+      command: "readAttribute"
+      attribute: "CurrentHue"
+      response:
+          constraints:
+              minValue: 51
+              maxValue: 69
+
+    - label: "Step 6a: TH reads ColorMode attribute from DUT"
+      PICS: CC.S.F00 && CC.S.A0008
+      command: "readAttribute"
+      attribute: "ColorMode"
+      response:
+          value: 0
+          constraints:
+              minValue: 0
+              maxValue: 2
+
+    - label: "Step 6b: TH reads EnhancedColorMode attribute from DUT"
+      PICS: CC.S.F00 && CC.S.A4001
+      command: "readAttribute"
+      attribute: "EnhancedColorMode"
+      response:
+          value: 0
+          constraints:
+              minValue: 0
+              maxValue: 3
+
+    - label: "Turn off light that we turned on"
+      PICS: OO.S.C00.Rsp
+      cluster: "On/Off"
+      command: "Off"
+
+    - label: "Check on/off attribute value is false after off command"
+      cluster: "On/Off"
+      command: "readAttribute"
+      attribute: "OnOff"
+      PICS: OO.S.A0000
+      response:
+          value: 0

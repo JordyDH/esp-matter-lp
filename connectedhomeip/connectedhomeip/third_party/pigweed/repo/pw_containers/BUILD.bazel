@@ -1,0 +1,845 @@
+# Copyright 2020 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_python//sphinxdocs:sphinx_docs_library.bzl", "sphinx_docs_library")
+load("//pw_bloat:pw_size_diff.bzl", "pw_size_diff")
+load("//pw_bloat:pw_size_table.bzl", "pw_size_table")
+load("//pw_build:compatibility.bzl", "incompatible_with_mcu")
+load("//pw_unit_test:pw_cc_test.bzl", "pw_cc_test")
+
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])
+
+# Module configuration
+
+cc_library(
+    name = "config",
+    hdrs = ["public/pw_containers/config.h"],
+    strip_include_prefix = "public",
+    deps = [":config_override"],
+)
+
+label_flag(
+    name = "config_override",
+    build_setting_default = "//pw_build:default_module_config",
+)
+
+# Libraries
+
+cc_library(
+    name = "pw_containers",
+    deprecation = "Depend on the individual single-header targets instead",
+    # Tagged manual so that we don't hit the deprecation warning when building
+    # upstream Pigweed itself.
+    tags = ["manual"],
+    deps = [
+        ":algorithm",
+        ":flat_map",
+        ":inline_deque",
+        ":inline_queue",
+        ":intrusive_list",
+        ":vector",
+    ],
+)
+
+cc_library(
+    name = "algorithm",
+    hdrs = [
+        "public/pw_containers/algorithm.h",
+        "public/pw_containers/internal/algorithm_internal.h",
+    ],
+    strip_include_prefix = "public",
+)
+
+cc_library(
+    name = "intrusive_item",
+    srcs = ["intrusive_item.cc"],
+    hdrs = ["public/pw_containers/internal/intrusive_item.h"],
+    implementation_deps = ["//pw_assert:check"],
+    strip_include_prefix = "public",
+)
+
+cc_library(
+    name = "intrusive_list_common",
+    hdrs = [
+        "public/pw_containers/internal/intrusive_list.h",
+        "public/pw_containers/internal/intrusive_list_item.h",
+        "public/pw_containers/internal/intrusive_list_iterator.h",
+    ],
+    strip_include_prefix = "public",
+    deps = [":intrusive_item"],
+)
+
+cc_library(
+    name = "intrusive_forward_list",
+    hdrs = ["public/pw_containers/intrusive_forward_list.h"],
+    strip_include_prefix = "public",
+    deps = [
+        ":config",
+        ":intrusive_list_common",
+    ],
+)
+
+cc_library(
+    name = "intrusive_list",
+    hdrs = ["public/pw_containers/intrusive_list.h"],
+    strip_include_prefix = "public",
+    deps = [
+        ":config",
+        ":intrusive_list_common",
+        ":legacy_intrusive_list",
+    ],
+)
+
+cc_library(
+    name = "legacy_intrusive_list",
+    hdrs = ["public/pw_containers/internal/legacy_intrusive_list.h"],
+    strip_include_prefix = "public",
+    visibility = [":__subpackages__"],
+    deps = [":intrusive_forward_list"],
+)
+
+cc_library(
+    name = "aa_tree",
+    srcs = [
+        "aa_tree.cc",
+        "aa_tree_item.cc",
+    ],
+    hdrs = [
+        "public/pw_containers/internal/aa_tree.h",
+        "public/pw_containers/internal/aa_tree_item.h",
+        "public/pw_containers/internal/aa_tree_iterator.h",
+    ],
+    features = ["-conversion_warnings"],
+    strip_include_prefix = "public",
+    visibility = [":__subpackages__"],
+    deps = [
+        ":intrusive_item",
+        "//pw_assert:assert",
+        "//pw_bytes:packed_ptr",
+        "//pw_function",
+    ],
+)
+
+cc_library(
+    name = "intrusive_map",
+    hdrs = ["public/pw_containers/intrusive_map.h"],
+    features = ["-conversion_warnings"],
+    strip_include_prefix = "public",
+    deps = [":aa_tree"],
+)
+
+cc_library(
+    name = "intrusive_multimap",
+    hdrs = ["public/pw_containers/intrusive_multimap.h"],
+    features = ["-conversion_warnings"],
+    strip_include_prefix = "public",
+    deps = [":aa_tree"],
+)
+
+cc_library(
+    name = "intrusive_set",
+    hdrs = ["public/pw_containers/intrusive_set.h"],
+    features = ["-conversion_warnings"],
+    strip_include_prefix = "public",
+    deps = [":aa_tree"],
+)
+
+cc_library(
+    name = "intrusive_multiset",
+    hdrs = ["public/pw_containers/intrusive_multiset.h"],
+    features = ["-conversion_warnings"],
+    strip_include_prefix = "public",
+    deps = [":aa_tree"],
+)
+
+cc_library(
+    name = "iterator",
+    hdrs = ["public/pw_containers/iterator.h"],
+    strip_include_prefix = "public",
+    tags = ["noclangtidy"],
+)
+
+cc_library(
+    name = "inline_deque",
+    hdrs = [
+        "public/pw_containers/inline_deque.h",
+    ],
+    strip_include_prefix = "public",
+    deps = [
+        ":raw_storage",
+        "//pw_assert:assert",
+        "//pw_preprocessor",
+        "//pw_span",
+        "//pw_toolchain:constexpr_tag",
+    ],
+)
+
+cc_library(
+    name = "inline_queue",
+    hdrs = [
+        "public/pw_containers/inline_queue.h",
+    ],
+    strip_include_prefix = "public",
+    deps = [":inline_deque"],
+)
+
+cc_library(
+    name = "inline_var_len_entry_queue",
+    srcs = ["inline_var_len_entry_queue.c"],
+    hdrs = ["public/pw_containers/inline_var_len_entry_queue.h"],
+    implementation_deps = ["//pw_assert:check"],
+    strip_include_prefix = "public",
+    tags = ["noclangtidy"],
+    deps = [
+        ":raw_storage",
+        "//pw_preprocessor",
+        "//pw_toolchain:constexpr_tag",
+        "//pw_varint",
+    ],
+)
+
+cc_library(
+    name = "vector",
+    hdrs = [
+        "public/pw_containers/vector.h",
+    ],
+    strip_include_prefix = "public",
+    deps = [
+        "//pw_assert:assert",
+        "//pw_preprocessor",
+        "//pw_toolchain:constexpr_tag",
+    ],
+)
+
+cc_library(
+    name = "filtered_view",
+    hdrs = ["public/pw_containers/filtered_view.h"],
+    strip_include_prefix = "public",
+    deps = [
+        "//pw_assert:assert",
+        "//pw_preprocessor",
+    ],
+)
+
+cc_library(
+    name = "flat_map",
+    hdrs = ["public/pw_containers/flat_map.h"],
+    strip_include_prefix = "public",
+    deps = ["//pw_assert:assert"],
+)
+
+cc_library(
+    name = "raw_storage",
+    hdrs = [
+        "public/pw_containers/internal/raw_storage.h",
+    ],
+    strip_include_prefix = "public",
+    visibility = [":__subpackages__"],
+)
+
+cc_library(
+    name = "test_helpers",
+    srcs = ["test_helpers.cc"],
+    hdrs = ["pw_containers_private/test_helpers.h"],
+    implementation_deps = ["//pw_assert:check"],
+    visibility = [":__subpackages__"],
+)
+
+cc_library(
+    name = "to_array",
+    hdrs = ["public/pw_containers/to_array.h"],
+    strip_include_prefix = "public",
+)
+
+cc_library(
+    name = "wrapped_iterator",
+    hdrs = ["public/pw_containers/wrapped_iterator.h"],
+    strip_include_prefix = "public",
+)
+
+# Unit tests
+
+pw_cc_test(
+    name = "algorithm_test",
+    srcs = ["algorithm_test.cc"],
+    deps = [
+        ":algorithm",
+        ":flat_map",
+        ":intrusive_list",
+        ":vector",
+        "//pw_span",
+        "//pw_unit_test:constexpr",
+    ],
+)
+
+pw_cc_test(
+    name = "filtered_view_test",
+    srcs = ["filtered_view_test.cc"],
+    deps = [
+        ":algorithm",
+        ":filtered_view",
+        ":flat_map",
+        ":intrusive_list",
+        "//pw_span",
+    ],
+)
+
+pw_cc_test(
+    name = "flat_map_test",
+    srcs = [
+        "flat_map_test.cc",
+    ],
+    deps = [
+        ":flat_map",
+        "//pw_polyfill",
+    ],
+)
+
+pw_cc_test(
+    name = "inline_var_len_entry_queue_test",
+    srcs = [
+        "inline_var_len_entry_queue_test.cc",
+        "pw_containers_private/inline_var_len_entry_queue_test_oracle.h",
+    ],
+    deps = [
+        ":inline_var_len_entry_queue",
+        "//pw_assert:assert",
+        "//pw_bytes",
+        "//pw_varint",
+    ],
+)
+
+pw_cc_test(
+    name = "vector_test",
+    srcs = [
+        "vector_test.cc",
+    ],
+    deps = [
+        ":test_helpers",
+        ":vector",
+        "//pw_compilation_testing:negative_compilation_testing",
+    ],
+)
+
+pw_cc_test(
+    name = "inline_deque_test",
+    srcs = [
+        "inline_deque_test.cc",
+    ],
+    deps = [
+        ":algorithm",
+        ":inline_deque",
+        ":test_helpers",
+        "//pw_compilation_testing:negative_compilation_testing",
+    ],
+)
+
+pw_cc_test(
+    name = "inline_queue_test",
+    srcs = [
+        "inline_queue_test.cc",
+    ],
+    deps = [
+        ":algorithm",
+        ":inline_queue",
+        ":test_helpers",
+        "//pw_compilation_testing:negative_compilation_testing",
+    ],
+)
+
+pw_cc_test(
+    name = "raw_storage_test",
+    srcs = [
+        "raw_storage_test.cc",
+    ],
+    deps = [
+        ":raw_storage",
+        ":test_helpers",
+    ],
+)
+
+pw_cc_test(
+    name = "to_array_test",
+    srcs = ["to_array_test.cc"],
+    deps = [":to_array"],
+)
+
+pw_cc_test(
+    name = "wrapped_iterator_test",
+    srcs = ["wrapped_iterator_test.cc"],
+    deps = [":wrapped_iterator"],
+)
+
+pw_cc_test(
+    name = "intrusive_forward_list_test",
+    srcs = ["intrusive_forward_list_test.cc"],
+    deps = [
+        ":intrusive_forward_list",
+        ":vector",
+        "//pw_compilation_testing:negative_compilation_testing",
+        "//pw_preprocessor",
+    ],
+)
+
+pw_cc_test(
+    name = "intrusive_list_test",
+    srcs = ["intrusive_list_test.cc"],
+    deps = [
+        ":intrusive_list",
+        ":vector",
+        "//pw_compilation_testing:negative_compilation_testing",
+        "//pw_preprocessor",
+    ],
+)
+
+pw_cc_test(
+    name = "intrusive_map_test",
+    srcs = ["intrusive_map_test.cc"],
+    features = ["-conversion_warnings"],
+    deps = [
+        ":intrusive_map",
+        ":intrusive_multimap",
+        "//pw_compilation_testing:negative_compilation_testing",
+        "//pw_span",
+    ],
+)
+
+pw_cc_test(
+    name = "intrusive_multimap_test",
+    srcs = ["intrusive_multimap_test.cc"],
+    features = ["-conversion_warnings"],
+    deps = [
+        ":intrusive_map",
+        ":intrusive_multimap",
+        "//pw_compilation_testing:negative_compilation_testing",
+        "//pw_span",
+    ],
+)
+
+pw_cc_test(
+    name = "intrusive_set_test",
+    srcs = ["intrusive_set_test.cc"],
+    features = ["-conversion_warnings"],
+    deps = [
+        ":intrusive_multiset",
+        ":intrusive_set",
+        "//pw_compilation_testing:negative_compilation_testing",
+        "//pw_span",
+    ],
+)
+
+pw_cc_test(
+    name = "intrusive_multiset_test",
+    srcs = ["intrusive_multiset_test.cc"],
+    features = ["-conversion_warnings"],
+    deps = [
+        ":intrusive_multiset",
+        ":intrusive_set",
+        "//pw_compilation_testing:negative_compilation_testing",
+        "//pw_span",
+    ],
+)
+
+pw_cc_test(
+    name = "intrusive_item_test",
+    srcs = ["intrusive_item_test.cc"],
+    features = ["-conversion_warnings"],
+    deps = [
+        ":intrusive_forward_list",
+        ":intrusive_list",
+        ":intrusive_map",
+        ":intrusive_multimap",
+        ":intrusive_multiset",
+        ":intrusive_set",
+        "//pw_compilation_testing:negative_compilation_testing",
+    ],
+)
+
+filegroup(
+    name = "doxygen",
+    srcs = [
+        "public/pw_containers/algorithm.h",
+        "public/pw_containers/filtered_view.h",
+        "public/pw_containers/inline_deque.h",
+        "public/pw_containers/inline_queue.h",
+        "public/pw_containers/inline_var_len_entry_queue.h",
+        "public/pw_containers/internal/aa_tree.h",
+        "public/pw_containers/internal/intrusive_list.h",
+        "public/pw_containers/intrusive_forward_list.h",
+        "public/pw_containers/intrusive_list.h",
+        "public/pw_containers/intrusive_map.h",
+        "public/pw_containers/intrusive_multimap.h",
+        "public/pw_containers/intrusive_multiset.h",
+        "public/pw_containers/intrusive_set.h",
+        "public/pw_containers/vector.h",
+    ],
+)
+
+sphinx_docs_library(
+    name = "docs",
+    srcs = [
+        "Kconfig",
+        "docs.rst",
+        "lists.rst",
+        "maps.rst",
+        "multiple_containers.rst",
+        "queues.rst",
+        "sets.rst",
+        "utilities.rst",
+        "vectors.rst",
+        "//pw_containers/examples:docs",
+    ],
+    prefix = "pw_containers/",
+    target_compatible_with = incompatible_with_mcu(),
+)
+
+pw_size_diff(
+    name = "intrusive_list_size_report",
+    base = "//pw_containers/size_report:base",
+    bloaty_config = "//targets/rp2040:bloaty_config",
+    label = "IntrusiveList",
+    # TODO: https://pwbug.dev/388905812 - Make size reports always build.
+    tags = ["manual"],
+    target = "//pw_containers/size_report:intrusive_list_base",
+)
+
+pw_size_diff(
+    name = "intrusive_list_size_report_alternate_type",
+    base = "//pw_containers/size_report:intrusive_list_base",
+    bloaty_config = "//targets/rp2040:bloaty_config",
+    label = "Additional IntrusiveList with different item type",
+    # TODO: https://pwbug.dev/388905812 - Make size reports always build.
+    tags = ["manual"],
+    target = "//pw_containers/size_report:intrusive_list_alternate_type",
+)
+
+pw_size_diff(
+    name = "intrusive_forward_list_size_report",
+    base = "//pw_containers/size_report:base",
+    bloaty_config = "//targets/rp2040:bloaty_config",
+    label = "IntrusiveForwardList",
+    # TODO: https://pwbug.dev/388905812 - Make size reports always build.
+    tags = ["manual"],
+    target = "//pw_containers/size_report:intrusive_forward_list_base",
+)
+
+pw_size_diff(
+    name = "intrusive_forward_list_size_report_alternate_type",
+    base = "//pw_containers/size_report:intrusive_forward_list_base",
+    bloaty_config = "//targets/rp2040:bloaty_config",
+    label = "Additional IntrusiveForwardList with different item type",
+    # TODO: https://pwbug.dev/388905812 - Make size reports always build.
+    tags = ["manual"],
+    target = "//pw_containers/size_report:intrusive_forward_list_alternate_type",
+)
+
+pw_size_diff(
+    name = "intrusive_list_and_forward_list_size_report",
+    base = "//pw_containers/size_report:base",
+    bloaty_config = "//targets/rp2040:bloaty_config",
+    label = "IntrusiveForwardList and IntrusiveList",
+    # TODO: https://pwbug.dev/388905812 - Make size reports always build.
+    tags = ["manual"],
+    target = "//pw_containers/size_report:intrusive_list_and_forward_list",
+)
+
+pw_size_table(
+    name = "lists_size_report",
+    reports = [
+        ":intrusive_list_size_report",
+        ":intrusive_list_size_report_alternate_type",
+        ":intrusive_forward_list_size_report",
+        ":intrusive_forward_list_size_report_alternate_type",
+        ":intrusive_list_and_forward_list_size_report",
+    ],
+    # TODO: https://pwbug.dev/388905812 - Make size reports always build.
+    tags = ["manual"],
+)
+
+pw_size_diff(
+    name = "flat_map_size_report",
+    base = "//pw_containers/size_report:base",
+    bloaty_config = "//targets/rp2040:bloaty_config",
+    label = "FlatMap",
+    # TODO: https://pwbug.dev/388905812 - Make size reports always build.
+    tags = ["manual"],
+    target = "//pw_containers/size_report:flat_map_base",
+)
+
+pw_size_diff(
+    name = "flat_map_size_report_alternate_types",
+    base = "//pw_containers/size_report:flat_map_base",
+    bloaty_config = "//targets/rp2040:bloaty_config",
+    label = "Additional FlatMap with different key and value types",
+    # TODO: https://pwbug.dev/388905812 - Make size reports always build.
+    tags = ["manual"],
+    target = "//pw_containers/size_report:flat_map_alternate_types",
+)
+
+pw_size_diff(
+    name = "intrusive_map_size_report",
+    base = "//pw_containers/size_report:base",
+    bloaty_config = "//targets/rp2040:bloaty_config",
+    label = "IntrusiveMap",
+    # TODO: https://pwbug.dev/388905812 - Make size reports always build.
+    tags = ["manual"],
+    target = "//pw_containers/size_report:intrusive_map_base",
+)
+
+pw_size_diff(
+    name = "intrusive_map_size_report_alternate_key",
+    base = "//pw_containers/size_report:intrusive_map_base",
+    bloaty_config = "//targets/rp2040:bloaty_config",
+    label = "Additional IntrusiveMap with different key type",
+    # TODO: https://pwbug.dev/388905812 - Make size reports always build.
+    tags = ["manual"],
+    target = "//pw_containers/size_report:intrusive_map_alternate_key",
+)
+
+pw_size_diff(
+    name = "intrusive_map_size_report_alternate_types",
+    base = "//pw_containers/size_report:intrusive_map_base",
+    bloaty_config = "//targets/rp2040:bloaty_config",
+    label = "Additional IntrusiveMap with different key and value types",
+    # TODO: https://pwbug.dev/388905812 - Make size reports always build.
+    tags = ["manual"],
+    target = "//pw_containers/size_report:intrusive_map_alternate_types",
+)
+
+pw_size_diff(
+    name = "intrusive_multimap_size_report",
+    base = "//pw_containers/size_report:base",
+    bloaty_config = "//targets/rp2040:bloaty_config",
+    label = "IntrusiveMultiMap",
+    # TODO: https://pwbug.dev/388905812 - Make size reports always build.
+    tags = ["manual"],
+    target = "//pw_containers/size_report:intrusive_multimap_base",
+)
+
+pw_size_diff(
+    name = "intrusive_multimap_size_report_alternate_key",
+    base = "//pw_containers/size_report:intrusive_multimap_base",
+    bloaty_config = "//targets/rp2040:bloaty_config",
+    label = "Additional IntrusiveMultiMap with different key type",
+    # TODO: https://pwbug.dev/388905812 - Make size reports always build.
+    tags = ["manual"],
+    target = "//pw_containers/size_report:intrusive_multimap_alternate_key",
+)
+
+pw_size_diff(
+    name = "intrusive_multimap_size_report_alternate_types",
+    base = "//pw_containers/size_report:intrusive_multimap_base",
+    bloaty_config = "//targets/rp2040:bloaty_config",
+    label = "Additional IntrusiveMultiMap with different key and value types",
+    # TODO: https://pwbug.dev/388905812 - Make size reports always build.
+    tags = ["manual"],
+    target = "//pw_containers/size_report:intrusive_multimap_alternate_types",
+)
+
+pw_size_diff(
+    name = "intrusive_map_and_multimap_size_report",
+    base = "//pw_containers/size_report:base",
+    bloaty_config = "//targets/rp2040:bloaty_config",
+    label = "IntrusiveMap and IntrusiveMultiMap",
+    # TODO: https://pwbug.dev/388905812 - Make size reports always build.
+    tags = ["manual"],
+    target = "//pw_containers/size_report:intrusive_map_and_multimap",
+)
+
+pw_size_table(
+    name = "maps_size_report",
+    reports = [
+        ":flat_map_size_report",
+        ":flat_map_size_report_alternate_types",
+        ":intrusive_map_size_report",
+        ":intrusive_map_size_report_alternate_key",
+        ":intrusive_map_size_report_alternate_types",
+        ":intrusive_multimap_size_report",
+        ":intrusive_multimap_size_report_alternate_key",
+        ":intrusive_multimap_size_report_alternate_types",
+        ":intrusive_map_and_multimap_size_report",
+    ],
+    # TODO: https://pwbug.dev/388905812 - Make size reports always build.
+    tags = ["manual"],
+)
+
+pw_size_diff(
+    name = "inline_deque_size_report",
+    base = "//pw_containers/size_report:base",
+    bloaty_config = "//targets/rp2040:bloaty_config",
+    label = "InlineDeque",
+    # TODO: https://pwbug.dev/388905812 - Make size reports always build.
+    tags = ["manual"],
+    target = "//pw_containers/size_report:inline_deque_base",
+)
+
+pw_size_diff(
+    name = "inline_deque_size_report_alternate_type",
+    base = "//pw_containers/size_report:inline_deque_base",
+    bloaty_config = "//targets/rp2040:bloaty_config",
+    label = "Additional InlineDeque with different item type",
+    # TODO: https://pwbug.dev/388905812 - Make size reports always build.
+    tags = ["manual"],
+    target = "//pw_containers/size_report:inline_deque_alternate_type",
+)
+
+pw_size_diff(
+    name = "inline_queue_size_report",
+    base = "//pw_containers/size_report:base",
+    bloaty_config = "//targets/rp2040:bloaty_config",
+    label = "InlineQueue",
+    # TODO: https://pwbug.dev/388905812 - Make size reports always build.
+    tags = ["manual"],
+    target = "//pw_containers/size_report:inline_queue_base",
+)
+
+pw_size_diff(
+    name = "inline_queue_size_report_alternate_type",
+    base = "//pw_containers/size_report:inline_queue_base",
+    bloaty_config = "//targets/rp2040:bloaty_config",
+    label = "Additional InlineQueue with different item type",
+    # TODO: https://pwbug.dev/388905812 - Make size reports always build.
+    tags = ["manual"],
+    target = "//pw_containers/size_report:inline_queue_alternate_type",
+)
+
+pw_size_diff(
+    name = "inline_deque_and_queue_size_report",
+    base = "//pw_containers/size_report:base",
+    bloaty_config = "//targets/rp2040:bloaty_config",
+    label = "InlineDeque and InlineQueue",
+    # TODO: https://pwbug.dev/388905812 - Make size reports always build.
+    tags = ["manual"],
+    target = "//pw_containers/size_report:inline_deque_and_queue",
+)
+
+pw_size_table(
+    name = "queues_size_report",
+    reports = [
+        ":inline_deque_size_report",
+        ":inline_deque_size_report_alternate_type",
+        ":inline_queue_size_report",
+        ":inline_queue_size_report_alternate_type",
+        ":inline_deque_and_queue_size_report",
+    ],
+    # TODO: https://pwbug.dev/388905812 - Make size reports always build.
+    tags = ["manual"],
+)
+
+pw_size_diff(
+    name = "intrusive_set_size_report",
+    base = "//pw_containers/size_report:base",
+    bloaty_config = "//targets/rp2040:bloaty_config",
+    label = "IntrusiveSet",
+    # TODO: https://pwbug.dev/388905812 - Make size reports always build.
+    tags = ["manual"],
+    target = "//pw_containers/size_report:intrusive_set_base",
+)
+
+pw_size_diff(
+    name = "intrusive_set_size_report_alternate_type",
+    base = "//pw_containers/size_report:intrusive_set_base",
+    bloaty_config = "//targets/rp2040:bloaty_config",
+    label = "Additional IntrusiveSet with different item type",
+    # TODO: https://pwbug.dev/388905812 - Make size reports always build.
+    tags = ["manual"],
+    target = "//pw_containers/size_report:intrusive_set_alternate_type",
+)
+
+pw_size_diff(
+    name = "intrusive_multiset_size_report",
+    base = "//pw_containers/size_report:base",
+    bloaty_config = "//targets/rp2040:bloaty_config",
+    label = "IntrusiveMultiSet",
+    # TODO: https://pwbug.dev/388905812 - Make size reports always build.
+    tags = ["manual"],
+    target = "//pw_containers/size_report:intrusive_multiset_base",
+)
+
+pw_size_diff(
+    name = "intrusive_multiset_size_report_alternate_type",
+    base = "//pw_containers/size_report:intrusive_multiset_base",
+    bloaty_config = "//targets/rp2040:bloaty_config",
+    label = "Additional IntrusiveMultiSet with different item type",
+    # TODO: https://pwbug.dev/388905812 - Make size reports always build.
+    tags = ["manual"],
+    target = "//pw_containers/size_report:intrusive_multiset_alternate_type",
+)
+
+pw_size_diff(
+    name = "intrusive_set_and_multiset_size_report",
+    base = "//pw_containers/size_report:base",
+    bloaty_config = "//targets/rp2040:bloaty_config",
+    label = "IntrusiveSet and IntrusiveMultiSet",
+    # TODO: https://pwbug.dev/388905812 - Make size reports always build.
+    tags = ["manual"],
+    target = "//pw_containers/size_report:intrusive_set_and_multiset",
+)
+
+pw_size_table(
+    name = "sets_size_report",
+    reports = [
+        ":intrusive_set_size_report",
+        ":intrusive_set_size_report_alternate_type",
+        ":intrusive_multiset_size_report",
+        ":intrusive_multiset_size_report_alternate_type",
+        ":intrusive_set_and_multiset_size_report",
+    ],
+    # TODO: https://pwbug.dev/388905812 - Make size reports always build.
+    tags = ["manual"],
+)
+
+pw_size_diff(
+    name = "vector_size_report",
+    base = "//pw_containers/size_report:base",
+    bloaty_config = "//targets/rp2040:bloaty_config",
+    label = "Vector",
+    # TODO: https://pwbug.dev/388905812 - Make size reports always build.
+    tags = ["manual"],
+    target = "//pw_containers/size_report:vector_base",
+)
+
+pw_size_diff(
+    name = "vector_size_report_alternate_size",
+    base = "//pw_containers/size_report:vector_base",
+    bloaty_config = "//targets/rp2040:bloaty_config",
+    label = "Additional Vector with the same item type but different size",
+    # TODO: https://pwbug.dev/388905812 - Make size reports always build.
+    tags = ["manual"],
+    target = "//pw_containers/size_report:vector_alternate_size",
+)
+
+pw_size_diff(
+    name = "vector_size_report_alternate_type",
+    base = "//pw_containers/size_report:vector_base",
+    bloaty_config = "//targets/rp2040:bloaty_config",
+    label = "Additional Vector with different item type but same size",
+    # TODO: https://pwbug.dev/388905812 - Make size reports always build.
+    tags = ["manual"],
+    target = "//pw_containers/size_report:vector_alternate_type",
+)
+
+pw_size_table(
+    name = "vectors_size_report",
+    reports = [
+        ":vector_size_report",
+        ":vector_size_report_alternate_size",
+        ":vector_size_report_alternate_type",
+    ],
+    # TODO: https://pwbug.dev/388905812 - Make size reports always build.
+    tags = ["manual"],
+)

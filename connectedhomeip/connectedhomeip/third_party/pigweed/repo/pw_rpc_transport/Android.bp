@@ -1,0 +1,153 @@
+// Copyright 2023 The Pigweed Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not
+// use this file except in compliance with the License. You may obtain a copy of
+// the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+// License for the specific language governing permissions and limitations under
+// the License.
+
+package {
+    default_applicable_licenses: ["external_pigweed_license"],
+}
+
+cc_library_static {
+    name: "pw_rpc_transport.rpc_transport",
+    cpp_std: "c++20",
+    export_include_dirs: ["public"],
+    static_libs: [
+        "pw_bytes",
+        "pw_function",
+        "pw_status",
+    ],
+    export_static_lib_headers: [
+        "pw_bytes",
+        "pw_function",
+        "pw_status",
+    ],
+    host_supported: true,
+    vendor_available: true,
+}
+
+cc_library_static {
+    name: "pw_rpc_transport.local_rpc_egress",
+    cpp_std: "c++20",
+    vendor_available: true,
+    host_supported: true,
+    defaults: [
+        "pw_android_common_backends",
+    ],
+    header_libs: [
+        "pw_log",
+    ],
+    export_header_lib_headers: [
+        "pw_log",
+    ],
+    static_libs: [
+        "pw_containers",
+        "pw_polyfill",
+        "pw_preprocessor",
+        "pw_result",
+        "pw_rpc_transport.rpc_transport",
+    ],
+    export_static_lib_headers: [
+        "pw_containers",
+        "pw_result",
+        "pw_rpc_transport.rpc_transport",
+    ],
+    srcs: [
+        "local_rpc_egress.cc",
+    ],
+}
+
+cc_library_static {
+    name: "pw_rpc_transport.simple_framing",
+    cpp_std: "c++20",
+    vendor_available: true,
+    host_supported: true,
+    defaults: [
+        "pw_android_common_backends",
+    ],
+    header_libs: [
+        "pw_assert",
+        "pw_log",
+    ],
+    export_header_lib_headers: [
+        "pw_assert",
+        "pw_log",
+    ],
+    static_libs: [
+        "pw_polyfill",
+        "pw_preprocessor",
+        "pw_result",
+        "pw_rpc_transport.rpc_transport",
+        "pw_span",
+    ],
+    export_static_lib_headers: [
+        "pw_result",
+        "pw_rpc_transport.rpc_transport",
+        "pw_span",
+    ],
+    srcs: [
+        "simple_framing.cc",
+    ],
+}
+
+filegroup {
+    name: "pw_rpc_transport.egress_ingress_src_files",
+    srcs: [
+        "egress_ingress.cc",
+    ],
+}
+
+// This rule must be instantiated, e.g.
+//
+//   cc_library_static {
+//       name: "<instance_name>",
+//       cflags: [
+//           "-DPW_RPC_USE_GLOBAL_MUTEX=0",
+//           "-DPW_RPC_COMPLETION_REQUEST_CALLBACK",
+//           "-DPW_RPC_DYNAMIC_ALLOCATION",
+//       ],
+//       defaults: [
+//           "pw_rpc_transport.egress_ingress_defaults",
+//       ],
+//   }
+cc_defaults {
+    name: "pw_rpc_transport.egress_ingress_defaults",
+    cpp_std: "c++20",
+    defaults: [
+        "pw_android_common_backends",
+        "pw_rpc_defaults",
+    ],
+    header_libs: [
+        "pw_assert",
+        "pw_chrono",
+        "pw_log",
+        "pw_sync",
+    ],
+    export_header_lib_headers: [
+        "pw_assert",
+        "pw_log",
+        "pw_sync",
+    ],
+    static_libs: [
+        "pw_hdlc",
+        "pw_metric",
+        "pw_rpc_transport.rpc_transport",
+        "pw_sync.binary_semaphore_thread_notification",
+    ],
+    export_static_lib_headers: [
+        "pw_hdlc",
+        "pw_metric",
+        "pw_rpc_transport.rpc_transport",
+    ],
+    srcs: [
+        ":pw_rpc_transport.egress_ingress_src_files",
+    ],
+}

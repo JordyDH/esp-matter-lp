@@ -1,0 +1,262 @@
+# Copyright 2024 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+load("@fuchsia_infra//infra:infra.bzl", "fuchsia_cipd_releases")
+load(
+    "@rules_fuchsia//fuchsia:defs.bzl",
+    "fuchsia_cc_driver",
+    "fuchsia_cc_library",
+    "fuchsia_cc_test",
+    "fuchsia_component_manifest",
+    "fuchsia_driver_bind_bytecode",
+    "fuchsia_driver_component",
+    "fuchsia_package",
+    "fuchsia_platforms",
+    "fuchsia_unittest_package",
+)
+load(
+    "@rules_fuchsia//fuchsia:licenses.bzl",
+    "fuchsia_licenses_collection",
+    "fuchsia_licenses_spdx",
+)
+load("//pw_bluetooth_sapphire/fuchsia:fuchsia_api_level.bzl", "FUCHSIA_API_LEVEL")
+load("//pw_build:compatibility.bzl", "incompatible_with_mcu")
+
+package(default_visibility = ["//visibility:public"])
+
+fuchsia_driver_bind_bytecode(
+    name = "bt-hci-virtual-bind",
+    output = "bt-hci-virtual.bindbc",
+    rules = "meta/bt-hci-virtual.bind",
+    deps = [
+        "@fuchsia_sdk//bind/fuchsia.devicetree",
+        "@fuchsia_sdk//bind/fuchsia.platform",
+    ],
+)
+
+fuchsia_cc_library(
+    name = "common",
+    testonly = True,
+    srcs = [
+        "emulated_peer.cc",
+        "emulated_peer.h",
+        "emulator.cc",
+        "emulator.h",
+        "loopback.cc",
+        "loopback.h",
+    ],
+    target_compatible_with = ["@platforms//os:fuchsia"],
+    deps = [
+        "//pw_async_fuchsia:dispatcher",
+        "//pw_bluetooth_sapphire/fuchsia/host/fidl:helpers",
+        "//pw_bluetooth_sapphire/host/common",
+        "//pw_bluetooth_sapphire/host/testing:fake_controller",
+        "//pw_log_fuchsia",
+        "//pw_random_fuchsia:zircon_random_generator",
+        "@fuchsia_sdk//fidl/fuchsia.driver.framework:fuchsia.driver.framework_cpp",
+        "@fuchsia_sdk//fidl/fuchsia.hardware.bluetooth:fuchsia.hardware.bluetooth_cpp",
+        "@fuchsia_sdk//pkg/async-loop-cpp",
+        "@fuchsia_sdk//pkg/driver_component_cpp",
+        "@fuchsia_sdk//pkg/driver_devfs_cpp",
+        "@fuchsia_sdk//pkg/driver_runtime",
+    ],
+)
+
+fuchsia_cc_driver(
+    name = "bt-hci-virtual",
+    testonly = True,
+    srcs = [
+        "controller.cc",
+        "controller.h",
+    ],
+    output_name = "bt-hci-virtual",
+    deps = [
+        ":common",
+    ],
+)
+
+fuchsia_component_manifest(
+    name = "manifest",
+    src = "meta/driver.cml",
+)
+
+fuchsia_driver_component(
+    name = "component",
+    testonly = True,
+    bind_bytecode = ":bt-hci-virtual-bind",
+    driver_lib = ":bt-hci-virtual",
+    manifest = ":manifest",
+)
+
+fuchsia_package(
+    name = "pkg.x64",
+    package_name = "virtual",
+    testonly = True,
+    components = [":component"],
+    fuchsia_api_level = FUCHSIA_API_LEVEL,
+    package_repository_name = "fuchsia.com",
+    platform = fuchsia_platforms.x64,
+    visibility = ["//visibility:public"],
+)
+
+fuchsia_package(
+    name = "pkg.x64.repo.disabled",
+    package_name = "virtual",
+    testonly = True,
+    components = [":component"],
+    disable_repository_name = "fuchsia.com",
+    fuchsia_api_level = FUCHSIA_API_LEVEL,
+    platform = fuchsia_platforms.x64,
+    visibility = ["//visibility:public"],
+)
+
+fuchsia_package(
+    name = "pkg.arm64",
+    package_name = "virtual",
+    testonly = True,
+    components = [":component"],
+    fuchsia_api_level = FUCHSIA_API_LEVEL,
+    package_repository_name = "fuchsia.com",
+    platform = fuchsia_platforms.arm64,
+    visibility = ["//visibility:public"],
+)
+
+fuchsia_package(
+    name = "pkg.riscv64",
+    package_name = "virtual",
+    testonly = True,
+    components = [":component"],
+    fuchsia_api_level = FUCHSIA_API_LEVEL,
+    package_repository_name = "fuchsia.com",
+    platform = fuchsia_platforms.riscv64,
+    visibility = ["//visibility:public"],
+)
+
+fuchsia_cc_test(
+    name = "loopback_test",
+    testonly = True,
+    srcs = ["loopback_test.cc"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":common",
+        "//pw_bluetooth_sapphire/host/testing:gtest_main",
+        "//pw_unit_test",
+        "@fuchsia_sdk//pkg/driver_testing_cpp",
+    ],
+)
+
+fuchsia_unittest_package(
+    name = "test_pkg",
+    package_name = "bt-hci-virtual-unittests",
+    fuchsia_api_level = FUCHSIA_API_LEVEL,
+    platform = fuchsia_platforms.x64,
+    unit_tests = [":loopback_test"],
+    visibility = ["//visibility:public"],
+)
+
+fuchsia_licenses_collection(
+    name = "bt_hci_virtual_x64_pkg_licenses_collection",
+    testonly = True,
+    # TODO: https://pwbug.dev/368652834 - Reenable license collection.
+    # root_target = ":pkg.x64",
+    root_target = "//pw_bluetooth_sapphire/fuchsia:license_fuchsia",
+)
+
+fuchsia_licenses_collection(
+    name = "bt_hci_virtual_arm64_pkg_licenses_collection",
+    testonly = True,
+    # TODO: https://pwbug.dev/368652834 - Reenable license collection.
+    # root_target = ":pkg.arm64",
+    root_target = "//pw_bluetooth_sapphire/fuchsia:license_fuchsia",
+)
+
+fuchsia_licenses_collection(
+    name = "bt_hci_virtual_riscv64_pkg_licenses_collection",
+    testonly = True,
+    # TODO: https://pwbug.dev/368652834 - Reenable license collection.
+    # root_target = ":pkg.riscv64",
+    root_target = "//pw_bluetooth_sapphire/fuchsia:license_fuchsia",
+)
+
+fuchsia_licenses_spdx(
+    name = "bt_hci_virtual_x64_licenses.spdx.json",
+    testonly = True,
+    document_namespace = "https://pigweed.dev/pw_bluetooth_sapphire/",
+    licenses = ":bt_hci_virtual_x64_pkg_licenses_collection",
+    licenses_cross_refs_base_url = "https://pigweed.googlesource.com/pigweed/pigweed/+/refs/heads/main/pw_bluetooth_sapphire/fuchsia/",
+    root_package_homepage = "https://pigweed.dev/pw_bluetooth_sapphire/",
+    root_package_name = "virtual",
+)
+
+fuchsia_licenses_spdx(
+    name = "bt_hci_virtual_arm64_licenses.spdx.json",
+    testonly = True,
+    document_namespace = "https://pigweed.dev/pw_bluetooth_sapphire/",
+    licenses = ":bt_hci_virtual_arm64_pkg_licenses_collection",
+    licenses_cross_refs_base_url = "https://pigweed.googlesource.com/pigweed/pigweed/+/refs/heads/main/pw_bluetooth_sapphire/fuchsia/",
+    root_package_homepage = "https://pigweed.dev/pw_bluetooth_sapphire/",
+    root_package_name = "virtual",
+)
+
+fuchsia_licenses_spdx(
+    name = "bt_hci_virtual_riscv64_licenses.spdx.json",
+    testonly = True,
+    document_namespace = "https://pigweed.dev/pw_bluetooth_sapphire/",
+    licenses = ":bt_hci_virtual_riscv64_pkg_licenses_collection",
+    licenses_cross_refs_base_url = "https://pigweed.googlesource.com/pigweed/pigweed/+/refs/heads/main/pw_bluetooth_sapphire/fuchsia/",
+    root_package_homepage = "https://pigweed.dev/pw_bluetooth_sapphire/",
+    root_package_name = "virtual",
+)
+
+fuchsia_cipd_releases(
+    name = "bt_hci_virtual_x64_cipd",
+    testonly = True,
+    cipd_prefix = "fuchsia/prebuilt/bt-hci-virtual",
+    extra_content = {
+        ":README.fuchsia.md": "README.fuchsia",
+        ":bt_hci_virtual_x64_licenses.spdx.json": "licenses.spdx.json",
+    },
+    pkg = ":pkg.x64",
+    # TODO: b/354711360 - fuchsia_cipd_releases appears to be misconfigured
+    # when cross-compiling,
+    target_compatible_with = incompatible_with_mcu(),
+)
+
+fuchsia_cipd_releases(
+    name = "bt_hci_virtual_arm64_cipd",
+    testonly = True,
+    cipd_prefix = "fuchsia/prebuilt/bt-hci-virtual",
+    extra_content = {
+        ":README.fuchsia.md": "README.fuchsia",
+        ":bt_hci_virtual_arm64_licenses.spdx.json": "licenses.spdx.json",
+    },
+    pkg = ":pkg.arm64",
+    # TODO: b/354711360 - fuchsia_cipd_releases appears to be misconfigured
+    # when cross-compiling,
+    target_compatible_with = incompatible_with_mcu(),
+)
+
+fuchsia_cipd_releases(
+    name = "bt_hci_virtual_riscv64_cipd",
+    testonly = True,
+    cipd_prefix = "fuchsia/prebuilt/bt-hci-virtual",
+    extra_content = {
+        ":README.fuchsia.md": "README.fuchsia",
+        ":bt_hci_virtual_riscv64_licenses.spdx.json": "licenses.spdx.json",
+    },
+    pkg = ":pkg.riscv64",
+    # TODO: b/354711360 - fuchsia_cipd_releases appears to be misconfigured
+    # when cross-compiling,
+    target_compatible_with = incompatible_with_mcu(),
+)

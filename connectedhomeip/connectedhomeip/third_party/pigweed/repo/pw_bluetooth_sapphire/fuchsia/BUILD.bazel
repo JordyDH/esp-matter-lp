@@ -1,0 +1,79 @@
+# Copyright 2024 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+load(
+    "@fuchsia_infra//infra:infra.bzl",
+    "FUCHSIA_TEST_TARGET",
+    "fuchsia_builder_group",
+    "fuchsia_test_group",
+)
+load("@rules_license//rules:license.bzl", "license")
+
+license(
+    name = "license_fuchsia",
+    package_name = "pw_bluetooth_sapphire (Fuchsia)",
+    license_text = "@pigweed//:LICENSE",
+)
+
+qemu_tests = [
+    "//pw_bluetooth_sapphire/fuchsia/bt_hci_virtual:test_pkg",
+    "//pw_bluetooth_sapphire/fuchsia/bt_host:test_pkg",
+    "//pw_bluetooth_sapphire/fuchsia/host/att:test_pkg",
+    "//pw_bluetooth_sapphire/fuchsia/host/common:test_pkg",
+    "//pw_bluetooth_sapphire/fuchsia/host/controllers:test_pkg",
+    "//pw_bluetooth_sapphire/fuchsia/host/fidl:test_pkg",
+    "//pw_bluetooth_sapphire/fuchsia/host/gap:test_pkg",
+    "//pw_bluetooth_sapphire/fuchsia/host/gatt:test_pkg",
+    "//pw_bluetooth_sapphire/fuchsia/host/hci:test_pkg",
+    "//pw_bluetooth_sapphire/fuchsia/host/hci-spec:test_pkg",
+    "//pw_bluetooth_sapphire/fuchsia/host/iso:test_pkg",
+    "//pw_bluetooth_sapphire/fuchsia/host/l2cap:test_pkg",
+    "//pw_bluetooth_sapphire/fuchsia/host/sco:test_pkg",
+    "//pw_bluetooth_sapphire/fuchsia/host/sdp:test_pkg",
+    "//pw_bluetooth_sapphire/fuchsia/host/sm:test_pkg",
+    "//pw_bluetooth_sapphire/fuchsia/host/socket:test_pkg",
+    "//pw_bluetooth_sapphire/fuchsia/host/testing:test_pkg",
+    "//pw_bluetooth_sapphire/fuchsia/host/transport:test_pkg",
+    "//pw_bluetooth_sapphire/fuchsia/lib/fidl:test_pkg",
+    "//pw_async_fuchsia:test_pkg",
+    "//pw_random_fuchsia:test_pkg",
+]
+
+fuchsia_test_group(
+    name = "tests_qemu",
+    # Disable luci-auth as the CQ builder environment is not authenticated.
+    luci_auth_enabled = False,
+    product_bundle = "@fuchsia_products//:core.x64",
+    test_target = FUCHSIA_TEST_TARGET.QEMU,
+    deps = qemu_tests,
+)
+
+# buildifier: leave-alone
+fuchsia_builder_group(
+    name = "infra",
+    build_only = [
+    ],
+    test_groups = [
+        ":tests_qemu",
+    ],
+    cipd_uploads = [
+        "//pw_bluetooth_sapphire/fuchsia/bt_host:bt_host_x64_cipd",
+        "//pw_bluetooth_sapphire/fuchsia/bt_host:bt_host_arm64_cipd",
+        "//pw_bluetooth_sapphire/fuchsia/bt_host:bt_host_riscv64_cipd",
+        "//pw_bluetooth_sapphire/fuchsia/bt_hci_virtual:bt_hci_virtual_x64_cipd",
+        "//pw_bluetooth_sapphire/fuchsia/bt_hci_virtual:bt_hci_virtual_arm64_cipd",
+        "//pw_bluetooth_sapphire/fuchsia/bt_hci_virtual:bt_hci_virtual_riscv64_cipd",
+    ],
+    tags = ["integration"],
+)

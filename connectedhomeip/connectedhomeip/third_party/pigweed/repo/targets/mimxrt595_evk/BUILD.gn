@@ -1,0 +1,143 @@
+# Copyright 2021 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+import("//build_overrides/pigweed.gni")
+
+import("$dir_pw_build/linker_script.gni")
+import("$dir_pw_build/target_types.gni")
+import("$dir_pw_docgen/docs.gni")
+import("$dir_pw_malloc/backend.gni")
+import("$dir_pw_third_party/mcuxpresso/mcuxpresso.gni")
+import("$dir_pw_toolchain/generate_toolchain.gni")
+import("target_toolchains.gni")
+
+generate_toolchains("target_toolchains") {
+  toolchains = pw_target_toolchain_mimxrt595_evk_list
+}
+
+declare_args() {
+  # This list should contain the necessary defines for setting linker script
+  # memory regions. While we don't directly use the pw_boot_cortex_m linker
+  # script, these are deliberately matching to make being able to later easier.
+  pw_target_mimxrt595_evk_LINK_CONFIG_DEFINES = []
+}
+
+config("pw_malloc_active") {
+  if (pw_malloc_BACKEND != "") {
+    defines = [ "PW_MALLOC_ACTIVE=1" ]
+  }
+}
+
+config("disable_warnings") {
+  cflags = [
+    "-Wno-cast-qual",
+    "-Wno-error=strict-prototypes",
+    "-Wno-redundant-decls",
+    "-Wno-shadow",
+    "-Wno-sign-compare",
+    "-Wno-type-limits",
+    "-Wno-undef",
+    "-Wno-unused-function",
+    "-Wno-unused-parameter",
+    "-Wno-unused-variable",
+  ]
+  visibility = [ ":*" ]
+}
+
+config("freestanding") {
+  cflags = [
+    "-ffreestanding",
+    "-fno-builtin",
+  ]
+  asmflags = cflags
+  ldflags = cflags
+  visibility = [ ":*" ]
+}
+
+config("sdk_defines") {
+  defines = [
+    "BOOT_HEADER_ENABLE=1",
+    "CPU_MIMXRT595SFFOC_cm33",
+    "DEBUG_CONSOLE_TRANSFER_NON_BLOCKING=1",
+    "DEBUG_CONSOLE_DISABLE_RTOS_SYNCHRONIZATION",
+    "FSL_SDK_DRIVER_QUICK_ACCESS_ENABLE=1",
+    "SDK_DEBUGCONSOLE=1",
+  ]
+  visibility = [ ":*" ]
+}
+
+if (current_toolchain != default_toolchain) {
+  pw_linker_script("flash_linker_script") {
+    defines = pw_target_mimxrt595_evk_LINK_CONFIG_DEFINES
+    linker_script = "mimxrt595_flash.ld"
+  }
+  if (pw_third_party_mcuxpresso_SDK != "") {
+    # Startup and vector table for NXP MIMXRT595-EVK.
+    pw_source_set("boot") {
+      public_configs = [ ":pw_malloc_active" ]
+      deps = [
+        "$dir_pigweed/targets/mimxrt595_evk/config",
+        "$dir_pw_boot",
+        "$dir_pw_boot_cortex_m",
+        "$dir_pw_preprocessor",
+        "$dir_pw_sys_io_mcuxpresso",
+        "$dir_pw_toolchain:infinite_loop",
+        pw_third_party_mcuxpresso_SDK,
+      ]
+      if (pw_malloc_BACKEND != "") {
+        deps += [ "$dir_pw_malloc" ]
+      }
+      sources = [
+        "boot.cc",
+        "vector_table.c",
+      ]
+    }
+  }
+}
+
+if (pw_third_party_mcuxpresso_SDK == "//targets/mimxrt595_evk:mcuxpresso_sdk") {
+  pw_source_set("mcuxpresso_sdk") {
+    public_deps = [
+      "$dir_pw_third_party_mcuxpresso/:component.serial_manager.MIMXRT595S",
+      "$dir_pw_third_party_mcuxpresso/:component.serial_manager_uart.MIMXRT595S",
+      "$dir_pw_third_party_mcuxpresso/:platform.drivers.flash_config.evkmimxrt595.MIMXRT595S",
+      "$dir_pw_third_party_mcuxpresso/:platform.drivers.flexcomm_i2c.MIMXRT595S",
+      "$dir_pw_third_party_mcuxpresso/:platform.drivers.flexcomm_spi.MIMXRT595S",
+      "$dir_pw_third_party_mcuxpresso/:platform.drivers.flexcomm_usart_dma.MIMXRT595S",
+      "$dir_pw_third_party_mcuxpresso/:platform.drivers.flexio_spi.MIMXRT595S",
+      "$dir_pw_third_party_mcuxpresso/:platform.drivers.i3c.MIMXRT595S",
+      "$dir_pw_third_party_mcuxpresso/:platform.drivers.inputmux.MIMXRT595S",
+      "$dir_pw_third_party_mcuxpresso/:platform.drivers.lpc_dma.MIMXRT595S",
+      "$dir_pw_third_party_mcuxpresso/:platform.drivers.lpc_gpio.MIMXRT595S",
+      "$dir_pw_third_party_mcuxpresso/:platform.drivers.mu.MIMXRT595S",
+      "$dir_pw_third_party_mcuxpresso/:platform.drivers.pint.MIMXRT595S",
+      "$dir_pw_third_party_mcuxpresso/:platform.drivers.power.MIMXRT595S",
+      "$dir_pw_third_party_mcuxpresso/:platform.utilities.assert.MIMXRT595S",
+      "$dir_pw_third_party_mcuxpresso/:project_template.evkmimxrt595.MIMXRT595S",
+      "$dir_pw_third_party_mcuxpresso/:utility.debug_console.MIMXRT595S",
+    ]
+  }
+
+  pw_source_set("mcuxpresso_sdk_config") {
+    public_configs = [
+      ":freestanding",
+      ":sdk_defines",
+      ":disable_warnings",
+    ]
+  }
+}
+
+pw_doc_group("target_docs") {
+  sources = [ "target_docs.rst" ]
+}

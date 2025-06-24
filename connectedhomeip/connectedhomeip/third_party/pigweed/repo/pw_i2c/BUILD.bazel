@@ -1,0 +1,393 @@
+# Copyright 2020 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_python//python:proto.bzl", "py_proto_library")
+load("@rules_python//sphinxdocs:sphinx_docs_library.bzl", "sphinx_docs_library")
+load("//pw_build:compatibility.bzl", "incompatible_with_mcu")
+load(
+    "//pw_protobuf_compiler:pw_proto_library.bzl",
+    "pw_proto_filegroup",
+    "pwpb_proto_library",
+    "pwpb_rpc_proto_library",
+)
+load("//pw_unit_test:pw_cc_test.bzl", "pw_cc_test")
+
+package(
+    default_visibility = ["//visibility:public"],
+)
+
+licenses(["notice"])
+
+cc_library(
+    name = "address",
+    srcs = [
+        "address.cc",
+    ],
+    hdrs = [
+        "public/pw_i2c/address.h",
+    ],
+    features = ["-conversion_warnings"],
+    implementation_deps = ["//pw_assert:check"],
+    strip_include_prefix = "public",
+)
+
+cc_library(
+    name = "initiator",
+    srcs = [
+        "initiator.cc",
+    ],
+    hdrs = [
+        "public/pw_i2c/initiator.h",
+    ],
+    features = ["-conversion_warnings"],
+    strip_include_prefix = "public",
+    deps = [
+        ":address",
+        ":message",
+        "//pw_bytes",
+        "//pw_chrono:system_clock",
+        "//pw_containers:vector",
+        "//pw_status",
+    ],
+)
+
+cc_library(
+    name = "message",
+    hdrs = [
+        "public/pw_i2c/message.h",
+    ],
+    features = ["-conversion_warnings"],
+    strip_include_prefix = "public",
+    deps = [
+        ":address",
+        "//pw_assert:check",
+        "//pw_bytes",
+        "//pw_status",
+    ],
+)
+
+cc_library(
+    name = "device",
+    hdrs = [
+        "public/pw_i2c/device.h",
+    ],
+    features = ["-conversion_warnings"],
+    strip_include_prefix = "public",
+    deps = [
+        ":address",
+        ":initiator",
+        "//pw_bytes",
+        "//pw_chrono:system_clock",
+        "//pw_status",
+    ],
+)
+
+cc_library(
+    name = "register_device",
+    srcs = ["register_device.cc"],
+    hdrs = [
+        "public/pw_i2c/register_device.h",
+    ],
+    features = ["-conversion_warnings"],
+    implementation_deps = ["//pw_assert:check"],
+    strip_include_prefix = "public",
+    deps = [
+        ":address",
+        ":device",
+        ":initiator",
+        "//pw_bytes",
+        "//pw_chrono:system_clock",
+        "//pw_result",
+        "//pw_status",
+    ],
+)
+
+pw_cc_test(
+    name = "address_test",
+    srcs = [
+        "address_test.cc",
+    ],
+    # Disable deprecation warning for Address() constructor.
+    copts = ["-Wno-deprecated-declarations"],
+    features = ["-conversion_warnings"],
+    deps = [":address"],
+)
+
+pw_cc_test(
+    name = "message_test",
+    srcs = [
+        "message_test.cc",
+    ],
+    features = ["-conversion_warnings"],
+    deps = [
+        ":address",
+        ":message",
+        "//pw_unit_test",
+    ],
+)
+
+pw_cc_test(
+    name = "initiator_test",
+    srcs = [
+        "initiator_test.cc",
+    ],
+    features = ["-conversion_warnings"],
+    deps = [
+        ":address",
+        ":initiator",
+        ":message",
+        "//pw_chrono:system_clock",
+        "//pw_unit_test",
+    ],
+)
+
+cc_library(
+    name = "initiator_mock",
+    testonly = True,
+    srcs = ["initiator_mock.cc"],
+    hdrs = ["public/pw_i2c/initiator_mock.h"],
+    features = ["-conversion_warnings"],
+    implementation_deps = [
+        "//pw_assert:check",
+        "//pw_containers:algorithm",
+    ],
+    strip_include_prefix = "public",
+    deps = [
+        ":address",
+        ":initiator",
+        "//pw_bytes",
+        "//pw_chrono:system_clock",
+        "//pw_containers:to_array",
+        "//pw_unit_test",
+    ],
+)
+
+cc_library(
+    name = "initiator_message_mock",
+    testonly = True,
+    srcs = ["initiator_message_mock.cc"],
+    hdrs = ["public/pw_i2c/initiator_message_mock.h"],
+    strip_include_prefix = "public",
+    deps = [
+        ":address",
+        ":initiator",
+        "//pw_assert:check",
+        "//pw_bytes",
+        "//pw_containers",
+        "//pw_containers:algorithm",
+        "//pw_containers:to_array",
+        "//pw_unit_test",
+    ],
+)
+
+cc_library(
+    name = "initiator_gmock",
+    testonly = True,
+    hdrs = [
+        "public/pw_i2c/initiator_gmock.h",
+    ],
+    features = ["-conversion_warnings"],
+    strip_include_prefix = "public",
+    # TODO: b/310957361 - gtest not supported on device
+    target_compatible_with = incompatible_with_mcu(),
+    deps = [
+        ":initiator",
+        "@com_google_googletest//:gtest",
+    ],
+)
+
+pw_cc_test(
+    name = "initiator_mock_test",
+    srcs = [
+        "initiator_mock_test.cc",
+    ],
+    features = ["-conversion_warnings"],
+    deps = [
+        ":address",
+        ":initiator_mock",
+        "//pw_bytes",
+        "//pw_chrono:system_clock",
+        "//pw_containers:algorithm",
+        "//pw_span",
+    ],
+)
+
+pw_cc_test(
+    name = "initiator_message_mock_test",
+    srcs = [
+        "initiator_message_mock_test.cc",
+    ],
+    features = ["-conversion_warnings"],
+    deps = [
+        ":address",
+        ":initiator_message_mock",
+        "//pw_bytes",
+        "//pw_chrono:system_clock",
+        "//pw_containers:algorithm",
+        "//pw_containers:vector",
+        "//pw_span",
+        "//pw_unit_test",
+    ],
+)
+
+pw_cc_test(
+    name = "device_test",
+    srcs = [
+        "device_test.cc",
+    ],
+    features = ["-conversion_warnings"],
+    deps = [
+        ":device",
+        ":initiator_mock",
+        "//pw_bytes",
+        "//pw_containers:algorithm",
+    ],
+)
+
+pw_cc_test(
+    name = "device_message_test",
+    srcs = [
+        "device_message_test.cc",
+    ],
+    features = ["-conversion_warnings"],
+    deps = [
+        ":device",
+        ":initiator_message_mock",
+        "//pw_bytes",
+        "//pw_containers:algorithm",
+        "//pw_unit_test",
+    ],
+)
+
+pw_cc_test(
+    name = "register_device_test",
+    srcs = [
+        "register_device_test.cc",
+    ],
+    features = ["-conversion_warnings"],
+    deps = [
+        ":register_device",
+        "//pw_assert:check",
+        "//pw_bytes",
+    ],
+)
+
+pw_proto_filegroup(
+    name = "i2c_proto_and_options",
+    srcs = ["i2c.proto"],
+    options_files = ["i2c.pwpb_options"],
+)
+
+proto_library(
+    name = "i2c_proto",
+    srcs = [":i2c_proto_and_options"],
+)
+
+pwpb_proto_library(
+    name = "i2c_pwpb",
+    deps = [":i2c_proto"],
+)
+
+pwpb_rpc_proto_library(
+    name = "i2c_pwpb_rpc",
+    pwpb_proto_library_deps = [":i2c_pwpb"],
+    deps = [":i2c_proto"],
+)
+
+py_proto_library(
+    name = "i2c_py_pb2",
+    deps = [":i2c_proto"],
+)
+
+cc_library(
+    name = "i2c_service",
+    srcs = ["i2c_service.cc"],
+    hdrs = ["public/pw_i2c/i2c_service.h"],
+    features = ["-conversion_warnings"],
+    implementation_deps = [
+        "//pw_assert:check",
+        "//pw_containers:vector",
+    ],
+    strip_include_prefix = "public",
+    deps = [
+        ":address",
+        ":i2c_pwpb",
+        ":i2c_pwpb_rpc",
+        ":initiator",
+        "//pw_chrono:system_clock",
+        "//pw_function",
+        "//pw_rpc/pwpb:server_api",
+        "//pw_status",
+    ],
+)
+
+pw_cc_test(
+    name = "i2c_message_service_test",
+    srcs = ["i2c_message_service_test.cc"],
+    features = ["-conversion_warnings"],
+    deps = [
+        ":address",
+        ":i2c_service",
+        ":initiator",
+        ":initiator_message_mock",
+        "//pw_chrono:system_clock",
+        "//pw_containers:vector",
+        "//pw_rpc/pwpb:test_method_context",
+        "//pw_status",
+    ],
+)
+
+pw_cc_test(
+    name = "i2c_service_test",
+    srcs = ["i2c_service_test.cc"],
+    features = ["-conversion_warnings"],
+    deps = [
+        ":address",
+        ":i2c_service",
+        ":initiator",
+        ":initiator_mock",
+        "//pw_chrono:system_clock",
+        "//pw_rpc/pwpb:test_method_context",
+        "//pw_status",
+    ],
+)
+
+filegroup(
+    name = "doxygen",
+    srcs = [
+        "public/pw_i2c/address.h",
+        "public/pw_i2c/device.h",
+        "public/pw_i2c/i2c_service.h",
+        "public/pw_i2c/initiator.h",
+        "public/pw_i2c/initiator_gmock.h",
+        "public/pw_i2c/initiator_message_mock.h",
+        "public/pw_i2c/initiator_mock.h",
+        "public/pw_i2c/message.h",
+        "public/pw_i2c/register_device.h",
+    ],
+)
+
+sphinx_docs_library(
+    name = "docs",
+    srcs = [
+        "backends.rst",
+        "docs.rst",
+        "guides.rst",
+        "reference.rst",
+    ],
+    prefix = "pw_i2c/",
+    target_compatible_with = incompatible_with_mcu(),
+)

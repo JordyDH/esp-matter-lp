@@ -1,0 +1,85 @@
+# Copyright 2024 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_python//sphinxdocs:sphinx_docs_library.bzl", "sphinx_docs_library")
+load("//pw_build:compatibility.bzl", "incompatible_with_mcu")
+load("//pw_unit_test:pw_cc_test.bzl", "pw_cc_test")
+load(
+    "sensor.bzl",
+    "pw_sensor_library",
+)
+
+package(
+    default_visibility = ["//visibility:public"],
+    features = ["-layering_check"],
+)
+
+licenses(["notice"])
+
+cc_library(
+    name = "pw_sensor_types",
+    srcs = [],
+    hdrs = [
+        "public/pw_sensor/types.h",
+    ],
+    includes = ["public"],
+    deps = [
+        "//pw_tokenizer",
+    ],
+)
+
+pw_sensor_library(
+    name = "test_constants_lib",
+    srcs = [
+        ":test_sensor1.yaml",
+        ":test_sensor2.yaml",
+    ],
+    generator_includes = ["../"],
+    inputs = [
+        ":attributes.yaml",
+        ":channels.yaml",
+        ":triggers.yaml",
+        ":units.yaml",
+    ],
+    out_header = "public/pw_sensor/generated/sensor_constants.h",
+    deps = [
+        ":pw_sensor_types",
+        "//pw_containers:flat_map",
+    ],
+)
+
+pw_cc_test(
+    name = "constants_test",
+    srcs = [
+        "attributes_test.cc",
+        "channels_test.cc",
+        "triggers_test.cc",
+        "units_test.cc",
+    ],
+    deps = [
+        ":pw_sensor_types",
+        ":test_constants_lib",
+    ],
+)
+
+sphinx_docs_library(
+    name = "docs",
+    srcs = [
+        "docs.rst",
+        "//pw_sensor/py:docs",
+    ],
+    prefix = "pw_sensor/",
+    target_compatible_with = incompatible_with_mcu(),
+)

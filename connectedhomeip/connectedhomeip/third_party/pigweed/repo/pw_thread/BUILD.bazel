@@ -1,0 +1,545 @@
+# Copyright 2020 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+load("@bazel_skylib//lib:selects.bzl", "selects")
+load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_python//python:proto.bzl", "py_proto_library")
+load("@rules_python//sphinxdocs:sphinx_docs_library.bzl", "sphinx_docs_library")
+load("//pw_build:compatibility.bzl", "HOST_PLATFORMS", "host_backend_alias", "incompatible_with_mcu")
+load("//pw_build:pw_facade.bzl", "pw_facade")
+load(
+    "//pw_protobuf_compiler:pw_proto_library.bzl",
+    "pwpb_proto_library",
+    "raw_rpc_proto_library",
+)
+load("//pw_unit_test:pw_cc_test.bzl", "pw_cc_test")
+
+package(
+    default_visibility = ["//visibility:public"],
+    features = ["-layering_check"],
+)
+
+licenses(["notice"])
+
+pw_facade(
+    name = "id",
+    hdrs = [
+        "public/pw_thread/id.h",
+    ],
+    backend = ":id_backend",
+    strip_include_prefix = "public",
+)
+
+label_flag(
+    name = "id_backend",
+    build_setting_default = ":id_unspecified_backend",
+)
+
+host_backend_alias(
+    name = "id_unspecified_backend",
+    backend = "//pw_thread_stl:id",
+)
+
+cc_library(
+    name = "config",
+    hdrs = ["public/pw_thread/config.h"],
+    strip_include_prefix = "public",
+    deps = [":config_override"],
+)
+
+label_flag(
+    name = "config_override",
+    build_setting_default = "//pw_build:default_module_config",
+)
+
+cc_library(
+    name = "thread_info",
+    hdrs = ["public/pw_thread/thread_info.h"],
+    strip_include_prefix = "public",
+    deps = ["//pw_span"],
+)
+
+pw_facade(
+    name = "thread_iteration",
+    hdrs = [
+        "public/pw_thread/thread_iteration.h",
+    ],
+    backend = ":iteration_backend",
+    strip_include_prefix = "public",
+    deps = [
+        ":thread_info",
+        "//pw_function",
+        "//pw_status",
+    ],
+)
+
+label_flag(
+    name = "iteration_backend",
+    build_setting_default = ":iteration_unspecified_backend",
+)
+
+host_backend_alias(
+    name = "iteration_unspecified_backend",
+    backend = "//pw_thread_stl:thread_iteration",
+)
+
+pw_facade(
+    name = "sleep",
+    srcs = [
+        "sleep.cc",
+    ],
+    hdrs = [
+        "public/pw_thread/sleep.h",
+    ],
+    backend = ":sleep_backend",
+    implementation_deps = [
+        ":thread",
+    ],
+    strip_include_prefix = "public",
+    deps = [
+        "//pw_chrono:system_clock",
+        "//pw_preprocessor",
+    ],
+)
+
+label_flag(
+    name = "sleep_backend",
+    build_setting_default = ":sleep_unspecified_backend",
+)
+
+host_backend_alias(
+    name = "sleep_unspecified_backend",
+    backend = "//pw_thread_stl:sleep",
+)
+
+pw_facade(
+    name = "thread",
+    srcs = ["public/pw_thread/config.h"],
+    hdrs = [
+        "public/pw_thread/attrs.h",
+        "public/pw_thread/context.h",
+        "public/pw_thread/detached_thread.h",
+        "public/pw_thread/native_options.h",
+        "public/pw_thread/priority.h",
+        "public/pw_thread/stack.h",
+        "public/pw_thread/stack_not_supported.h",
+        "public/pw_thread/thread.h",
+    ],
+    backend = ":thread_backend",
+    strip_include_prefix = "public",
+    tags = ["noclangtidy"],
+    deps = [
+        ":generic_priority",
+        ":id",
+        ":options",
+        ":thread_creation_backend",
+        "//pw_function",
+        "//pw_preprocessor",
+        "//pw_span",
+    ],
+)
+
+cc_library(
+    name = "options",
+    hdrs = ["public/pw_thread/options.h"],
+    strip_include_prefix = "public",
+)
+
+label_flag(
+    name = "thread_backend",
+    build_setting_default = ":thread_unspecified_backend",
+)
+
+host_backend_alias(
+    name = "thread_unspecified_backend",
+    backend = "//pw_thread_stl:thread",
+)
+
+label_flag(
+    name = "thread_creation_backend",
+    build_setting_default = ":thread_creation_default_backend",
+)
+
+alias(
+    name = "thread_creation_default_backend",
+    actual = selects.with_or({
+        HOST_PLATFORMS: "//pw_thread_stl:thread_creation",
+        "//conditions:default": ":generic_thread_creation_unsupported",
+    }),
+)
+
+cc_library(
+    name = "thread_core",
+    hdrs = [
+        "public/pw_thread/thread_core.h",
+    ],
+    strip_include_prefix = "public",
+    deps = ["//pw_function"],
+)
+
+cc_library(
+    name = "thread_snapshot_service",
+    srcs = [
+        "pw_thread_private/thread_snapshot_service.h",
+        "thread_snapshot_service.cc",
+    ],
+    hdrs = ["public/pw_thread/thread_snapshot_service.h"],
+    features = ["-conversion_warnings"],
+    implementation_deps = ["//pw_containers:vector"],
+    strip_include_prefix = "public",
+    tags = ["noclangtidy"],
+    deps = [
+        "//pw_protobuf",
+        "//pw_rpc/raw:server_api",
+        "//pw_span",
+        "//pw_status",
+        ":config",
+        ":thread_pwpb",
+        ":thread_info",
+        ":thread_iteration",
+        ":thread_snapshot_service_pwpb",
+        ":thread_snapshot_service_raw_rpc",
+        # TODO(amontanez): This should depend on FreeRTOS but our third parties
+        # currently do not have Bazel support.
+    ],
+)
+
+cc_library(
+    name = "generic_thread_creation_unsupported",
+    hdrs = [
+        "null_thread_creation_public_overrides/pw_thread_backend/context.h",
+        "null_thread_creation_public_overrides/pw_thread_backend/options.h",
+        "null_thread_creation_public_overrides/pw_thread_backend/priority.h",
+        "null_thread_creation_public_overrides/pw_thread_backend/stack.h",
+    ],
+    strip_include_prefix = "null_thread_creation_public_overrides",
+    tags = ["noclangtidy"],
+)
+
+pw_facade(
+    name = "test_thread_context",
+    hdrs = [
+        "public/pw_thread/test_thread_context.h",
+    ],
+    backend = ":test_thread_context_backend",
+    strip_include_prefix = "public",
+)
+
+label_flag(
+    name = "test_thread_context_backend",
+    build_setting_default = ":test_thread_context_unspecified_backend",
+)
+
+host_backend_alias(
+    name = "test_thread_context_unspecified_backend",
+    backend = "//pw_thread_stl:test_thread_context",
+)
+
+pw_facade(
+    name = "yield",
+    srcs = [
+        "yield.cc",
+    ],
+    hdrs = [
+        "public/pw_thread/yield.h",
+    ],
+    backend = ":yield_backend",
+    implementation_deps = [
+        ":thread",
+    ],
+    strip_include_prefix = "public",
+    deps = [
+        "//pw_preprocessor",
+    ],
+)
+
+label_flag(
+    name = "yield_backend",
+    build_setting_default = ":yield_unspecified_backend",
+)
+
+host_backend_alias(
+    name = "yield_unspecified_backend",
+    backend = "//pw_thread_stl:yield",
+)
+
+cc_library(
+    name = "generic_priority",
+    hdrs = ["public/pw_thread/internal/priority.h"],
+    strip_include_prefix = "public",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//pw_assert:assert",
+        "//pw_numeric:integer_division",
+        "//pw_polyfill",
+        "//third_party/fuchsia:stdcompat",
+    ],
+)
+
+cc_library(
+    name = "snapshot",
+    srcs = [
+        "snapshot.cc",
+    ],
+    hdrs = [
+        "public/pw_thread/snapshot.h",
+    ],
+    features = ["-conversion_warnings"],
+    strip_include_prefix = "public",
+    deps = [
+        ":config",
+        ":thread",
+        ":thread_pwpb",
+        "//pw_bytes",
+        "//pw_function",
+        "//pw_log",
+        "//pw_protobuf",
+        "//pw_status",
+    ],
+)
+
+cc_library(
+    name = "non_portable_test_thread_options",
+    hdrs = [
+        "public/pw_thread/non_portable_test_thread_options.h",
+    ],
+    strip_include_prefix = "public",
+    deps = [
+        ":thread",
+    ],
+)
+
+# To instantiate this as a pw_cc_test, depend on this pw_cc_library and the
+# pw_cc_library which implements the backend for non_portable_test_thread_options. See
+# //pw_thread_stl:thread_backend_test as an example.
+cc_library(
+    name = "thread_facade_test",
+    testonly = True,
+    srcs = [
+        "thread_facade_test.cc",
+    ],
+    deps = [
+        ":non_portable_test_thread_options",
+        ":thread",
+        ":thread_core",
+        "//pw_chrono:system_clock",
+        "//pw_sync:binary_semaphore",
+        "//pw_unit_test",
+    ],
+    alwayslink = True,
+)
+
+pw_cc_test(
+    name = "test_thread_context_facade_test",
+    srcs = [
+        "test_thread_context_facade_test.cc",
+    ],
+    # TODO: b/317922402 - On Windows, this test can easily hang indefinitely.
+    # Disable on Windows until we can test with the native Windows SDK libraries
+    # for threading.
+    # TODO: b/361369192 - This test behaves unusually on rp2.
+    target_compatible_with = select({
+        "@pico-sdk//bazel/constraint:rp2040": ["@platforms//:incompatible"],
+        "@pico-sdk//bazel/constraint:rp2350": ["@platforms//:incompatible"],
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
+    deps = [
+        ":test_thread_context",
+        ":thread",
+        "//pw_sync:binary_semaphore",
+    ],
+)
+
+pw_cc_test(
+    name = "id_facade_test",
+    srcs = [
+        "id_facade_test.cc",
+    ],
+    deps = [":thread"],
+)
+
+pw_cc_test(
+    name = "options_test",
+    srcs = ["options_test.cc"],
+    deps = [
+        ":options",
+        "//pw_compilation_testing:negative_compilation_testing",
+    ],
+)
+
+pw_cc_test(
+    name = "sleep_facade_test",
+    srcs = [
+        "sleep_facade_test.cc",
+        "sleep_facade_test_c.c",
+    ],
+    deps = [
+        ":sleep",
+        ":thread",
+        "//pw_chrono:system_clock",
+        "//pw_preprocessor",
+    ],
+)
+
+pw_cc_test(
+    name = "thread_info_test",
+    srcs = [
+        "thread_info_test.cc",
+    ],
+    deps = [
+        ":thread_info",
+        "//pw_span",
+    ],
+)
+
+pw_cc_test(
+    name = "thread_snapshot_service_test",
+    srcs = [
+        "pw_thread_private/thread_snapshot_service.h",
+        "thread_snapshot_service_test.cc",
+    ],
+    features = ["-conversion_warnings"],
+    # TODO: https://pwbug.dev/342662853 - This test fails under ASAN.
+    tags = [
+        "noasan",
+        "noclangtidy",
+    ],
+    deps = [
+        ":thread_info",
+        ":thread_iteration",
+        ":thread_pwpb",
+        ":thread_snapshot_service",
+        ":thread_snapshot_service_pwpb",
+        "//pw_protobuf",
+        "//pw_span",
+        "//pw_sync:thread_notification",
+    ],
+)
+
+pw_cc_test(
+    name = "priority_test",
+    srcs = ["priority_test.cc"],
+    deps = [
+        ":generic_priority",
+        "//pw_compilation_testing:negative_compilation_testing",
+        "//pw_unit_test:constexpr",
+    ],
+)
+
+pw_cc_test(
+    name = "thread_creation_test",
+    srcs = ["thread_creation_test.cc"],
+    deps = [
+        ":thread",
+        "//pw_compilation_testing:negative_compilation_testing",
+    ],
+)
+
+pw_cc_test(
+    name = "attrs_test",
+    srcs = ["attrs_test.cc"],
+    deps = [
+        ":thread",
+        "//pw_compilation_testing:negative_compilation_testing",
+        "//pw_unit_test:constexpr",
+    ],
+)
+
+pw_cc_test(
+    name = "stack_test",
+    srcs = ["stack_test.cc"],
+    deps = [":thread"],
+)
+
+pw_cc_test(
+    name = "yield_facade_test",
+    srcs = [
+        "yield_facade_test.cc",
+        "yield_facade_test_c.c",
+    ],
+    deps = [
+        ":thread",
+        ":yield",
+        "//pw_preprocessor",
+    ],
+)
+
+proto_library(
+    name = "thread_proto",
+    srcs = ["pw_thread_protos/thread.proto"],
+    strip_import_prefix = "/pw_thread",
+    deps = [
+        "//pw_tokenizer:tokenizer_proto",
+    ],
+)
+
+py_proto_library(
+    name = "thread_proto_py_pb2",
+    deps = [":thread_proto"],
+)
+
+proto_library(
+    name = "thread_snapshot_service_proto",
+    srcs = ["pw_thread_protos/thread_snapshot_service.proto"],
+    strip_import_prefix = "/pw_thread",
+    deps = [
+        ":thread_proto",
+    ],
+)
+
+pwpb_proto_library(
+    name = "thread_snapshot_service_pwpb",
+    deps = [":thread_snapshot_service_proto"],
+)
+
+raw_rpc_proto_library(
+    name = "thread_snapshot_service_raw_rpc",
+    deps = [":thread_snapshot_service_proto"],
+)
+
+py_proto_library(
+    name = "thread_snapshot_service_py_pb2",
+    deps = [":thread_snapshot_service_proto"],
+)
+
+pwpb_proto_library(
+    name = "thread_pwpb",
+    deps = [":thread_proto"],
+)
+
+filegroup(
+    name = "doxygen",
+    srcs = [
+        "public/pw_thread/attrs.h",
+        "public/pw_thread/context.h",
+        "public/pw_thread/internal/priority.h",
+        "public/pw_thread/options.h",
+        "public/pw_thread/priority.h",
+        "public/pw_thread/stack.h",
+        "public/pw_thread/test_thread_context.h",
+        "public/pw_thread/thread.h",
+    ],
+)
+
+sphinx_docs_library(
+    name = "docs",
+    srcs = [
+        "backends.rst",
+        "docs.rst",
+    ],
+    prefix = "pw_thread/",
+    target_compatible_with = incompatible_with_mcu(),
+)

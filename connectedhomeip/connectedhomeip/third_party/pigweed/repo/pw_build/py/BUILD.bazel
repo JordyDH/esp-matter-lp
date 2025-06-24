@@ -1,0 +1,283 @@
+# Copyright 2021 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+load("@rules_python//python:defs.bzl", "py_library")
+load("@rules_python//sphinxdocs:sphinx_docs_library.bzl", "sphinx_docs_library")
+load("//pw_build:compatibility.bzl", "incompatible_with_mcu")
+load("//pw_build:python.bzl", "pw_py_binary", "pw_py_test")
+
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])
+
+py_library(
+    name = "pw_build",
+    srcs = [
+        "pw_build/__init__.py",
+        "pw_build/bazel_query.py",
+        "pw_build/bazel_to_gn.py",
+        "pw_build/build_recipe.py",
+        "pw_build/collect_wheels.py",
+        "pw_build/copy_and_patch.py",
+        "pw_build/copy_from_cipd.py",
+        "pw_build/create_gn_venv.py",
+        "pw_build/create_python_tree.py",
+        "pw_build/error.py",
+        "pw_build/exec.py",
+        "pw_build/file_prefix_map.py",
+        "pw_build/generate_cc_blob_library.py",
+        "pw_build/generate_modules_lists.py",
+        "pw_build/generate_python_package.py",
+        "pw_build/generate_python_package_gn.py",
+        "pw_build/generate_python_requirements.py",
+        "pw_build/generate_python_wheel.py",
+        "pw_build/generate_python_wheel_cache.py",
+        "pw_build/generate_report.py",
+        "pw_build/generated_tests.py",
+        "pw_build/gn_resolver.py",
+        "pw_build/gn_target.py",
+        "pw_build/gn_writer.py",
+        "pw_build/host_tool.py",
+        "pw_build/merge_profraws.py",
+        "pw_build/mirror_tree.py",
+        "pw_build/nop.py",
+        "pw_build/pip_install_python_deps.py",
+        "pw_build/python_package.py",
+        "pw_build/python_runner.py",
+        "pw_build/runfiles_manager.py",
+        "pw_build/wrap_ninja.py",
+        "pw_build/zip.py",
+    ],
+    imports = ["."],
+    deps = [
+        "//pw_cli/py:pw_cli",
+        "//pw_config_loader/py:pw_config_loader",
+        "//pw_presubmit/py:pw_presubmit",
+    ],
+)
+
+py_library(
+    name = "pw_project_builder",
+    srcs = [
+        "pw_build/project_builder.py",
+        "pw_build/project_builder_argparse.py",
+        "pw_build/project_builder_context.py",
+        "pw_build/project_builder_prefs.py",
+        "pw_build/project_builder_presubmit_runner.py",
+    ],
+    imports = ["."],
+    deps = [
+        ":pw_build",
+    ],
+)
+
+py_library(
+    name = "python_runfiles",
+    srcs = ["pw_build/python_runfiles.py"],
+    imports = ["."],
+)
+
+pw_py_binary(
+    name = "generate_cc_blob_library",
+    srcs = [
+        "pw_build/generate_cc_blob_library.py",
+    ],
+)
+
+pw_py_binary(
+    name = "copy_and_patch",
+    srcs = ["pw_build/copy_and_patch.py"],
+    deps = ["@pigweed_python_packages//patch"],
+)
+
+pw_py_binary(
+    name = "pigweed_upstream_build",
+    srcs = ["pw_build/pigweed_upstream_build.py"],
+    deps = [
+        ":pw_project_builder",
+        "//pw_watch/py:pw_watch",
+    ],
+)
+
+pw_py_binary(
+    name = "project_builder",
+    srcs = ["pw_build/project_builder.py"],
+    deps = [
+        ":pw_project_builder",
+    ],
+)
+
+pw_py_test(
+    name = "bazel_query_test",
+    size = "small",
+    srcs = [
+        "bazel_query_test.py",
+    ],
+    deps = [
+        ":pw_build",
+    ],
+)
+
+pw_py_test(
+    name = "bazel_to_gn_test",
+    size = "small",
+    srcs = [
+        "bazel_to_gn_test.py",
+    ],
+    deps = [
+        ":pw_build",
+    ],
+)
+
+pw_py_test(
+    name = "create_python_tree_test",
+    size = "small",
+    srcs = [
+        "create_python_tree_test.py",
+    ],
+    # TODO(b/373956968): Bazel support for generated Python packages.
+    tags = ["manual"],
+    deps = [
+        ":pw_build",
+        "@pigweed_python_packages//parameterized",
+    ],
+)
+
+pw_py_test(
+    name = "file_prefix_map_test",
+    size = "small",
+    srcs = [
+        "file_prefix_map_test.py",
+    ],
+    deps = [
+        ":pw_build",
+    ],
+)
+
+pw_py_test(
+    name = "generate_cc_blob_library_test",
+    size = "small",
+    srcs = [
+        "generate_cc_blob_library_test.py",
+    ],
+    deps = [
+        ":pw_build",
+    ],
+)
+
+pw_py_test(
+    name = "gn_target_test",
+    size = "small",
+    srcs = [
+        "gn_target_test.py",
+    ],
+    deps = [
+        ":pw_build",
+    ],
+)
+
+pw_py_test(
+    name = "gn_writer_test",
+    size = "small",
+    srcs = [
+        "gn_writer_test.py",
+    ],
+    # TODO(b/314139942): Requires GN on the path.
+    tags = ["manual"],
+    deps = [
+        ":pw_build",
+    ],
+)
+
+pw_py_test(
+    name = "python_runner_test",
+    size = "small",
+    srcs = [
+        "python_runner_test.py",
+    ],
+    deps = [
+        ":pw_build",
+    ],
+)
+
+pw_py_test(
+    name = "zip_test",
+    size = "small",
+    srcs = [
+        "zip_test.py",
+    ],
+    deps = [
+        ":pw_build",
+    ],
+)
+
+pw_py_test(
+    name = "py_runfiles_test",
+    size = "small",
+    srcs = [
+        "py_runfiles_test.py",
+    ],
+    deps = [
+        "//pw_build:test_runfile",
+        "//pw_build:test_runfile_remapped",
+        "@pw_build_external_runfile_resource//:black",
+    ],
+)
+
+pw_py_test(
+    name = "runfiles_manager_test",
+    size = "small",
+    srcs = [
+        "runfiles_manager_test.py",
+    ],
+    deps = [
+        ":pw_build",
+        "//pw_build:test_runfile",
+        "//pw_build:test_runfile_remapped",
+        "@pw_build_external_runfile_resource//:black",
+    ],
+)
+
+pw_py_test(
+    name = "build_recipe_test",
+    size = "small",
+    srcs = [
+        "build_recipe_test.py",
+    ],
+    deps = [
+        ":pw_project_builder",
+        "@pigweed_python_packages//parameterized",
+    ],
+)
+
+pw_py_test(
+    name = "project_builder_prefs_test",
+    size = "small",
+    srcs = [
+        "project_builder_prefs_test.py",
+    ],
+    deps = [
+        ":pw_project_builder",
+        "@pigweed_python_packages//parameterized",
+    ],
+)
+
+sphinx_docs_library(
+    name = "docs",
+    srcs = [
+        "gn_tests/BUILD.gn",
+        "pw_build/generate_python_wheel_cache.py",
+    ],
+    target_compatible_with = incompatible_with_mcu(),
+)

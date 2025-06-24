@@ -1,0 +1,105 @@
+# Copyright 2024 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_python//sphinxdocs:sphinx_docs_library.bzl", "sphinx_docs_library")
+load("//pw_build:compatibility.bzl", "incompatible_with_mcu")
+load("//pw_unit_test:pw_cc_test.bzl", "pw_cc_test")
+
+package(
+    default_visibility = ["//visibility:public"],
+    features = ["-layering_check"],
+)
+
+# Basic target with protocol definitions and no logic, suitable for test
+# emulation.
+cc_library(
+    name = "definitions",
+    srcs = [
+        "packet.cc",
+    ],
+    hdrs = [
+        "public/pw_bluetooth_sapphire/internal/host/att/att.h",
+        "public/pw_bluetooth_sapphire/internal/host/att/packet.h",
+    ],
+    features = ["-conversion_warnings"],
+    strip_include_prefix = "public",
+    tags = ["noclangtidy"],
+    deps = [
+        "//pw_bluetooth_sapphire/host/common",
+        "//pw_bluetooth_sapphire/host/hci-spec",
+        "//pw_bluetooth_sapphire/host/l2cap:definitions",
+    ],
+)
+
+cc_library(
+    name = "att",
+    srcs = [
+        "attribute.cc",
+        "bearer.cc",
+        "database.cc",
+        "error.cc",
+        "permissions.cc",
+        "write_queue.cc",
+    ],
+    hdrs = [
+        "public/pw_bluetooth_sapphire/internal/host/att/attribute.h",
+        "public/pw_bluetooth_sapphire/internal/host/att/bearer.h",
+        "public/pw_bluetooth_sapphire/internal/host/att/database.h",
+        "public/pw_bluetooth_sapphire/internal/host/att/error.h",
+        "public/pw_bluetooth_sapphire/internal/host/att/permissions.h",
+        "public/pw_bluetooth_sapphire/internal/host/att/write_queue.h",
+    ],
+    features = ["-conversion_warnings"],
+    implementation_deps = [
+        "//pw_preprocessor",
+        "//pw_string",
+    ],
+    strip_include_prefix = "public",
+    tags = ["noclangtidy"],
+    deps = [
+        ":definitions",
+        "//pw_async:dispatcher",
+        "//pw_bluetooth_sapphire/host/common",
+        "//pw_bluetooth_sapphire/host/l2cap",
+        "//pw_bluetooth_sapphire/host/sm:definitions",
+        "//third_party/fuchsia:fit",
+    ],
+)
+
+pw_cc_test(
+    name = "att_test",
+    srcs = [
+        "attribute_test.cc",
+        "bearer_test.cc",
+        "database_test.cc",
+        "error_test.cc",
+        "permissions_test.cc",
+    ],
+    features = ["-conversion_warnings"],
+    test_main = "//pw_bluetooth_sapphire/host/testing:gtest_main",
+    deps = [
+        ":att",
+        "//pw_bluetooth_sapphire/host/l2cap:testing",
+        "//pw_bluetooth_sapphire/host/testing:test_helpers",
+    ],
+)
+
+sphinx_docs_library(
+    name = "docs",
+    srcs = [
+        "docs.rst",
+    ],
+    target_compatible_with = incompatible_with_mcu(),
+)

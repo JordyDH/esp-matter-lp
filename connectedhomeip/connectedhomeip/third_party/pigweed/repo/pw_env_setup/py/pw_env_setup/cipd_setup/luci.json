@@ -1,0 +1,154 @@
+{
+  "packages": [
+    {
+      "path": "infra/tools/bb/${platform}",
+      "platforms": [
+        "linux-amd64",
+        "linux-arm64",
+        "mac-amd64",
+        "mac-arm64",
+        "windows-amd64"
+      ],
+      "tags": [
+        "git_revision:04c096ce4162bfc4eac2ee9a4a5ac063969077a3"
+      ],
+      "version_file": ".versions/bb.cipd_version"
+    },
+    {
+      "path": "infra/tools/luci-auth/${platform}",
+      "platforms": [
+        "linux-amd64",
+        "linux-arm64",
+        "mac-amd64",
+        "mac-arm64",
+        "windows-amd64"
+      ],
+      "tags": [
+        "git_revision:114c14ad0c663833c2ad2fa1fe8a7a47ce5deba9"
+      ],
+      "version_file": ".versions/luci-auth.cipd_version"
+    },
+    {
+      "path": "infra/tools/luci/gerrit/${platform}",
+      "platforms": [
+        "linux-amd64",
+        "linux-arm64",
+        "mac-amd64",
+        "mac-arm64",
+        "windows-amd64"
+      ],
+      "tags": [
+        "git_revision:036d16b462ac8941d3acc3c71edae733cb9bfd5c"
+      ],
+      "version_file": ".versions/gerrit.cipd_version"
+    },
+    {
+      "path": "infra/tools/luci/gitiles/${platform}",
+      "platforms": [
+        "linux-amd64",
+        "linux-arm64",
+        "mac-amd64",
+        "mac-arm64",
+        "windows-amd64"
+      ],
+      "tags": [
+        "git_revision:036d16b462ac8941d3acc3c71edae733cb9bfd5c"
+      ],
+      "version_file": ".versions/gitiles.cipd_version"
+    },
+    {
+      "path": "infra/tools/luci/cas/${platform}",
+      "platforms": [
+        "linux-amd64",
+        "linux-arm64",
+        "mac-amd64",
+        "mac-arm64",
+        "windows-amd64"
+      ],
+      "tags": [
+        "git_revision:114c14ad0c663833c2ad2fa1fe8a7a47ce5deba9"
+      ],
+      "version_file": ".versions/cas.cipd_version"
+    },
+    {
+      "path": "infra/tools/luci/led/${platform}",
+      "platforms": [
+        "linux-amd64",
+        "linux-arm64",
+        "mac-amd64",
+        "mac-arm64",
+        "windows-amd64"
+      ],
+      "tags": [
+        "git_revision:77f5166b21acbf6d7ac185a0b1c719730f71da44"
+      ],
+      "version_file": ".versions/led.cipd_version"
+    },
+    {
+      "path": "infra/tools/luci/swarming/${platform}",
+      "platforms": [
+        "linux-amd64",
+        "linux-arm64",
+        "mac-amd64",
+        "mac-arm64",
+        "windows-amd64"
+      ],
+      "tags": [
+        "git_revision:04c096ce4162bfc4eac2ee9a4a5ac063969077a3"
+      ],
+      "version_file": ".versions/swarming.cipd_version"
+    },
+    {
+      "path": "infra/tools/luci/logdog/logdog/${platform}",
+      "platforms": [
+        "linux-amd64",
+        "mac-amd64",
+        "mac-arm64",
+        "windows-amd64"
+      ],
+      "tags": [
+        "git_revision:77f5166b21acbf6d7ac185a0b1c719730f71da44"
+      ],
+      "version_file": ".versions/logdog.cipd_version"
+    },
+    {
+      "path": "infra/tools/prpc/${platform}",
+      "platforms": [
+        "linux-amd64",
+        "linux-arm64",
+        "mac-amd64",
+        "mac-arm64",
+        "windows-amd64"
+      ],
+      "tags": [
+        "git_revision:05d6f54f551fc083915e8ecf1f2d98c5b916aeb6"
+      ],
+      "version_file": ".versions/prpc.cipd_version"
+    },
+    {
+      "path": "infra/3pp/tools/gsutil",
+      "platforms": [
+        "linux-amd64",
+        "mac-amd64",
+        "mac-arm64"
+      ],
+      "subdir": "gsutil",
+      "tags": [
+        "version:3@5.33"
+      ]
+    },
+    {
+      "path": "infra/tools/luci-cv/${platform}",
+      "platforms": [
+        "linux-amd64",
+        "linux-arm64",
+        "mac-amd64",
+        "mac-arm64"
+      ],
+      "tags": [
+        "git_revision:04c096ce4162bfc4eac2ee9a4a5ac063969077a3"
+      ],
+      "version_file": ".versions/luci-cv.cipd_version"
+    }
+  ]
+}

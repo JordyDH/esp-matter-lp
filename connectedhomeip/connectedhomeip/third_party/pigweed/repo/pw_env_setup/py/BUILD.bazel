@@ -1,0 +1,158 @@
+# Copyright 2024 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+load("@rules_python//python:defs.bzl", "py_library")
+load("//pw_build:python.bzl", "pw_py_test")
+
+# Unlike most Pigweed modules, this package is private by default. This is
+# because use of pw_env_setup in the Bazel ecosystem is largely nonsense, so
+# nobody should ever be allowed to reference almost everything in here.
+package(default_visibility = ["//visibility:private"])
+
+licenses(["notice"])
+
+exports_files([
+    "pw_env_setup/cipd_setup/.cipd_version",
+    "pw_env_setup/cipd_setup/.cipd_version.digests",
+    "pw_env_setup/virtualenv_setup/constraint.list",
+    "pw_env_setup/virtualenv_setup/constraint_hashes_darwin.list",
+    "pw_env_setup/virtualenv_setup/constraint_hashes_linux.list",
+    "pw_env_setup/virtualenv_setup/constraint_hashes_windows.list",
+    "pw_env_setup/virtualenv_setup/pigweed_upstream_requirements.txt",
+    "pw_env_setup/virtualenv_setup/python_base_requirements.txt",
+    "pw_env_setup/virtualenv_setup/upstream_requirements_darwin_lock.txt",
+    "pw_env_setup/virtualenv_setup/upstream_requirements_linux_lock.txt",
+    "pw_env_setup/virtualenv_setup/upstream_requirements_windows_lock.txt",
+] + glob(["pw_env_setup/**/*.json"]))
+
+# Downstream projects should set this label flag to point to their pigweed.json
+# file.
+label_flag(
+    name = "pigweed_json",
+    # We don't provide a default pigweed.json. Every project needs their own!
+    build_setting_default = "//pw_build:unspecified_backend",
+)
+
+py_library(
+    name = "pw_env_setup",
+    srcs = [
+        "pw_env_setup/config_file.py",
+    ],
+    imports = ["."],
+    # This library should be considered Pigweed implementation details.
+    # Projects outside of Pigweed should never directly depend on the API of
+    # this module.
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "@rules_python//python/runfiles",
+    ],
+)
+
+py_library(
+    name = "pw_env_setup_private",
+    srcs = [
+        "pw_env_setup/__init__.py",
+        "pw_env_setup/apply_visitor.py",
+        "pw_env_setup/batch_visitor.py",
+        "pw_env_setup/cipd_setup/__init__.py",
+        "pw_env_setup/cipd_setup/update.py",
+        "pw_env_setup/cipd_setup/wrapper.py",
+        "pw_env_setup/config_file.py",
+        "pw_env_setup/environment.py",
+        "pw_env_setup/github_visitor.py",
+        "pw_env_setup/gni_visitor.py",
+        "pw_env_setup/json_visitor.py",
+        "pw_env_setup/python_packages.py",
+        "pw_env_setup/shell_visitor.py",
+        "pw_env_setup/virtualenv_setup/__init__.py",
+        "pw_env_setup/virtualenv_setup/__main__.py",
+        "pw_env_setup/virtualenv_setup/install.py",
+    ],
+    data = [
+        "pw_env_setup/cipd_setup/.cipd_version",
+        "pw_env_setup/cipd_setup/.cipd_version.digests",
+        "pw_env_setup/cipd_setup/arm.json",
+        "pw_env_setup/cipd_setup/bazelisk.json",
+        "pw_env_setup/cipd_setup/buildifier.json",
+        "pw_env_setup/cipd_setup/clang.json",
+        "pw_env_setup/cipd_setup/clang_next.json",
+        "pw_env_setup/cipd_setup/cmake.json",
+        "pw_env_setup/cipd_setup/compatibility.json",
+        "pw_env_setup/cipd_setup/coverage.json",
+        "pw_env_setup/cipd_setup/default.json",
+        "pw_env_setup/cipd_setup/doxygen.json",
+        "pw_env_setup/cipd_setup/flatc.json",
+        "pw_env_setup/cipd_setup/go.json",
+        "pw_env_setup/cipd_setup/host_tools.json",
+        "pw_env_setup/cipd_setup/kythe.json",
+        "pw_env_setup/cipd_setup/luci.json",
+        "pw_env_setup/cipd_setup/msrv_python.json",
+        "pw_env_setup/cipd_setup/openjdk.json",
+        "pw_env_setup/cipd_setup/pigweed.json",
+        "pw_env_setup/cipd_setup/python.json",
+        "pw_env_setup/cipd_setup/python310.json",
+        "pw_env_setup/cipd_setup/python311.json",
+        "pw_env_setup/cipd_setup/rbe.json",
+        "pw_env_setup/cipd_setup/riscv.json",
+        "pw_env_setup/cipd_setup/ruff.json",
+        "pw_env_setup/cipd_setup/testing.json",
+        "pw_env_setup/cipd_setup/upstream.json",
+        "pw_env_setup/cipd_setup/web.json",
+        "pw_env_setup/virtualenv_setup/constraint.list",
+        "pw_env_setup/virtualenv_setup/constraint_hashes_linux.list",
+        "pw_env_setup/virtualenv_setup/python_base_requirements.txt",
+        ":pigweed_json",
+    ],
+    imports = ["."],
+    # Nobody in the Bazel ecosystem should ever use these parts of pw_env_setup.
+    visibility = ["//docs:__pkg__"],
+    deps = [
+        "@pigweed_python_packages//setuptools",  # For import pkg_resources
+        "@pigweed_python_packages//six",
+    ],
+)
+
+pw_py_test(
+    name = "config_file_test",
+    srcs = ["config_file_test.py"],
+    deps = [
+        ":pw_env_setup",
+    ],
+)
+
+pw_py_test(
+    name = "json_visitor_test",
+    srcs = ["json_visitor_test.py"],
+    deps = [
+        ":pw_env_setup_private",
+        "@pigweed_python_packages//six",
+    ],
+)
+
+pw_py_test(
+    name = "cipd_setup_update_test",
+    srcs = ["cipd_setup_update_test.py"],
+    deps = [
+        ":pw_env_setup_private",
+        "@pigweed_python_packages//parameterized",
+    ],
+)
+
+pw_py_test(
+    name = "environment_test",
+    srcs = ["environment_test.py"],
+    deps = [
+        ":pw_env_setup_private",
+    ],
+)

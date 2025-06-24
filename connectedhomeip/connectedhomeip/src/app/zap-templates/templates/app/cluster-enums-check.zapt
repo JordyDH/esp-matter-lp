@@ -1,0 +1,10 @@
+{{> header}}
+
+#pragma once
+
+#include <clusters/shared/EnumsCheck.h>
+
+{{#zcl_clusters}}
+#include <clusters/{{asUpperCamelCase name}}/EnumsCheck.h>
+{{/zcl_clusters}}
+

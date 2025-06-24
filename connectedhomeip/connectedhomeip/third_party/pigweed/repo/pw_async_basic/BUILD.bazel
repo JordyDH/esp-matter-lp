@@ -1,0 +1,145 @@
+# Copyright 2023 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_python//sphinxdocs:sphinx_docs_library.bzl", "sphinx_docs_library")
+load("//pw_build:compatibility.bzl", "incompatible_with_mcu")
+load("//pw_unit_test:pw_cc_test.bzl", "pw_cc_test")
+
+package(
+    default_visibility = ["//visibility:public"],
+)
+
+licenses(["notice"])
+
+# Backend for //pw_async:task
+cc_library(
+    name = "task",
+    hdrs = [
+        "public_overrides/pw_async_backend/task.h",
+    ],
+    strip_include_prefix = "public_overrides",
+    deps = [
+        ":task_private",
+    ],
+)
+
+cc_library(
+    name = "task_private",
+    hdrs = [
+        "public/pw_async_basic/task.h",
+    ],
+    strip_include_prefix = "public",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//pw_async:types",
+        "//pw_chrono:system_clock",
+        "//pw_containers:intrusive_list",
+    ],
+)
+
+# Backend for //pw_async:fake_dispatcher
+cc_library(
+    name = "fake_dispatcher",
+    testonly = True,
+    srcs = ["fake_dispatcher.cc"],
+    hdrs = [
+        "public_overrides/pw_async_backend/fake_dispatcher.h",
+    ],
+    strip_include_prefix = "public_overrides",
+    deps = [
+        ":fake_dispatcher_private",
+        "//pw_async:fake_dispatcher.facade",
+        "//pw_async:task",
+        "//pw_log",
+    ],
+)
+
+cc_library(
+    name = "fake_dispatcher_private",
+    testonly = True,
+    hdrs = [
+        "public/pw_async_basic/fake_dispatcher.h",
+    ],
+    strip_include_prefix = "public",
+    tags = ["noclangtidy"],
+    visibility = ["//visibility:private"],
+    deps = [
+        "//pw_async:fake_dispatcher.facade",
+        "//pw_containers:intrusive_list",
+    ],
+)
+
+pw_cc_test(
+    name = "fake_dispatcher_fixture_test",
+    srcs = ["fake_dispatcher_fixture_test.cc"],
+    deps = ["//pw_async:fake_dispatcher_fixture"],
+)
+
+cc_library(
+    name = "dispatcher",
+    srcs = ["dispatcher.cc"],
+    hdrs = ["public/pw_async_basic/dispatcher.h"],
+    strip_include_prefix = "public",
+    deps = [
+        "//pw_async:dispatcher",
+        "//pw_async:task",
+        "//pw_chrono:system_clock",
+        "//pw_sync:interrupt_spin_lock",
+        "//pw_sync:lock_annotations",
+        "//pw_sync:timed_thread_notification",
+        "//pw_thread:thread_core",
+    ],
+)
+
+pw_cc_test(
+    name = "dispatcher_test",
+    srcs = ["dispatcher_test.cc"],
+    # TODO: b/343776800 - update to run on all compatible devices
+    target_compatible_with = incompatible_with_mcu(),
+    deps = [
+        ":dispatcher",
+        "//pw_chrono:system_clock",
+        "//pw_log",
+        "//pw_span",
+        "//pw_sync:thread_notification",
+        "//pw_thread:thread",
+        "//pw_thread_stl:options",
+    ],
+)
+
+pw_cc_test(
+    name = "heap_dispatcher_test",
+    srcs = ["heap_dispatcher_test.cc"],
+    deps = [
+        "//pw_async:fake_dispatcher_fixture",
+        "//pw_async:heap_dispatcher",
+    ],
+)
+
+filegroup(
+    name = "doxygen",
+    srcs = [
+        "public/pw_async_basic/dispatcher.h",
+    ],
+)
+
+sphinx_docs_library(
+    name = "docs",
+    srcs = [
+        "docs.rst",
+    ],
+    prefix = "pw_async_basic/",
+    target_compatible_with = incompatible_with_mcu(),
+)

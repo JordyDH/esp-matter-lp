@@ -1,0 +1,100 @@
+# Copyright 2024 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+# Build
+compile_commands.json
+rust-project.json
+user.bazelrc
+out/
+/bazel-*
+outbazel/
+.presubmit/
+docs/_build
+twister-out*/
+
+# Editors
+.pw_ide/
+.vscode/*
+!.vscode/OWNERS
+!.vscode/pw_project_*.json
+.idea/
+.ijwb/
+.project
+.cproject
+# Clangd directories
+.clangd/
+/.cache/clangd/
+# Vim
+*.swp
+*.swo
+# Emacs
+*flycheck_*
+*_flymake.*
+.#*
+*~
+\#*#
+
+# Python
+*.pyc
+*.egg/
+*.eggs/
+*.egg-info/
+.cache/
+.mypy_cache/
+__pycache__/
+build/
+dist/
+
+# PyOxidizer
+pw_env_setup/py/oxidizer/build
+
+# Mac
+.DS_Store
+
+# GDB
+.gdb_history
+
+# Git
+*.orig
+*.BACKUP.*
+*.BASE.*
+*.LOCAL.*
+*.REMOTE.*
+*_BACKUP_*.txt
+*_BASE_*.txt
+*_LOCAL_*.txt
+*_REMOTE_*.txt
+
+# Env Setup
+environment
+.environment
+build_overrides/pigweed_environment.gni
+
+# Web Tools
+node_modules
+yarn-error.log
+
+# pw_emu
+.pw_emu
+
+# pw_ide
+.pw_ide.user.yaml
+.vscode-test
+
+# Emboss
+*.emb.h
+
+# Console Logs
+pw_console-logs.txt
+pw_console-device-logs.txt

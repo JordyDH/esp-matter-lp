@@ -1,0 +1,100 @@
+# Copyright 2021 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_license//rules:license.bzl", "license")
+load("@rules_python//sphinxdocs:sphinx_docs_library.bzl", "sphinx_docs_library")
+load("//pw_build:compatibility.bzl", "incompatible_with_mcu")
+
+package(
+    default_applicable_licenses = [":license_fuchsia"],
+    default_visibility = ["//visibility:public"],
+)
+
+license(
+    name = "license_fuchsia",
+    package_name = "Fuchsia (third_party)",
+    license_text = "repo/LICENSE",
+)
+
+exports_files(["repo/LICENSE"])
+
+# Allows downstream projects to provide an alternative implementation of fit.
+#
+# Intended for projects that depend on both Pigweed and Fuchsia, and want to
+# use the Fuchsia implementation directly to avoid ODR violations.
+label_flag(
+    name = "fit",
+    build_setting_default = ":fit_impl",
+)
+
+cc_library(
+    name = "fit_impl",
+    srcs = [
+        "repo/sdk/lib/fit/include/lib/fit/internal/compiler.h",
+        "repo/sdk/lib/fit/include/lib/fit/internal/function.h",
+        "repo/sdk/lib/fit/include/lib/fit/internal/result.h",
+        "repo/sdk/lib/fit/include/lib/fit/internal/utility.h",
+    ],
+    hdrs = [
+        "repo/sdk/lib/fit/include/lib/fit/defer.h",
+        "repo/sdk/lib/fit/include/lib/fit/function.h",
+        "repo/sdk/lib/fit/include/lib/fit/nullable.h",
+        "repo/sdk/lib/fit/include/lib/fit/result.h",
+        "repo/sdk/lib/fit/include/lib/fit/traits.h",
+    ],
+    # TODO: https://pwbug.dev/378564135 - Replacing this with
+    # strip_include_prefix leads to errors when trying to #include internal
+    # headers within this library.
+    includes = ["repo/sdk/lib/fit/include"],
+    deps = [
+        ":stdcompat",
+        "//pw_assert:assert",
+        "//pw_preprocessor",
+    ],
+)
+
+cc_library(
+    name = "stdcompat",
+    srcs = [
+        "repo/sdk/lib/stdcompat/include/lib/stdcompat/internal/bit.h",
+        "repo/sdk/lib/stdcompat/include/lib/stdcompat/internal/constructors.h",
+        "repo/sdk/lib/stdcompat/include/lib/stdcompat/internal/exception.h",
+        "repo/sdk/lib/stdcompat/include/lib/stdcompat/internal/functional.h",
+        "repo/sdk/lib/stdcompat/include/lib/stdcompat/internal/storage.h",
+        "repo/sdk/lib/stdcompat/include/lib/stdcompat/internal/type_traits.h",
+        "repo/sdk/lib/stdcompat/include/lib/stdcompat/internal/utility.h",
+        "repo/sdk/lib/stdcompat/include/lib/stdcompat/memory.h",
+    ],
+    hdrs = [
+        "repo/sdk/lib/stdcompat/include/lib/stdcompat/bit.h",
+        "repo/sdk/lib/stdcompat/include/lib/stdcompat/functional.h",
+        "repo/sdk/lib/stdcompat/include/lib/stdcompat/optional.h",
+        "repo/sdk/lib/stdcompat/include/lib/stdcompat/type_traits.h",
+        "repo/sdk/lib/stdcompat/include/lib/stdcompat/utility.h",
+        "repo/sdk/lib/stdcompat/include/lib/stdcompat/version.h",
+    ],
+    # TODO: https://pwbug.dev/378564135 - Replacing this with
+    # strip_include_prefix leads to errors when trying to #include internal
+    # headers within this library.
+    includes = ["repo/sdk/lib/stdcompat/include"],
+)
+
+sphinx_docs_library(
+    name = "docs",
+    srcs = [
+        "docs.rst",
+    ],
+    target_compatible_with = incompatible_with_mcu(),
+)

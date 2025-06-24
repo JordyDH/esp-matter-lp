@@ -1,0 +1,72 @@
+# Copyright 2025 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+load("@rules_rust//rust:defs.bzl", "rust_library")
+load("//pw_build:merge_flags.bzl", "flags_from_dict")
+load("//pw_build:pw_linker_script.bzl", "pw_linker_script")
+
+platform(
+    name = "rp2350",
+    constraint_values = [
+        "//pw_build/constraints/arm:cortex-m33",
+        "@platforms//cpu:armv8-m",
+        "@platforms//os:none",
+        "@rust_crates//:no_std",
+    ],
+    flags = flags_from_dict({
+        "//pw_kernel/lib/unittest:unittest_runner": "//pw_kernel/lib/unittest:unittest_runner_semihosting",
+        "//pw_kernel/subsys/console:console_backend": ":console_rp2350",
+        "//pw_kernel/target:linker_script": ":linker_script_rp2350",
+        "//pw_kernel/target:target_backend": ":target_rp2350",
+    }),
+)
+
+pw_linker_script(
+    name = "linker_script_rp2350",
+    linker_script = "rp2350.ld",
+    target_compatible_with = [
+        "//pw_build/constraints/arm:cortex-m33",
+    ],
+)
+
+rust_library(
+    name = "console_rp2350",
+    srcs = ["console_rp2350.rs"],
+    crate_name = "console_backend",
+    target_compatible_with = [
+        "//pw_build/constraints/arm:cortex-m33",
+    ],
+    deps = [
+        "//pw_kernel/kernel",
+        "//pw_kernel/lib/pw_status",
+        "@rust_crates//:embedded-io",
+        "@rust_crates//:rp235x-hal",
+    ],
+)
+
+rust_library(
+    name = "target_rp2350",
+    srcs = ["target_rp2350.rs"],
+    crate_name = "target_backend",
+    target_compatible_with = [
+        "//pw_build/constraints/arm:cortex-m33",
+    ],
+    deps = [
+        ":console_rp2350",
+        "//pw_kernel/target:target_interface",
+        "@rust_crates//:cortex-m-rt",
+        "@rust_crates//:panic-halt",
+        "@rust_crates//:rp235x-hal",
+    ],
+)

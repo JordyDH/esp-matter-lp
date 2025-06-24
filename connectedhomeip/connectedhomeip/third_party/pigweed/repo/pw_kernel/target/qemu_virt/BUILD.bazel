@@ -1,0 +1,71 @@
+# Copyright 2025 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+load("@rules_rust//rust:defs.bzl", "rust_library")
+load("//pw_build:merge_flags.bzl", "flags_from_dict")
+load("//pw_build:pw_linker_script.bzl", "pw_linker_script")
+
+platform(
+    name = "riscv32imc",
+    constraint_values = [
+        "//pw_build/constraints/riscv/extensions:I",
+        "//pw_build/constraints/riscv/extensions:M",
+        "//pw_build/constraints/riscv/extensions:C",
+        "@platforms//cpu:riscv32",
+        "@platforms//os:none",
+        "@rust_crates//:no_std",
+    ],
+    flags = flags_from_dict({
+        "//pw_kernel/lib/unittest:unittest_runner": "//pw_kernel/lib/unittest:unittest_runner_semihosting",
+        "//pw_kernel/subsys/console:console_backend": ":console_riscv",
+        "//pw_kernel/target:linker_script": ":linker_script_riscv",
+        "//pw_kernel/target:target_backend": ":target_riscv",
+    }),
+)
+
+pw_linker_script(
+    name = "linker_script_riscv",
+    linker_script = "riscv.ld",
+    target_compatible_with = [
+        "@platforms//cpu:riscv32",
+    ],
+)
+
+rust_library(
+    name = "console_riscv",
+    srcs = ["console_riscv.rs"],
+    crate_name = "console_backend",
+    target_compatible_with = [
+        "@platforms//cpu:riscv32",
+    ],
+    deps = [
+        "//pw_kernel/kernel",
+        "//pw_kernel/lib/pw_status",
+        "@rust_crates//:embedded-io",
+    ],
+)
+
+rust_library(
+    name = "target_riscv",
+    srcs = ["target_riscv.rs"],
+    crate_name = "target_backend",
+    target_compatible_with = [
+        "@platforms//cpu:riscv32",
+    ],
+    deps = [
+        ":console_riscv",
+        "//pw_kernel/target:target_interface",
+        "@rust_crates//:panic-halt",
+    ],
+)

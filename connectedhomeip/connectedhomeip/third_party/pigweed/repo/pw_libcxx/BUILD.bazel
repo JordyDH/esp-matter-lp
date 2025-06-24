@@ -1,0 +1,58 @@
+# Copyright 2023 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_python//sphinxdocs:sphinx_docs_library.bzl", "sphinx_docs_library")
+load("//pw_build:compatibility.bzl", "incompatible_with_mcu")
+load("//pw_toolchain/cc/current_toolchain:conditions.bzl", "if_compiler_is_clang")
+load("//pw_unit_test:pw_cc_test.bzl", "pw_cc_test")
+
+package(default_visibility = ["//visibility:public"])
+
+cc_library(
+    name = "pw_libcxx",
+    srcs = [
+        "__cxa_deleted_virtual.cc",
+        "__cxa_pure_virtual.cc",
+        "operator_delete.cc",
+        "operator_new.cc",
+        "verbose_abort.cc",
+    ],
+    target_compatible_with = if_compiler_is_clang(
+        [],
+        otherwise = ["@platforms//:incompatible"],
+    ),
+    alwayslink = True,
+)
+
+pw_cc_test(
+    name = "operator_new_test",
+    srcs = ["operator_new_test.cc"],
+)
+
+filegroup(
+    name = "cxx_lib_configs",
+    srcs = [
+        "include/__external_threading",
+    ],
+)
+
+sphinx_docs_library(
+    name = "docs",
+    srcs = [
+        "docs.rst",
+    ],
+    prefix = "pw_libcxx/",
+    target_compatible_with = incompatible_with_mcu(),
+)

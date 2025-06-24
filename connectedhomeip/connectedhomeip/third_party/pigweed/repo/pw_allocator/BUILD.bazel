@@ -1,0 +1,1180 @@
+# Copyright 2020 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_python//sphinxdocs:sphinx_docs_library.bzl", "sphinx_docs_library")
+load("//pw_bloat:pw_size_diff.bzl", "pw_size_diff")
+load("//pw_bloat:pw_size_table.bzl", "pw_size_table")
+load("//pw_build:compatibility.bzl", "incompatible_with_mcu")
+load("//pw_unit_test:pw_cc_test.bzl", "pw_cc_test")
+
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])
+
+# The core target of this module.
+cc_library(
+    name = "pw_allocator",
+    srcs = [
+        "allocator.cc",
+        "control_block.cc",
+        "managed_ptr.cc",
+    ],
+    hdrs = [
+        "public/pw_allocator/allocator.h",
+        "public/pw_allocator/capability.h",
+        "public/pw_allocator/deallocator.h",
+        "public/pw_allocator/internal/control_block.h",
+        "public/pw_allocator/internal/managed_ptr.h",
+        "public/pw_allocator/layout.h",
+        "public/pw_allocator/pool.h",
+        "public/pw_allocator/shared_ptr.h",
+        "public/pw_allocator/unique_ptr.h",
+        "public/pw_allocator/weak_ptr.h",
+    ],
+    implementation_deps = [
+        "//pw_assert:check",
+        "//pw_bytes:alignment",
+        "//third_party/fuchsia:stdcompat",
+    ],
+    strip_include_prefix = "public",
+    deps = [
+        ":config",
+        ":hardening",
+        "//pw_bytes",
+        "//pw_numeric:checked_arithmetic",
+        "//pw_preprocessor",
+        "//pw_result",
+        "//pw_status",
+    ],
+)
+
+# Module configuration
+
+cc_library(
+    name = "config",
+    hdrs = ["public/pw_allocator/config.h"],
+    strip_include_prefix = "public",
+    deps = [":config_override"],
+)
+
+label_flag(
+    name = "config_override",
+    build_setting_default = "//pw_build:default_module_config",
+)
+
+cc_library(
+    name = "hardening_basic",
+    defines = ["PW_ALLOCATOR_HARDENING=PW_ALLOCATOR_HARDENING_BASIC"],
+)
+
+cc_library(
+    name = "hardening_robust",
+    defines = ["PW_ALLOCATOR_HARDENING=PW_ALLOCATOR_HARDENING_ROBUST"],
+)
+
+cc_library(
+    name = "hardening_debug",
+    defines = ["PW_ALLOCATOR_HARDENING=PW_ALLOCATOR_HARDENING_DEBUG"],
+)
+
+cc_library(
+    name = "test_config",
+    defines = [
+        "PW_ALLOCATOR_HARDENING=PW_ALLOCATOR_HARDENING_DEBUG",
+        "PW_ALLOCATOR_BLOCK_POISON_INTERVAL=4",
+    ],
+)
+
+# Libraries
+
+# TODO(b/376730645): Remove deprecated alias.
+alias(
+    name = "allocator",
+    actual = ":pw_allocator",
+)
+
+cc_library(
+    name = "allocator_as_pool",
+    srcs = ["allocator_as_pool.cc"],
+    hdrs = ["public/pw_allocator/allocator_as_pool.h"],
+    strip_include_prefix = "public",
+    deps = [
+        ":pw_allocator",
+        "//pw_status",
+    ],
+)
+
+cc_library(
+    name = "best_fit",
+    hdrs = ["public/pw_allocator/best_fit.h"],
+    strip_include_prefix = "public",
+    deps = [
+        ":block_allocator",
+        ":config",
+        "//pw_allocator/block:detailed_block",
+        "//pw_allocator/bucket:fast_sorted",
+        "//pw_allocator/bucket:sorted",
+    ],
+)
+
+cc_library(
+    name = "best_fit_block_allocator",
+    hdrs = ["public/pw_allocator/best_fit_block_allocator.h"],
+    strip_include_prefix = "public",
+    deps = [
+        ":best_fit",
+        ":config",
+    ],
+)
+
+cc_library(
+    name = "block_allocator",
+    srcs = ["block_allocator.cc"],
+    hdrs = ["public/pw_allocator/block_allocator.h"],
+    implementation_deps = ["//pw_assert:check"],
+    strip_include_prefix = "public",
+    deps = [
+        ":config",
+        ":fragmentation",
+        ":hardening",
+        ":pw_allocator",
+        "//pw_allocator/block:allocatable",
+        "//pw_allocator/block:basic",
+        "//pw_allocator/block:iterable",
+        "//pw_allocator/block:poisonable",
+        "//pw_allocator/block:result",
+        "//pw_allocator/block:with_layout",
+        "//pw_assert:assert",
+        "//pw_bytes",
+        "//pw_result",
+        "//pw_status",
+    ],
+)
+
+cc_library(
+    name = "bucket_allocator",
+    hdrs = ["public/pw_allocator/bucket_allocator.h"],
+    strip_include_prefix = "public",
+    deps = [
+        ":block_allocator",
+        "//pw_allocator/block:detailed_block",
+        "//pw_allocator/bucket:unordered",
+        "//pw_status",
+    ],
+)
+
+# TODO(b/376730645): Remove deprecated interfaces.
+cc_library(
+    name = "bucket_block_allocator",
+    hdrs = ["public/pw_allocator/bucket_block_allocator.h"],
+    strip_include_prefix = "public",
+    deps = [":bucket_allocator"],
+)
+
+cc_library(
+    name = "buddy_allocator",
+    srcs = ["buddy_allocator.cc"],
+    hdrs = ["public/pw_allocator/buddy_allocator.h"],
+    implementation_deps = [
+        "//pw_assert:check",
+        "//pw_bytes:alignment",
+        "//third_party/fuchsia:stdcompat",
+    ],
+    strip_include_prefix = "public",
+    deps = [
+        ":hardening",
+        ":pw_allocator",
+        "//pw_allocator/block:basic",
+        "//pw_allocator/bucket:unordered",
+        "//pw_bytes",
+        "//pw_containers:vector",
+        "//pw_status",
+    ],
+)
+
+cc_library(
+    name = "buffer",
+    hdrs = ["public/pw_allocator/buffer.h"],
+    strip_include_prefix = "public",
+    deps = [
+        "//pw_bytes",
+        "//pw_bytes:alignment",
+        "//pw_result",
+    ],
+)
+
+cc_library(
+    name = "bump_allocator",
+    srcs = ["bump_allocator.cc"],
+    hdrs = ["public/pw_allocator/bump_allocator.h"],
+    strip_include_prefix = "public",
+    deps = [
+        ":buffer",
+        ":pw_allocator",
+        "//pw_bytes",
+        "//pw_bytes:alignment",
+    ],
+)
+
+cc_library(
+    name = "chunk_pool",
+    srcs = ["chunk_pool.cc"],
+    hdrs = ["public/pw_allocator/chunk_pool.h"],
+    implementation_deps = [
+        ":buffer",
+        "//pw_assert:check",
+        "//pw_bytes:alignment",
+        "//third_party/fuchsia:stdcompat",
+    ],
+    strip_include_prefix = "public",
+    deps = [
+        ":pw_allocator",
+        "//pw_bytes",
+        "//pw_result",
+        "//pw_status",
+    ],
+)
+
+# TODO(b/376730645): Remove deprecated alias.
+alias(
+    name = "deallocator",
+    actual = ":pw_allocator",
+)
+
+cc_library(
+    name = "dl_allocator",
+    hdrs = ["public/pw_allocator/dl_allocator.h"],
+    strip_include_prefix = "public",
+    deps = [
+        ":block_allocator",
+        ":config",
+        "//pw_allocator/block:detailed_block",
+        "//pw_allocator/bucket:fast_sorted",
+        "//pw_allocator/bucket:unordered",
+        "//third_party/fuchsia:stdcompat",
+    ],
+)
+
+# TODO(b/376730645): Remove deprecated interfaces.
+cc_library(
+    name = "dual_first_fit_block_allocator",
+    hdrs = ["public/pw_allocator/dual_first_fit_block_allocator.h"],
+    strip_include_prefix = "public",
+    deps = [":first_fit"],
+)
+
+cc_library(
+    name = "fallback_allocator",
+    srcs = ["fallback_allocator.cc"],
+    hdrs = ["public/pw_allocator/fallback_allocator.h"],
+    implementation_deps = ["//pw_assert:check"],
+    strip_include_prefix = "public",
+    deps = [
+        ":pw_allocator",
+        "//pw_result",
+        "//pw_status",
+    ],
+)
+
+cc_library(
+    name = "first_fit",
+    hdrs = ["public/pw_allocator/first_fit.h"],
+    strip_include_prefix = "public",
+    deps = [
+        ":block_allocator",
+        ":config",
+        "//pw_allocator/block:detailed_block",
+        "//pw_allocator/bucket:sequenced",
+    ],
+)
+
+# TODO(b/376730645): Remove deprecated interfaces.
+cc_library(
+    name = "first_fit_block_allocator",
+    hdrs = ["public/pw_allocator/first_fit_block_allocator.h"],
+    strip_include_prefix = "public",
+    deps = [":first_fit"],
+)
+
+cc_library(
+    name = "fragmentation",
+    srcs = ["fragmentation.cc"],
+    hdrs = ["public/pw_allocator/fragmentation.h"],
+    strip_include_prefix = "public",
+)
+
+cc_library(
+    name = "freelist_heap",
+    hdrs = ["public/pw_allocator/freelist_heap.h"],
+    strip_include_prefix = "public",
+    deps = [
+        ":bucket_allocator",
+        ":hardening",
+        "//pw_bytes",
+    ],
+)
+
+cc_library(
+    name = "hardening",
+    hdrs = ["public/pw_allocator/hardening.h"],
+    strip_include_prefix = "public",
+    deps = [
+        ":config",
+        "//pw_assert:assert",
+        "//pw_preprocessor",
+    ],
+)
+
+# TODO(b/376730645): Remove deprecated interfaces.
+cc_library(
+    name = "last_fit_block_allocator",
+    hdrs = ["public/pw_allocator/last_fit_block_allocator.h"],
+    strip_include_prefix = "public",
+    deps = [":first_fit"],
+)
+
+cc_library(
+    name = "libc_allocator",
+    srcs = ["libc_allocator.cc"],
+    hdrs = ["public/pw_allocator/libc_allocator.h"],
+    strip_include_prefix = "public",
+    deps = [":pw_allocator"],
+)
+
+cc_library(
+    name = "null_allocator",
+    srcs = ["null_allocator.cc"],
+    hdrs = ["public/pw_allocator/null_allocator.h"],
+    strip_include_prefix = "public",
+    deps = [":pw_allocator"],
+)
+
+cc_library(
+    name = "metrics",
+    hdrs = ["public/pw_allocator/metrics.h"],
+    strip_include_prefix = "public",
+    deps = [
+        ":pw_allocator",
+        "//pw_metric:metric",
+    ],
+)
+
+cc_library(
+    name = "pmr_allocator",
+    srcs = ["pmr_allocator.cc"],
+    hdrs = ["public/pw_allocator/pmr_allocator.h"],
+    implementation_deps = ["//pw_assert:check"],
+    strip_include_prefix = "public",
+    deps = [
+        ":config",
+        ":pw_allocator",
+        "//pw_status",
+    ],
+)
+
+# TODO(b/376730645): Remove deprecated alias.
+alias(
+    name = "pool",
+    actual = ":pw_allocator",
+)
+
+cc_library(
+    name = "synchronized_allocator",
+    hdrs = ["public/pw_allocator/synchronized_allocator.h"],
+    strip_include_prefix = "public",
+    deps = [
+        ":pw_allocator",
+        "//pw_sync:borrow",
+        "//pw_sync:lock_annotations",
+    ],
+)
+
+cc_library(
+    name = "tlsf_allocator",
+    hdrs = ["public/pw_allocator/tlsf_allocator.h"],
+    strip_include_prefix = "public",
+    deps = [
+        ":block_allocator",
+        ":config",
+        "//pw_allocator/block:detailed_block",
+        "//pw_allocator/bucket:fast_sorted",
+        "//pw_allocator/bucket:sorted",
+        "//third_party/fuchsia:stdcompat",
+    ],
+)
+
+cc_library(
+    name = "tracking_allocator",
+    hdrs = ["public/pw_allocator/tracking_allocator.h"],
+    strip_include_prefix = "public",
+    tags = ["noclangtidy"],
+    deps = [
+        ":metrics",
+        ":pw_allocator",
+        "//pw_assert:assert",
+        "//pw_status",
+    ],
+)
+
+cc_library(
+    name = "typed_pool",
+    hdrs = ["public/pw_allocator/typed_pool.h"],
+    strip_include_prefix = "public",
+    deps = [
+        ":chunk_pool",
+        ":hardening",
+        "//pw_bytes",
+    ],
+)
+
+cc_library(
+    name = "worst_fit",
+    hdrs = ["public/pw_allocator/worst_fit.h"],
+    strip_include_prefix = "public",
+    deps = [
+        ":block_allocator",
+        ":config",
+        "//pw_allocator/block:detailed_block",
+        "//pw_allocator/bucket:fast_sorted",
+        "//pw_allocator/bucket:sorted",
+    ],
+)
+
+cc_library(
+    name = "worst_fit_block_allocator",
+    hdrs = ["public/pw_allocator/worst_fit_block_allocator.h"],
+    strip_include_prefix = "public",
+    deps = [
+        ":config",
+        ":worst_fit",
+    ],
+)
+
+# Test support
+
+cc_library(
+    name = "testing",
+    testonly = True,
+    hdrs = ["public/pw_allocator/testing.h"],
+    strip_include_prefix = "public",
+    deps = [
+        ":buffer",
+        ":first_fit",
+        ":hardening",
+        ":pw_allocator",
+        ":test_config",
+        ":tracking_allocator",
+        "//pw_assert:assert",
+        "//pw_bytes",
+        "//pw_result",
+        "//pw_status",
+        "//pw_unit_test",
+    ],
+)
+
+cc_library(
+    name = "block_allocator_testing",
+    testonly = True,
+    srcs = ["block_allocator_testing.cc"],
+    hdrs = ["public/pw_allocator/block_allocator_testing.h"],
+    implementation_deps = [
+        "//pw_assert:check",
+        "//pw_bytes:alignment",
+        "//pw_status",
+        "//third_party/fuchsia:stdcompat",
+    ],
+    strip_include_prefix = "public",
+    deps = [
+        ":block_allocator",
+        ":buffer",
+        ":fuzzing",
+        ":pw_allocator",
+        ":test_harness",
+        "//pw_allocator/block:detailed_block",
+        "//pw_allocator/block:testing",
+        "//pw_assert:assert",
+        "//pw_unit_test",
+    ],
+)
+
+cc_library(
+    name = "managed_ptr_testing",
+    testonly = True,
+    srcs = ["managed_ptr_testing.cc"],
+    hdrs = ["public/pw_allocator/internal/managed_ptr_testing.h"],
+    strip_include_prefix = "public",
+    deps = [
+        ":pw_allocator",
+        ":testing",
+        "//pw_unit_test",
+    ],
+)
+
+cc_library(
+    name = "test_harness",
+    testonly = True,
+    srcs = ["test_harness.cc"],
+    hdrs = ["public/pw_allocator/test_harness.h"],
+    implementation_deps = [
+        "//pw_assert:assert",
+        "//pw_assert:check",
+    ],
+    strip_include_prefix = "public",
+    deps = [
+        ":pw_allocator",
+        "//pw_containers:intrusive_list",
+        "//pw_containers:vector",
+        "//pw_random",
+        "//third_party/fuchsia:stdcompat",
+    ],
+)
+
+cc_library(
+    name = "fuzzing",
+    testonly = True,
+    srcs = ["fuzzing.cc"],
+    hdrs = ["public/pw_allocator/fuzzing.h"],
+    strip_include_prefix = "public",
+    deps = [
+        ":pw_allocator",
+        ":test_harness",
+        "//pw_fuzzer:fuzztest",
+    ],
+)
+
+# Tests
+
+pw_cc_test(
+    name = "allocator_as_pool_test",
+    srcs = ["allocator_as_pool_test.cc"],
+    deps = [
+        ":allocator_as_pool",
+        ":pw_allocator",
+        ":testing",
+    ],
+)
+
+pw_cc_test(
+    name = "allocator_test",
+    srcs = ["allocator_test.cc"],
+    deps = [
+        ":pw_allocator",
+        ":testing",
+    ],
+)
+
+pw_cc_test(
+    name = "best_fit_test",
+    srcs = ["best_fit_test.cc"],
+    deps = [
+        ":best_fit",
+        ":best_fit_block_allocator",
+        ":block_allocator_testing",
+        ":buffer",
+    ],
+)
+
+pw_cc_test(
+    name = "bucket_allocator_test",
+    srcs = ["bucket_allocator_test.cc"],
+    deps = [
+        ":block_allocator_testing",
+        ":bucket_allocator",
+        ":bucket_block_allocator",
+        ":pw_allocator",
+    ],
+)
+
+pw_cc_test(
+    name = "buddy_allocator_test",
+    srcs = ["buddy_allocator_test.cc"],
+    deps = [
+        ":buddy_allocator",
+        ":fuzzing",
+        ":testing",
+    ],
+)
+
+pw_cc_test(
+    name = "buffer_test",
+    srcs = ["buffer_test.cc"],
+    deps = [
+        ":buffer",
+        ":testing",
+        "//pw_bytes",
+        "//pw_result",
+        "//third_party/fuchsia:stdcompat",
+    ],
+)
+
+pw_cc_test(
+    name = "bump_allocator_test",
+    srcs = ["bump_allocator_test.cc"],
+    deps = [
+        ":bump_allocator",
+        ":testing",
+        "//third_party/fuchsia:stdcompat",
+    ],
+)
+
+pw_cc_test(
+    name = "chunk_pool_test",
+    srcs = ["chunk_pool_test.cc"],
+    deps = [
+        ":chunk_pool",
+        ":testing",
+    ],
+)
+
+pw_cc_test(
+    name = "dl_allocator_test",
+    srcs = ["dl_allocator_test.cc"],
+    deps = [
+        ":block_allocator_testing",
+        ":dl_allocator",
+        "//pw_unit_test",
+    ],
+)
+
+pw_cc_test(
+    name = "fallback_allocator_test",
+    srcs = ["fallback_allocator_test.cc"],
+    deps = [
+        ":fallback_allocator",
+        ":testing",
+        "//pw_status",
+    ],
+)
+
+pw_cc_test(
+    name = "first_fit_test",
+    srcs = ["first_fit_test.cc"],
+    deps = [
+        ":block_allocator_testing",
+        ":buffer",
+        ":dual_first_fit_block_allocator",
+        ":first_fit",
+        ":first_fit_block_allocator",
+        ":last_fit_block_allocator",
+        "//pw_allocator/block:detailed_block",
+        "//third_party/fuchsia:stdcompat",
+    ],
+)
+
+pw_cc_test(
+    name = "fragmentation_test",
+    srcs = ["fragmentation_test.cc"],
+    deps = [
+        ":fragmentation",
+        ":testing",
+    ],
+)
+
+pw_cc_test(
+    name = "freelist_heap_test",
+    srcs = ["freelist_heap_test.cc"],
+    deps = [
+        ":freelist_heap",
+        ":testing",
+        "//pw_allocator/block:testing",
+        "//pw_bytes:alignment",
+        "//third_party/fuchsia:stdcompat",
+    ],
+)
+
+pw_cc_test(
+    name = "layout_test",
+    srcs = ["layout_test.cc"],
+    deps = [
+        ":pw_allocator",
+        ":testing",
+        "//pw_result",
+        "//pw_status",
+    ],
+)
+
+pw_cc_test(
+    name = "libc_allocator_test",
+    srcs = ["libc_allocator_test.cc"],
+    deps = [
+        ":libc_allocator",
+        ":testing",
+    ],
+)
+
+pw_cc_test(
+    name = "metrics_test",
+    srcs = ["metrics_test.cc"],
+    deps = [":metrics"],
+)
+
+pw_cc_test(
+    name = "null_allocator_test",
+    srcs = ["null_allocator_test.cc"],
+    deps = [
+        ":null_allocator",
+        ":testing",
+    ],
+)
+
+pw_cc_test(
+    name = "pmr_allocator_test",
+    srcs = ["pmr_allocator_test.cc"],
+    deps = [
+        ":pmr_allocator",
+        ":testing",
+    ],
+)
+
+pw_cc_test(
+    name = "shared_ptr_test",
+    srcs = ["shared_ptr_test.cc"],
+    deps = [
+        ":managed_ptr_testing",
+        ":pw_allocator",
+    ],
+)
+
+pw_cc_test(
+    name = "synchronized_allocator_test",
+    srcs = ["synchronized_allocator_test.cc"],
+    # TODO: b/358411629 - This test times out on rp2.
+    target_compatible_with = select({
+        "@pico-sdk//bazel/constraint:rp2040": ["@platforms//:incompatible"],
+        "@pico-sdk//bazel/constraint:rp2350": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
+    deps = [
+        ":synchronized_allocator",
+        ":test_harness",
+        ":testing",
+        "//pw_containers:vector",
+        "//pw_random",
+        "//pw_status",
+        "//pw_sync:binary_semaphore",
+        "//pw_sync:interrupt_spin_lock",
+        "//pw_sync:mutex",
+        "//pw_sync:virtual_basic_lockable",
+        "//pw_thread:test_thread_context",
+        "//pw_thread:thread",
+        "//pw_thread:thread_core",
+        "//pw_thread:yield",
+    ],
+)
+
+pw_cc_test(
+    name = "tlsf_allocator_test",
+    srcs = ["tlsf_allocator_test.cc"],
+    deps = [
+        ":block_allocator_testing",
+        ":tlsf_allocator",
+    ],
+)
+
+pw_cc_test(
+    name = "tracking_allocator_test",
+    srcs = ["tracking_allocator_test.cc"],
+    deps = [
+        ":first_fit",
+        ":metrics",
+        ":pw_allocator",
+        ":testing",
+        ":tracking_allocator",
+        "//pw_log",
+        "//pw_metric:metric",
+    ],
+)
+
+pw_cc_test(
+    name = "typed_pool_test",
+    srcs = ["typed_pool_test.cc"],
+    deps = [
+        ":pw_allocator",
+        ":testing",
+        ":typed_pool",
+        "//pw_bytes:alignment",
+    ],
+)
+
+pw_cc_test(
+    name = "unique_ptr_test",
+    srcs = ["unique_ptr_test.cc"],
+    deps = [
+        ":managed_ptr_testing",
+        ":pw_allocator",
+    ],
+)
+
+pw_cc_test(
+    name = "weak_ptr_test",
+    srcs = ["weak_ptr_test.cc"],
+    deps = [
+        ":managed_ptr_testing",
+        ":pw_allocator",
+    ],
+)
+
+pw_cc_test(
+    name = "worst_fit_test",
+    srcs = ["worst_fit_test.cc"],
+    deps = [
+        ":block_allocator_testing",
+        ":worst_fit",
+        ":worst_fit_block_allocator",
+    ],
+)
+
+# Docs
+
+filegroup(
+    name = "doxygen",
+    srcs = [
+        "public/pw_allocator/allocator.h",
+        "public/pw_allocator/allocator_as_pool.h",
+        "public/pw_allocator/best_fit.h",
+        "public/pw_allocator/block_allocator.h",
+        "public/pw_allocator/bucket_allocator.h",
+        "public/pw_allocator/buddy_allocator.h",
+        "public/pw_allocator/buffer.h",
+        "public/pw_allocator/bump_allocator.h",
+        "public/pw_allocator/capability.h",
+        "public/pw_allocator/chunk_pool.h",
+        "public/pw_allocator/config.h",
+        "public/pw_allocator/deallocator.h",
+        "public/pw_allocator/dl_allocator.h",
+        "public/pw_allocator/fallback_allocator.h",
+        "public/pw_allocator/first_fit.h",
+        "public/pw_allocator/fragmentation.h",
+        "public/pw_allocator/fuzzing.h",
+        "public/pw_allocator/layout.h",
+        "public/pw_allocator/libc_allocator.h",
+        "public/pw_allocator/metrics.h",
+        "public/pw_allocator/null_allocator.h",
+        "public/pw_allocator/pmr_allocator.h",
+        "public/pw_allocator/pool.h",
+        "public/pw_allocator/shared_ptr.h",
+        "public/pw_allocator/synchronized_allocator.h",
+        "public/pw_allocator/test_harness.h",
+        "public/pw_allocator/testing.h",
+        "public/pw_allocator/tlsf_allocator.h",
+        "public/pw_allocator/tracking_allocator.h",
+        "public/pw_allocator/typed_pool.h",
+        "public/pw_allocator/unique_ptr.h",
+        "public/pw_allocator/weak_ptr.h",
+        "public/pw_allocator/worst_fit.h",
+        "//pw_allocator/block:doxygen",
+        "//pw_allocator/bucket:doxygen",
+        "//pw_allocator/size_report:doxygen",
+    ],
+)
+
+pw_size_diff(
+    name = "null_allocator_size_report",
+    base = "//pw_allocator/size_report:base",
+    label = "NullAllocator",
+    target = "//pw_allocator/size_report:null_allocator",
+)
+
+pw_size_table(
+    name = "allocator_api_size_report",
+    reports = [
+        ":null_allocator_size_report",
+    ],
+)
+
+pw_size_diff(
+    name = "detailed_block_report",
+    base = "//pw_allocator/size_report:base",
+    label = "DetailedBlock",
+    target = "//pw_allocator/size_report:detailed_block",
+)
+
+pw_size_diff(
+    name = "small_block_report",
+    base = "//pw_allocator/size_report:base",
+    label = "SmallBlock",
+    target = "//pw_allocator/size_report:small_block_basic",
+)
+
+pw_size_diff(
+    name = "small_alignable_block_report",
+    base = "//pw_allocator/size_report:base",
+    label = "SmallAlignableBlock",
+    target = "//pw_allocator/size_report:small_alignable_block",
+)
+
+pw_size_diff(
+    name = "tiny_block_report",
+    base = "//pw_allocator/size_report:base",
+    label = "TinyBlock",
+    target = "//pw_allocator/size_report:tiny_block",
+)
+
+pw_size_table(
+    name = "blocks_size_report",
+    reports = [
+        ":detailed_block_report",
+        ":small_block_report",
+        ":small_alignable_block_report",
+        ":tiny_block_report",
+    ],
+)
+
+pw_size_diff(
+    name = "small_block_basic_report",
+    base = "//pw_allocator/size_report:base",
+    label = "SmallBlock with basic assertions enabled",
+    target = "//pw_allocator/size_report:small_block_basic",
+)
+
+pw_size_diff(
+    name = "small_block_robust_report",
+    base = "//pw_allocator/size_report:base",
+    label = "DetailedBlock with robust assertions enabled",
+    target = "//pw_allocator/size_report:small_block_robust",
+)
+
+pw_size_diff(
+    name = "small_block_debug_report",
+    base = "//pw_allocator/size_report:base",
+    label = "DetailedBlock with debug assertions enabled",
+    target = "//pw_allocator/size_report:small_block_debug",
+)
+
+pw_size_table(
+    name = "hardening_size_report",
+    reports = [
+        ":fast_sorted_report",
+        ":small_block_basic_report",
+        ":small_block_robust_report",
+        ":small_block_debug_report",
+    ],
+)
+
+pw_size_diff(
+    name = "fast_sorted_report",
+    base = "//pw_allocator/size_report:fast_sorted_base",
+    label = "FastSortedBucket, which uses IntrusiveMultiMap",
+    target = "//pw_allocator/size_report:fast_sorted",
+)
+
+pw_size_diff(
+    name = "sequenced_report",
+    base = "//pw_allocator/size_report:sequenced_base",
+    label = "SequencedBucket, which uses IntrusiveList",
+    target = "//pw_allocator/size_report:sequenced",
+)
+
+pw_size_diff(
+    name = "sorted_report",
+    base = "//pw_allocator/size_report:sorted_base",
+    label = "SortedBucket, which uses IntrusiveForwardList",
+    target = "//pw_allocator/size_report:sorted",
+)
+
+pw_size_diff(
+    name = "unordered_report",
+    base = "//pw_allocator/size_report:unordered_base",
+    label = "UnorderedBucket, which uses IntrusiveForwardList",
+    target = "//pw_allocator/size_report:unordered",
+)
+
+pw_size_table(
+    name = "buckets_size_report",
+    reports = [
+        ":fast_sorted_report",
+        ":sequenced_report",
+        ":sorted_report",
+        ":unordered_report",
+    ],
+)
+
+pw_size_diff(
+    name = "best_fit_size_report",
+    base = "//pw_allocator/size_report:detailed_block",
+    label = "BestFitAllocator",
+    target = "//pw_allocator/size_report:best_fit",
+)
+
+pw_size_diff(
+    name = "bucket_allocator_size_report",
+    base = "//pw_allocator/size_report:detailed_block",
+    label = "BucketAllocator",
+    target = "//pw_allocator/size_report:bucket_allocator",
+)
+
+pw_size_diff(
+    name = "dl_allocator_size_report",
+    base = "//pw_allocator/size_report:detailed_block",
+    label = "DlAllocator",
+    target = "//pw_allocator/size_report:dl_allocator",
+)
+
+pw_size_diff(
+    name = "first_fit_size_report",
+    base = "//pw_allocator/size_report:detailed_block",
+    label = "FirstFitAllocator",
+    target = "//pw_allocator/size_report:first_fit",
+)
+
+pw_size_diff(
+    name = "tlsf_allocator_size_report",
+    base = "//pw_allocator/size_report:detailed_block",
+    label = "TlsfAllocator",
+    target = "//pw_allocator/size_report:tlsf_allocator",
+)
+
+pw_size_diff(
+    name = "worst_fit_size_report",
+    base = "//pw_allocator/size_report:detailed_block",
+    label = "WorstFitAllocator",
+    target = "//pw_allocator/size_report:worst_fit",
+)
+
+pw_size_table(
+    name = "block_allocators_size_report",
+    reports = [
+        ":best_fit_size_report",
+        ":bucket_allocator_size_report",
+        ":dl_allocator_size_report",
+        ":first_fit_size_report",
+        ":tlsf_allocator_size_report",
+        ":worst_fit_size_report",
+    ],
+)
+
+pw_size_diff(
+    name = "buddy_allocator_size_report",
+    base = "//pw_allocator/size_report:base",
+    label = "BuddyAllocator",
+    target = "//pw_allocator/size_report:buddy_allocator",
+)
+
+pw_size_diff(
+    name = "bump_allocator_size_report",
+    base = "//pw_allocator/size_report:base",
+    label = "BumpAllocator",
+    target = "//pw_allocator/size_report:bump_allocator",
+)
+
+pw_size_diff(
+    name = "libc_allocator_size_report",
+    base = "//pw_allocator/size_report:base",
+    label = "LibCAllocator",
+    target = "//pw_allocator/size_report:libc_allocator",
+)
+
+pw_size_table(
+    name = "concrete_allocators_size_report",
+    reports = [
+        ":buddy_allocator_size_report",
+        ":bump_allocator_size_report",
+        ":libc_allocator_size_report",
+    ],
+)
+
+pw_size_diff(
+    name = "fallback_allocator_size_report",
+    base = "//pw_allocator/size_report:best_fit",
+    label = "FallbackAllocator",
+    target = "//pw_allocator/size_report:fallback_allocator",
+)
+
+pw_size_diff(
+    name = "pmr_allocator_size_report",
+    base = "//pw_allocator/size_report:pmr_allocator_base",
+    label = "AsPmrAllocator",
+    target = "//pw_allocator/size_report:pmr_allocator",
+)
+
+pw_size_diff(
+    name = "synchronized_allocator_size_report_isl",
+    base = "//pw_allocator/size_report:best_fit",
+    label = "SynchronizedAllocator<sync::InterruptSpinLock>",
+    target = "//pw_allocator/size_report:synchronized_allocator_isl",
+)
+
+pw_size_diff(
+    name = "synchronized_allocator_size_report_mutex",
+    base = "//pw_allocator/size_report:best_fit",
+    label = "SynchronizedAllocator<sync::Mutex>",
+    target = "//pw_allocator/size_report:synchronized_allocator_mutex",
+)
+
+pw_size_diff(
+    name = "tracking_allocator_size_report_all_metrics",
+    base = "//pw_allocator/size_report:best_fit",
+    label = "TrackingAllocator<AllMetrics>",
+    target = "//pw_allocator/size_report:tracking_allocator_all_metrics",
+)
+
+pw_size_diff(
+    name = "tracking_allocator_size_report_no_metrics",
+    base = "//pw_allocator/size_report:best_fit",
+    label = "TrackingAllocator<NoMetrics>",
+    target = "//pw_allocator/size_report:tracking_allocator_no_metrics",
+)
+
+pw_size_table(
+    name = "forwarding_allocators_size_report",
+    reports = [
+        ":fallback_allocator_size_report",
+        ":pmr_allocator_size_report",
+        ":synchronized_allocator_size_report_isl",
+        ":synchronized_allocator_size_report_mutex",
+        ":tracking_allocator_size_report_all_metrics",
+        ":tracking_allocator_size_report_no_metrics",
+    ],
+)
+
+pw_size_diff(
+    name = "unique_ptr_size_report",
+    base = "//pw_allocator/size_report:first_fit",
+    label = "UniquePtr",
+    # TODO: https://pwbug.dev/388905812 - Implement this size report.
+    tags = ["manual"],
+    target = "//pw_allocator/size_report:unique_ptr",
+)
+
+pw_size_table(
+    name = "allocator_utilities_size_report",
+    reports = [
+        ":unique_ptr_size_report",
+    ],
+    # TODO: https://pwbug.dev/388905812 - Implement this size report.
+    tags = ["manual"],
+)
+
+sphinx_docs_library(
+    name = "docs",
+    srcs = [
+        "api.rst",
+        "code_size.rst",
+        "design.rst",
+        "docs.rst",
+        "guide.rst",
+        ":allocator_api_size_report",
+        ":block_allocators_size_report",
+        ":blocks_size_report",
+        ":buckets_size_report",
+        ":concrete_allocators_size_report",
+        ":forwarding_allocators_size_report",
+        ":hardening_size_report",
+        "//pw_allocator/examples:docs",
+        "//pw_allocator/size_report:docs",
+    ],
+    prefix = "pw_allocator/",
+    target_compatible_with = incompatible_with_mcu(),
+)

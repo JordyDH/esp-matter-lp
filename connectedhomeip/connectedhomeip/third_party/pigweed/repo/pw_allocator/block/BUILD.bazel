@@ -1,0 +1,283 @@
+# Copyright 2024 The Pigweed Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("//pw_unit_test:pw_cc_test.bzl", "pw_cc_test")
+
+package(default_visibility = ["//visibility:public"])
+
+licenses(["notice"])
+
+cc_library(
+    name = "result",
+    hdrs = ["public/pw_allocator/block/result.h"],
+    strip_include_prefix = "public",
+    deps = [
+        "//pw_allocator:hardening",
+        "//pw_assert:assert",
+        "//pw_status",
+    ],
+)
+
+# Block mixins
+
+cc_library(
+    name = "alignable",
+    hdrs = ["public/pw_allocator/block/alignable.h"],
+    strip_include_prefix = "public",
+    deps = [
+        ":allocatable",
+        "//pw_allocator",
+        "//pw_allocator:hardening",
+        "//pw_bytes:alignment",
+        "//pw_status",
+        "//third_party/fuchsia:stdcompat",
+    ],
+)
+
+cc_library(
+    name = "allocatable",
+    hdrs = ["public/pw_allocator/block/allocatable.h"],
+    strip_include_prefix = "public",
+    deps = [
+        ":contiguous",
+        ":result",
+        "//pw_allocator",
+        "//pw_allocator:hardening",
+        "//pw_bytes:alignment",
+        "//pw_status",
+    ],
+)
+
+cc_library(
+    name = "basic",
+    srcs = ["basic.cc"],
+    hdrs = ["public/pw_allocator/block/basic.h"],
+    implementation_deps = ["//pw_assert:check"],
+    strip_include_prefix = "public",
+    deps = [
+        "//pw_allocator:hardening",
+        "//pw_bytes:alignment",
+        "//pw_result",
+        "//pw_status",
+        "//third_party/fuchsia:stdcompat",
+    ],
+)
+
+cc_library(
+    name = "contiguous",
+    srcs = ["contiguous.cc"],
+    hdrs = ["public/pw_allocator/block/contiguous.h"],
+    implementation_deps = ["//pw_assert:check"],
+    strip_include_prefix = "public",
+    deps = [
+        ":basic",
+        "//pw_allocator:hardening",
+        "//pw_bytes",
+        "//third_party/fuchsia:stdcompat",
+    ],
+)
+
+cc_library(
+    name = "iterable",
+    hdrs = ["public/pw_allocator/block/iterable.h"],
+    strip_include_prefix = "public",
+    deps = [
+        ":contiguous",
+    ],
+)
+
+cc_library(
+    name = "poisonable",
+    srcs = ["poisonable.cc"],
+    hdrs = ["public/pw_allocator/block/poisonable.h"],
+    implementation_deps = ["//pw_assert:check"],
+    strip_include_prefix = "public",
+    deps = [
+        ":contiguous",
+        "//pw_allocator:config",
+        "//pw_allocator:hardening",
+        "//third_party/fuchsia:stdcompat",
+    ],
+)
+
+cc_library(
+    name = "with_layout",
+    hdrs = ["public/pw_allocator/block/with_layout.h"],
+    strip_include_prefix = "public",
+    deps = [
+        ":alignable",
+        "//pw_allocator",
+        "//pw_allocator:hardening",
+        "//pw_assert:assert",
+    ],
+)
+
+# Block implementations
+
+cc_library(
+    name = "detailed_block",
+    hdrs = ["public/pw_allocator/block/detailed_block.h"],
+    strip_include_prefix = "public",
+    deps = [
+        ":alignable",
+        ":allocatable",
+        ":basic",
+        ":contiguous",
+        ":iterable",
+        ":poisonable",
+        ":with_layout",
+        "//pw_allocator",
+        "//pw_allocator:hardening",
+        "//pw_assert:assert",
+        "//pw_bytes",
+        "//pw_status",
+    ],
+)
+
+cc_library(
+    name = "small_block_base",
+    hdrs = ["public/pw_allocator/block/small_block_base.h"],
+    features = ["-conversion_warnings"],
+    strip_include_prefix = "public",
+    deps = [
+        ":allocatable",
+        ":basic",
+        ":contiguous",
+        ":iterable",
+        "//pw_allocator/bucket:fast_sorted",
+        "//pw_bytes",
+    ],
+)
+
+cc_library(
+    name = "small_block",
+    hdrs = ["public/pw_allocator/block/small_block.h"],
+    features = ["-conversion_warnings"],
+    strip_include_prefix = "public",
+    deps = [":small_block_base"],
+)
+
+cc_library(
+    name = "small_alignable_block",
+    hdrs = ["public/pw_allocator/block/small_alignable_block.h"],
+    features = ["-conversion_warnings"],
+    strip_include_prefix = "public",
+    deps = [
+        ":alignable",
+        ":small_block_base",
+    ],
+)
+
+cc_library(
+    name = "tiny_block",
+    hdrs = ["public/pw_allocator/block/tiny_block.h"],
+    features = ["-conversion_warnings"],
+    strip_include_prefix = "public",
+    deps = [":small_block_base"],
+)
+
+# Testing
+
+cc_library(
+    name = "testing",
+    testonly = True,
+    hdrs = [
+        "public/pw_allocator/block/testing.h",
+        "public/pw_allocator/block/unit_tests.h",
+    ],
+    features = ["-conversion_warnings"],
+    strip_include_prefix = "public",
+    deps = [
+        ":allocatable",
+        ":result",
+        "//pw_allocator:testing",
+        "//pw_assert:assert",
+        "//pw_bytes:alignment",
+        "//pw_status",
+        "//third_party/fuchsia:stdcompat",
+    ],
+)
+
+pw_cc_test(
+    name = "result_test",
+    srcs = ["result_test.cc"],
+    deps = [
+        ":basic",
+        ":result",
+        "//pw_status",
+    ],
+)
+
+pw_cc_test(
+    name = "detailed_block_test",
+    srcs = ["detailed_block_test.cc"],
+    features = ["-conversion_warnings"],
+    deps = [
+        ":detailed_block",
+        ":testing",
+        "//pw_unit_test",
+    ],
+)
+
+pw_cc_test(
+    name = "small_block_test",
+    srcs = ["small_block_test.cc"],
+    features = ["-conversion_warnings"],
+    deps = [
+        ":small_block",
+        ":testing",
+        "//pw_unit_test",
+    ],
+)
+
+pw_cc_test(
+    name = "small_alignable_block_test",
+    srcs = ["small_alignable_block_test.cc"],
+    features = ["-conversion_warnings"],
+    deps = [
+        ":small_alignable_block",
+        ":testing",
+        "//pw_unit_test",
+    ],
+)
+
+pw_cc_test(
+    name = "tiny_block_test",
+    srcs = ["tiny_block_test.cc"],
+    features = ["-conversion_warnings"],
+    deps = [
+        ":testing",
+        ":tiny_block",
+        "//pw_unit_test",
+    ],
+)
+
+filegroup(
+    name = "doxygen",
+    srcs = [
+        "public/pw_allocator/block/alignable.h",
+        "public/pw_allocator/block/allocatable.h",
+        "public/pw_allocator/block/basic.h",
+        "public/pw_allocator/block/contiguous.h",
+        "public/pw_allocator/block/detailed_block.h",
+        "public/pw_allocator/block/iterable.h",
+        "public/pw_allocator/block/poisonable.h",
+        "public/pw_allocator/block/result.h",
+        "public/pw_allocator/block/small_alignable_block.h",
+        "public/pw_allocator/block/small_block.h",
+        "public/pw_allocator/block/tiny_block.h",
+        "public/pw_allocator/block/with_layout.h",
+    ],
+)
