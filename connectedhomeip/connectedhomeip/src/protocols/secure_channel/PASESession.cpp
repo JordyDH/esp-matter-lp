@@ -48,7 +48,28 @@
 #include <tracing/macros.h>
 #include <transport/SessionManager.h>
 
+// Add necessary header for FreeRTOS
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
+// Define delay time for crypto operations
+#define PASE_CRYPTO_DELAY_MS 250
+
 namespace {
+
+// Helper function to add delays in cryptographic operations
+void AddCryptoDelay(const char* operation)
+{
+    ChipLogProgress(SecureChannel, "Adding delay before crypto operation: %s", operation);
+    vTaskDelay(pdMS_TO_TICKS(PASE_CRYPTO_DELAY_MS));
+}
+
+// Helper function to add delays between protocol steps
+void AddProtocolDelay(const char* step)
+{
+    ChipLogProgress(SecureChannel, "Adding delay between protocol steps: %s", step);
+    vTaskDelay(pdMS_TO_TICKS(PASE_CRYPTO_DELAY_MS));
+}
 
 enum class PBKDFParamRequestTags : uint8_t
 {
@@ -199,7 +220,10 @@ CHIP_ERROR PASESession::SetupSpake2p()
     MutableByteSpan contextSpan{ context };
 
     ReturnErrorOnFailure(mCommissioningHash.Finish(contextSpan));
+    
+    AddCryptoDelay("Spake2+ initialization");
     ReturnErrorOnFailure(mSpake2p.Init(contextSpan.data(), contextSpan.size()));
+    ChipLogProgress(SecureChannel, "Completed Spake2+ initialization");
 
     return CHIP_NO_ERROR;
 }
@@ -271,6 +295,7 @@ CHIP_ERROR PASESession::Pair(SessionManager & sessionManager, uint32_t peerSetUp
 
     mLocalMRPConfig = MakeOptional(mrpLocalConfig.ValueOr(GetDefaultMRPConfig()));
 
+    AddProtocolDelay("before sending PBKDF param request");
     err = SendPBKDFParamRequest();
     SuccessOrExit(err);
 
@@ -347,7 +372,9 @@ CHIP_ERROR PASESession::SendPBKDFParamRequest()
 
     VerifyOrReturnError(GetLocalSessionId().HasValue(), CHIP_ERROR_INCORRECT_STATE);
 
+    AddCryptoDelay("random number generation for PBKDF param request");
     ReturnErrorOnFailure(DRBG_get_bytes(mPBKDFLocalRandomData, sizeof(mPBKDFLocalRandomData)));
+    ChipLogProgress(SecureChannel, "Completed random number generation for PBKDF param request");
 
     const size_t max_msg_len = TLV::EstimateStructOverhead(kPBKDFParamRandomNumberSize,         // initiatorRandom,
                                                            sizeof(uint16_t),                    // initiatorSessionId
@@ -381,6 +408,8 @@ CHIP_ERROR PASESession::SendPBKDFParamRequest()
     // Update commissioning hash with the pbkdf2 param request that's being sent.
     ReturnErrorOnFailure(mCommissioningHash.AddData(ByteSpan{ req->Start(), req->DataLength() }));
 
+    // New delay before sending
+    AddProtocolDelay("before sending PBKDF param request");
     ReturnErrorOnFailure(mExchangeCtxt.Value()->SendMessage(MsgType::PBKDFParamRequest, std::move(req),
                                                             SendFlags(SendMessageFlags::kExpectResponse)));
 
@@ -447,6 +476,8 @@ CHIP_ERROR PASESession::HandlePBKDFParamRequest(System::PacketBufferHandle && ms
     // ExitContainer() will return CHIP_END_OF_TLV if the EndOfContainer TLV element terminator is missing.
     SuccessOrExit(err = tlvReader.ExitContainer(containerType));
 
+    // Add delay between PBKDF processing and response
+    AddProtocolDelay("between PBKDF processing and response");
     err = SendPBKDFParamResponse(ByteSpan(initiatorRandom), hasPBKDFParameters);
     SuccessOrExit(err);
 
@@ -467,7 +498,9 @@ CHIP_ERROR PASESession::SendPBKDFParamResponse(ByteSpan initiatorRandom, bool in
 
     VerifyOrReturnError(GetLocalSessionId().HasValue(), CHIP_ERROR_INCORRECT_STATE);
 
+    AddCryptoDelay("random number generation for PBKDF param response");
     ReturnErrorOnFailure(DRBG_get_bytes(mPBKDFLocalRandomData, sizeof(mPBKDFLocalRandomData)));
+    ChipLogProgress(SecureChannel, "Completed random number generation for PBKDF param response");
 
     const size_t max_msg_len =
         TLV::EstimateStructOverhead(kPBKDFParamRandomNumberSize,                                // initiatorRandom
@@ -510,8 +543,12 @@ CHIP_ERROR PASESession::SendPBKDFParamResponse(ByteSpan initiatorRandom, bool in
 
     // Update commissioning hash with the pbkdf2 param response that's being sent.
     ReturnErrorOnFailure(mCommissioningHash.AddData(ByteSpan{ resp->Start(), resp->DataLength() }));
+    
+    AddCryptoDelay("Spake2p setup in SendPBKDFParamResponse");
     ReturnErrorOnFailure(SetupSpake2p());
+    ChipLogProgress(SecureChannel, "Completed Spake2p setup in SendPBKDFParamResponse");
 
+    AddProtocolDelay("before sending PBKDF param response");
     ReturnErrorOnFailure(mExchangeCtxt.Value()->SendMessage(MsgType::PBKDFParamResponse, std::move(resp),
                                                             SendFlags(SendMessageFlags::kExpectResponse)));
     ChipLogDetail(SecureChannel, "Sent PBKDF param response");
@@ -599,16 +636,23 @@ CHIP_ERROR PASESession::HandlePBKDFParamResponse(System::PacketBufferHandle && m
     // ExitContainer() will return CHIP_END_OF_TLV if the EndOfContainer TLV element terminator is missing.
     SuccessOrExit(err = tlvReader.ExitContainer(containerType));
 
+    AddCryptoDelay("PBKDF and Spake2p setup");
     err = SetupSpake2p();
     SuccessOrExit(err);
+    ChipLogProgress(SecureChannel, "Completed PBKDF and Spake2p setup");
 
+    AddCryptoDelay("WS computation");
     err = Spake2pVerifier::ComputeWS(mIterationCount, salt, mSetupPINCode, serializedWS, sizeof(serializedWS));
     SuccessOrExit(err);
+    ChipLogProgress(SecureChannel, "Completed WS computation");
 
+    AddCryptoDelay("Spake2p prover setup");
     err = mSpake2p.BeginProver(nullptr, 0, nullptr, 0, &serializedWS[0], kSpake2p_WS_Length, &serializedWS[kSpake2p_WS_Length],
                                kSpake2p_WS_Length);
     SuccessOrExit(err);
+    ChipLogProgress(SecureChannel, "Completed Spake2p prover setup");
 
+    AddProtocolDelay("before sending Pake1 message");
     err = SendMsg1();
     SuccessOrExit(err);
 
@@ -636,12 +680,16 @@ CHIP_ERROR PASESession::SendMsg1()
     uint8_t X[kMAX_Point_Length];
     size_t X_len = sizeof(X);
 
+    AddCryptoDelay("Spake2p ComputeRoundOne for initiator");
     ReturnErrorOnFailure(mSpake2p.ComputeRoundOne(nullptr, 0, X, &X_len));
+    ChipLogProgress(SecureChannel, "Completed Spake2p ComputeRoundOne for initiator");
+    
     VerifyOrReturnError(X_len == sizeof(X), CHIP_ERROR_INTERNAL);
     ReturnErrorOnFailure(tlvWriter.Put(AsTlvContextTag(Pake1Tags::kPa), ByteSpan(X)));
     ReturnErrorOnFailure(tlvWriter.EndContainer(outerContainerType));
     ReturnErrorOnFailure(tlvWriter.Finalize(&msg));
 
+    AddProtocolDelay("before sending Pake1 message");
     ReturnErrorOnFailure(
         mExchangeCtxt.Value()->SendMessage(MsgType::PASE_Pake1, std::move(msg), SendFlags(SendMessageFlags::kExpectResponse)));
     ChipLogDetail(SecureChannel, "Sent spake2p msg1");
@@ -682,12 +730,21 @@ CHIP_ERROR PASESession::HandleMsg1_and_SendMsg2(System::PacketBufferHandle && ms
 
     SuccessOrExit(err = tlvReader.ExitContainer(containerType));
 
+    AddCryptoDelay("Spake2p verifier setup");
     SuccessOrExit(err = mSpake2p.BeginVerifier(nullptr, 0, nullptr, 0, mPASEVerifier.mW0, kP256_FE_Length, mPASEVerifier.mL,
                                                kP256_Point_Length));
+    ChipLogProgress(SecureChannel, "Completed Spake2p verifier setup");
 
+    AddCryptoDelay("Spake2p ComputeRoundOne for responder");
     SuccessOrExit(err = mSpake2p.ComputeRoundOne(X, X_len, Y, &Y_len));
+    ChipLogProgress(SecureChannel, "Completed Spake2p ComputeRoundOne for responder");
+    
     VerifyOrReturnError(Y_len == sizeof(Y), CHIP_ERROR_INTERNAL);
+    
+    AddCryptoDelay("Spake2p ComputeRoundTwo");
     SuccessOrExit(err = mSpake2p.ComputeRoundTwo(X, X_len, verifier, &verifier_len));
+    ChipLogProgress(SecureChannel, "Completed Spake2p ComputeRoundTwo");
+    
     msg1 = nullptr;
 
     {
@@ -706,6 +763,7 @@ CHIP_ERROR PASESession::HandleMsg1_and_SendMsg2(System::PacketBufferHandle && ms
         SuccessOrExit(err = tlvWriter.EndContainer(outerContainerType));
         SuccessOrExit(err = tlvWriter.Finalize(&msg2));
 
+        AddProtocolDelay("before sending Pake2 message");
         err =
             mExchangeCtxt.Value()->SendMessage(MsgType::PASE_Pake2, std::move(msg2), SendFlags(SendMessageFlags::kExpectResponse));
         SuccessOrExit(err);
@@ -766,9 +824,14 @@ CHIP_ERROR PASESession::HandleMsg2_and_SendMsg3(System::PacketBufferHandle && ms
     // ExitContainer() will return CHIP_END_OF_TLV if the EndOfContainer TLV element terminator is missing.
     SuccessOrExit(err = tlvReader.ExitContainer(containerType));
 
+    AddCryptoDelay("Spake2p ComputeRoundTwo in HandleMsg2");
     SuccessOrExit(err = mSpake2p.ComputeRoundTwo(Y, Y_len, verifier, &verifier_len));
+    ChipLogProgress(SecureChannel, "Completed Spake2p ComputeRoundTwo in HandleMsg2");
 
+    AddCryptoDelay("Spake2p KeyConfirm for peer verifier");
     SuccessOrExit(err = mSpake2p.KeyConfirm(peer_verifier, peer_verifier_len));
+    ChipLogProgress(SecureChannel, "Completed Spake2p KeyConfirm for peer verifier");
+    
     msg2 = nullptr;
 
     {
@@ -786,6 +849,7 @@ CHIP_ERROR PASESession::HandleMsg2_and_SendMsg3(System::PacketBufferHandle && ms
         SuccessOrExit(err = tlvWriter.EndContainer(outerContainerType));
         SuccessOrExit(err = tlvWriter.Finalize(&msg3));
 
+        AddProtocolDelay("before sending Pake3 message");
         err =
             mExchangeCtxt.Value()->SendMessage(MsgType::PASE_Pake3, std::move(msg3), SendFlags(SendMessageFlags::kExpectResponse));
         SuccessOrExit(err);
@@ -834,11 +898,15 @@ CHIP_ERROR PASESession::HandleMsg3(System::PacketBufferHandle && msg)
     // ExitContainer() will return CHIP_END_OF_TLV if the EndOfContainer TLV element terminator is missing.
     SuccessOrExit(err = tlvReader.ExitContainer(containerType));
 
+    AddCryptoDelay("Spake2p KeyConfirm in HandleMsg3");
     SuccessOrExit(err = mSpake2p.KeyConfirm(peer_verifier, peer_verifier_len));
+    ChipLogProgress(SecureChannel, "Completed Spake2p KeyConfirm in HandleMsg3");
 
     // Send confirmation to peer that we succeeded so they can start using the session.
+    AddProtocolDelay("before sending success status report");
     SendStatusReport(mExchangeCtxt, kProtocolCodeSuccess);
 
+    AddProtocolDelay("before finalizing session in HandleMsg3");
     Finish();
 exit:
 
@@ -851,6 +919,7 @@ exit:
 
 void PASESession::OnSuccessStatusReport()
 {
+    AddProtocolDelay("before finalizing session in OnSuccessStatusReport");
     Finish();
 }
 
@@ -924,6 +993,9 @@ CHIP_ERROR PASESession::OnMessageReceived(ExchangeContext * exchange, const Payl
     MsgType msgType = static_cast<MsgType>(payloadHeader.GetMessageType());
     SuccessOrExit(err);
 
+    // Add delay before processing new message
+    AddProtocolDelay("before processing incoming message");
+
 #if CHIP_CONFIG_SLOW_CRYPTO
     if (msgType == MsgType::PBKDFParamRequest || msgType == MsgType::PBKDFParamResponse || msgType == MsgType::PASE_Pake1 ||
         msgType == MsgType::PASE_Pake2 || msgType == MsgType::PASE_Pake3)
@@ -935,26 +1007,32 @@ CHIP_ERROR PASESession::OnMessageReceived(ExchangeContext * exchange, const Payl
     switch (msgType)
     {
     case MsgType::PBKDFParamRequest:
+        AddProtocolDelay("before handling PBKDFParamRequest");
         err = HandlePBKDFParamRequest(std::move(msg));
         break;
 
     case MsgType::PBKDFParamResponse:
+        AddProtocolDelay("before handling PBKDFParamResponse");
         err = HandlePBKDFParamResponse(std::move(msg));
         break;
 
     case MsgType::PASE_Pake1:
+        AddProtocolDelay("before handling PASE_Pake1");
         err = HandleMsg1_and_SendMsg2(std::move(msg));
         break;
 
     case MsgType::PASE_Pake2:
+        AddProtocolDelay("before handling PASE_Pake2");
         err = HandleMsg2_and_SendMsg3(std::move(msg));
         break;
 
     case MsgType::PASE_Pake3:
+        AddProtocolDelay("before handling PASE_Pake3");
         err = HandleMsg3(std::move(msg));
         break;
 
     case MsgType::StatusReport:
+        AddProtocolDelay("before handling StatusReport");
         err =
             HandleStatusReport(std::move(msg), mNextExpectedMsg.HasValue() && (mNextExpectedMsg.Value() == MsgType::StatusReport));
         break;

@@ -499,19 +499,53 @@ CHIP_ERROR ESPWiFiDriver::StartScanWiFiNetworks(ByteSpan ssid)
     vTaskDelay(pdMS_TO_TICKS(1000));
     ChipLogProgress(DeviceLayer, "ONEDGE - Delay 1000ms - STOP");
     esp_err_t err = ESP_OK;
-    ESP_LOGI(TAG, "WIFI SCAN CALLED - PATCH HERE");
+    //ESP_LOGI(TAG, "WIFI SCAN CALLED - PATCH HERE");
     
-    // If an SSID is provided, use standard single scan
-    if (!ssid.empty())
-    {
-        ESP_LOGI(TAG, "%s", ssid.data());
-        wifi_scan_config_t scan_config = { 0 };
-        memset(WiFiSSIDStr, 0, sizeof(WiFiSSIDStr));
-        memcpy(WiFiSSIDStr, ssid.data(), ssid.size());
-        scan_config.ssid = WiFiSSIDStr;
-        err = esp_wifi_scan_start(&scan_config, false);
+    // If an SSID is provided, first check if it's already in our known AP list
+    if (!ssid.empty() && mScanResultCount > 0) {
+        ChipLogProgress(DeviceLayer, "Checking existing scan results for SSID: %.*s", 
+                       static_cast<int>(ssid.size()), ssid.data());
+        
+        for (uint16_t i = 0; i < mScanResultCount; i++) {
+            size_t apSsidLen = strnlen(reinterpret_cast<const char*>(mScanResultsBuffer[i].ssid), 
+                                      sizeof(mScanResultsBuffer[i].ssid));
+            if (apSsidLen == ssid.size() && 
+                memcmp(mScanResultsBuffer[i].ssid, ssid.data(), ssid.size()) == 0) {
+                
+                // Found the target SSID in existing results
+                ChipLogProgress(DeviceLayer, "Target SSID found in existing scan results!");
+                ChipLogProgress(DeviceLayer, "  SSID=\"%.*s\", Ch=%d, RSSI=%d, Auth=%d", 
+                               static_cast<int>(ssid.size()), ssid.data(),
+                               mScanResultsBuffer[i].primary, 
+                               mScanResultsBuffer[i].rssi,
+                               mScanResultsBuffer[i].authmode);
+                
+                // Since we found it in cache, we need to notify that the "scan" is complete
+                // Schedule OnScanWiFiNetworkDone to be called on the Matter event loop
+                chip::DeviceLayer::SystemLayer().ScheduleWork([](chip::System::Layer *, void * context) {
+                    auto * driver = static_cast<ESPWiFiDriver *>(context);
+                    driver->OnScanWiFiNetworkDone();
+                }, this);
+                
+                return CHIP_NO_ERROR;
+            }
+        }
+        
+        ChipLogProgress(DeviceLayer, "Target SSID not found in existing results, proceeding with scan");
     }
-    else
+    
+//Bypass the ssid scan and use chunked scan
+//    // If an SSID is provided, use standard single scan
+//    if (!ssid.empty())
+//    {
+//        ESP_LOGI(TAG, "%s", ssid.data());
+//        wifi_scan_config_t scan_config = { 0 };
+//        memset(WiFiSSIDStr, 0, sizeof(WiFiSSIDStr));
+//        memcpy(WiFiSSIDStr, ssid.data(), ssid.size());
+//        scan_config.ssid = WiFiSSIDStr;
+//        err = esp_wifi_scan_start(&scan_config, false);
+//    }
+//    else
     {
         ESP_LOGI(TAG, "NO SSID PROVIDED - Using chunked scan");
         
@@ -520,6 +554,7 @@ CHIP_ERROR ESPWiFiDriver::StartScanWiFiNetworks(ByteSpan ssid)
         constexpr uint8_t kChunksCount = 3;         // Number of chunks to divide scanning into
         constexpr uint8_t kChannelsPerChunk = 5;    // Approximate channels per chunk
         constexpr uint16_t kRechargePauseMs = 1000; // Pause between chunks
+        constexpr uint8_t kScansPerChunk = 2;       // Number of times to scan each chunk
 
         // Reset our results buffer
         mScanResultCount = 0;
@@ -541,32 +576,56 @@ CHIP_ERROR ESPWiFiDriver::StartScanWiFiNetworks(ByteSpan ssid)
                 break; // We've covered all channels
             }
             
-            ChipLogProgress(DeviceLayer, "Starting scan chunk %d/%d on channel %d", 
-                            chunk+1, kChunksCount, channel);
+            ChipLogProgress(DeviceLayer, "Starting scan chunk %d/%d on channel %d (%d scans per chunk)", 
+                            chunk+1, kChunksCount, channel, kScansPerChunk);
             
             // Configure scan for just this channel
             wifi_scan_config_t scan_config = { 0 };
             scan_config.channel = channel;
             
-            // Start scan for this channel in blocking mode
-            err = esp_wifi_scan_start(&scan_config, true);
-            if (err != ESP_OK) {
-                ChipLogError(DeviceLayer, "Failed to start scan for chunk %d: %s", 
-                           chunk, esp_err_to_name(err));
-                continue; // Try next chunk
-            }
+            // Scan settings for better detection
+            scan_config.scan_type = WIFI_SCAN_TYPE_ACTIVE;
+            wifi_scan_time_t scan_time = { 0 };
             
-            // Immediately process results from this chunk
+            // Perform multiple scans per chunk
+            for (uint8_t scan_count = 0; scan_count < kScansPerChunk; scan_count++) {
+                ChipLogProgress(DeviceLayer, "  Scan %d/%d for chunk %d on channel %d", 
+                               scan_count+1, kScansPerChunk, chunk+1, channel);
+                
+                // Start scan for this channel in blocking mode
+                err = esp_wifi_scan_start(&scan_config, true);
+                if (err != ESP_OK) {
+                    ChipLogError(DeviceLayer, "Failed to start scan %d for chunk %d: %s", 
+                               scan_count+1, chunk+1, esp_err_to_name(err));
+                    continue; // Try next scan
+                }
+                
+                // Immediately process results from this scan
+                uint16_t ap_count = 0;
+                err = esp_wifi_scan_get_ap_num(&ap_count);
+                if (err != ESP_OK) {
+                    ChipLogError(DeviceLayer, "Failed to get AP count for scan %d of chunk %d: %s", 
+                               scan_count+1, chunk+1, esp_err_to_name(err));
+                    ap_count = 0;
+                }
+                
+                // If this isn't the last scan for this chunk, add a small pause
+                if (scan_count < kScansPerChunk - 1) {
+                    ChipLogProgress(DeviceLayer, "  Pausing between scans for channel %d", channel);
+                    vTaskDelay(pdMS_TO_TICKS(kRechargePauseMs)); // 1000ms pause between scans of same channel
+                }
+            }
+            // After all scans for this chunk are complete, process the results
             uint16_t ap_count = 0;
             err = esp_wifi_scan_get_ap_num(&ap_count);
             if (err != ESP_OK) {
-                ChipLogError(DeviceLayer, "Failed to get AP count for chunk %d: %s", 
-                           chunk, esp_err_to_name(err));
+                ChipLogError(DeviceLayer, "Failed to get final AP count for chunk %d: %s", 
+                           chunk+1, esp_err_to_name(err));
                 ap_count = 0;
             }
             
             if (ap_count > 0) {
-                ChipLogProgress(DeviceLayer, "Found %d APs in chunk %d", ap_count, chunk+1);
+                ChipLogProgress(DeviceLayer, "Found %d APs in chunk %d after %d scans", ap_count, chunk+1, kScansPerChunk);
                 
                 // Allocate temporary buffer for this chunk's results
                 wifi_ap_record_t* temp_records = static_cast<wifi_ap_record_t*>(
@@ -618,7 +677,7 @@ CHIP_ERROR ESPWiFiDriver::StartScanWiFiNetworks(ByteSpan ssid)
                         }
                     } else {
                         ChipLogError(DeviceLayer, "Failed to get scan records for chunk %d: %s", 
-                                   chunk, esp_err_to_name(err));
+                                   chunk+1, esp_err_to_name(err));
                     }
                     
                     // Clean up temporary buffer
@@ -627,7 +686,32 @@ CHIP_ERROR ESPWiFiDriver::StartScanWiFiNetworks(ByteSpan ssid)
             }
             
             // Pause after scan chunk to allow power system to recharge
-            ChipLogProgress(DeviceLayer, "Pausing after scan chunks for power recharge");
+
+            
+            // Check if we should stop early when looking for a specific SSID
+            if (!ssid.empty() && mScanResultCount > 0) {
+                bool targetFound = false;
+                for (uint16_t i = 0; i < mScanResultCount; i++) {
+                    // Check if this AP's SSID matches our target
+                    size_t apSsidLen = strnlen(reinterpret_cast<const char*>(mScanResultsBuffer[i].ssid), 
+                                               sizeof(mScanResultsBuffer[i].ssid));
+                    if (apSsidLen == ssid.size() && 
+                        memcmp(mScanResultsBuffer[i].ssid, ssid.data(), ssid.size()) == 0) {
+                        targetFound = true;
+                        ChipLogProgress(DeviceLayer, "Target SSID found in chunk %d, stopping scan early", chunk+1);
+                        ChipLogProgress(DeviceLayer, "Found target: SSID=\"%.*s\", Ch=%d, RSSI=%d", 
+                                       static_cast<int>(ssid.size()), ssid.data(),
+                                       mScanResultsBuffer[i].primary, mScanResultsBuffer[i].rssi);
+                        break;
+                    }
+                }
+                
+                if (targetFound) {
+                    ChipLogProgress(DeviceLayer, "Early stop: Target SSID found, skipping remaining chunks");
+                    break; // Exit the chunk loop early
+                }
+            }
+            ChipLogProgress(DeviceLayer, "Pausing after scan chunk %d for power recharge", chunk+1);
             vTaskDelay(pdMS_TO_TICKS(kRechargePauseMs));
         }
         

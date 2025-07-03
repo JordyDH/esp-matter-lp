@@ -34,7 +34,11 @@
 
 #include "esp_event.h"
 #include "esp_netif.h"
+#include "esp_sleep.h"
 #include "esp_wifi.h"
+#include "esp_pm.h"
+
+#include <string.h>
 
 #include <lwip/dns.h>
 #include <lwip/ip_addr.h>
@@ -46,10 +50,13 @@
 #include "freertos/task.h"
 
 #define IP_EVENT_GOT_IP6_DELAY 0
-#define WIFI_CONNECT_DELAY 10000
+#define WIFI_CONNECT_DELAY 5000
 
 // Flag to ensure delay only happens once during entire runtime
 static bool sWifiDelayDone = false;
+
+// Static handler for delayed WiFi connection - forward declaration no longer needed since it's now in the class
+// static void DriveStationStateAfterDelayHandler(::chip::System::Layer * aLayer, void * aAppState);
 
 #if CHIP_DEVICE_CONFIG_ENABLE_WIFI
 
@@ -567,6 +574,52 @@ void ConnectivityManagerImpl::_OnWiFiStationProvisionChange()
     DeviceLayer::SystemLayer().ScheduleWork(DriveStationState, NULL);
 }
 
+// Implementation of DriveStationStateAfterDelay as a class method
+void ConnectivityManagerImpl::DriveStationStateAfterDelay()
+{
+    ChipLogProgress(DeviceLayer, "ONEDGE - WIFI CONNECT - delay complete, continuing connection");
+    
+    // Print runtime stats after delay to see what consumed CPU time
+    #if configGENERATE_RUN_TIME_STATS
+    {
+        char *pcWriteBuffer = (char*)malloc(2048);
+        if (pcWriteBuffer != NULL) {
+            ChipLogProgress(DeviceLayer, "=== Task Runtime Stats After WiFi Delay ===");
+            vTaskGetRunTimeStats(pcWriteBuffer);
+            // Print line by line to avoid log buffer overflow
+            char *line = strtok(pcWriteBuffer, "\n");
+            while (line != NULL) {
+                ChipLogProgress(DeviceLayer, "%s", line);
+                line = strtok(NULL, "\n");
+            }
+            ChipLogProgress(DeviceLayer, "============================================");
+            free(pcWriteBuffer);
+        }
+    }
+    #endif
+    
+    ChipLogProgress(DeviceLayer, "ONEDGE - WIFI CONNECT - proceeding with connection");
+    
+    // Set flag to true so we never do this delay again
+    sWifiDelayDone = true;
+    
+    // Connection code
+    esp_err_t err = esp_wifi_connect();
+    if (err != ESP_OK)
+    {
+        ChipLogError(DeviceLayer, "esp_wifi_connect() failed: %s", esp_err_to_name(err));
+        return;
+    }
+
+    ChangeWiFiStationState(kWiFiStationState_Connecting);
+}
+
+// Implementation of static handler as a class method
+void ConnectivityManagerImpl::DriveStationStateAfterDelayHandler(::chip::System::Layer * aLayer, void * aAppState)
+{
+    ConnectivityMgrImpl().DriveStationStateAfterDelay();
+}
+
 void ConnectivityManagerImpl::DriveStationState()
 {
     bool stationConnected;
@@ -659,31 +712,65 @@ void ConnectivityManagerImpl::DriveStationState()
                 // Only apply delay once during entire runtime
                 if (!sWifiDelayDone)
                 {
-                    ChipLogProgress(DeviceLayer, "ONEDGE - WIFI CONNECT - delay %d ms - START", WIFI_CONNECT_DELAY);
-                    vTaskDelay(pdMS_TO_TICKS(WIFI_CONNECT_DELAY));
-                    ChipLogProgress(DeviceLayer, "ONEDGE - WIFI CONNECT - delay %d ms - END", WIFI_CONNECT_DELAY);
+                    ChipLogProgress(DeviceLayer, "ONEDGE - WIFI CONNECT - scheduling connection after %d ms", WIFI_CONNECT_DELAY);
                     
-                    // Set flag to true so we never do this delay again
-                    sWifiDelayDone = true;
+                    // Print runtime stats before delay to analyze CPU usage
+                    #if configGENERATE_RUN_TIME_STATS
+                    {
+                        char *pcWriteBuffer = (char*)malloc(2048);
+                        if (pcWriteBuffer != NULL) {
+                            ChipLogProgress(DeviceLayer, "=== Task Runtime Stats Before WiFi Delay ===");
+                            vTaskGetRunTimeStats(pcWriteBuffer);
+                            // Print line by line to avoid log buffer overflow
+                            char *line = strtok(pcWriteBuffer, "\n");
+                            while (line != NULL) {
+                                ChipLogProgress(DeviceLayer, "%s", line);
+                                line = strtok(NULL, "\n");
+                            }
+                            ChipLogProgress(DeviceLayer, "=============================================");
+                            free(pcWriteBuffer);
+                        }
+                    }
+                    #else
+                    ChipLogProgress(DeviceLayer, "Runtime stats not enabled. Enable configGENERATE_RUN_TIME_STATS in sdkconfig");
+                    #endif
+                    
+                    // Schedule the connection to happen after the delay - non-blocking
+                    CHIP_ERROR scheduleError = DeviceLayer::SystemLayer().StartTimer(
+                        System::Clock::Milliseconds32(WIFI_CONNECT_DELAY), 
+                        DriveStationStateAfterDelayHandler, 
+                        NULL);
+                    
+                    if (scheduleError != CHIP_NO_ERROR)
+                    {
+                        ChipLogError(DeviceLayer, "Failed to schedule delayed WiFi connection: %" CHIP_ERROR_FORMAT, scheduleError.Format());
+                        // Fall back to immediate connection if scheduling fails
+                        sWifiDelayDone = true;
+                        esp_err_t err = esp_wifi_connect();
+                        if (err != ESP_OK)
+                        {
+                            ChipLogError(DeviceLayer, "esp_wifi_connect() failed: %s", esp_err_to_name(err));
+                            return;
+                        }
+                        ChangeWiFiStationState(kWiFiStationState_Connecting);
+                    }
+                    
+                    return; // Exit function to avoid immediate connection
                 }
                 else
                 {
                     ChipLogProgress(DeviceLayer, "Delay already done once, skipping");
+                    
+                    // Proceed with connection immediately
+                    esp_err_t err = esp_wifi_connect();
+                    if (err != ESP_OK)
+                    {
+                        ChipLogError(DeviceLayer, "esp_wifi_connect() failed: %s", esp_err_to_name(err));
+                        return;
+                    }
+                    
+                    ChangeWiFiStationState(kWiFiStationState_Connecting);
                 }
-
-                esp_err_t err = esp_wifi_connect();
-                if (err != ESP_OK)
-                {
-                    ChipLogError(DeviceLayer, "esp_wifi_connect() failed: %s", esp_err_to_name(err));
-
-                    //ChipLogProgress(DeviceLayer, "ONEDGE - WIFI FAILED - delay %d ms - START", WIFI_CONNECT_DELAY);
-                    //vTaskDelay(pdMS_TO_TICKS(WIFI_CONNECT_DELAY));
-                    //ChipLogProgress(DeviceLayer, "ONEDGE - WIFI FAILED - delay %d ms - END", WIFI_CONNECT_DELAY);          
-
-                    return;
-                }
-
-                ChangeWiFiStationState(kWiFiStationState_Connecting);
             }
 
             // Otherwise arrange another connection attempt at a suitable point in the future.

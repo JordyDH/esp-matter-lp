@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#git rev-parse --show-toplevel#!/usr/bin/env bash
 
 set -e
 

@@ -140,6 +140,10 @@ private:
     void ChangeWiFiStationState(WiFiStationState newState);
     static void DriveStationState(::chip::System::Layer * aLayer, void * aAppState);
 
+    // New function for delayed WiFi connection
+    void DriveStationStateAfterDelay(void);
+    static void DriveStationStateAfterDelayHandler(::chip::System::Layer * aLayer, void * aAppState);
+
 #if CHIP_DEVICE_CONFIG_ENABLE_WIFI_AP
     WiFiAPMode _GetWiFiAPMode(void);
     CHIP_ERROR _SetWiFiAPMode(WiFiAPMode val);

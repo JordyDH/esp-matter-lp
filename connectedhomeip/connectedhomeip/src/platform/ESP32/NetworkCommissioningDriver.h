@@ -153,6 +153,9 @@ public:
 
     CHIP_ERROR SetLastDisconnectReason(const ChipDeviceEvent * event);
     uint16_t GetLastDisconnectReason();
+    
+    // Moved from private to allow direct WiFi scanning
+    CHIP_ERROR StartScanWiFiNetworks(ByteSpan ssid);
 
     static ESPWiFiDriver & GetInstance()
     {
@@ -162,7 +165,6 @@ public:
 
 private:
     bool NetworkMatch(const WiFiNetwork & network, ByteSpan networkId);
-    CHIP_ERROR StartScanWiFiNetworks(ByteSpan ssid);
     CHIP_ERROR BackupConfiguration();
 
     WiFiNetwork mStagingNetwork;

@@ -36,6 +36,13 @@
 #include <stdint.h>
 #include <string.h>
 
+// Add necessary header for FreeRTOS
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
+// Define delay time for crypto operations
+#define CRYPTO_DELAY_MS 50
+
 using chip::ByteSpan;
 using chip::MutableByteSpan;
 using chip::Encoding::BufferWriter;
@@ -46,6 +53,13 @@ using namespace chip::ASN1;
 namespace chip {
 namespace Crypto {
 namespace {
+
+// Helper function to add delays in cryptographic operations
+void AddCryptoDelay(const char* operation)
+{
+    ChipLogProgress(SecureChannel, "Adding delay before crypto operation: %s", operation);
+    vTaskDelay(pdMS_TO_TICKS(CRYPTO_DELAY_MS));
+}
 
 constexpr uint8_t kIntegerTag         = 0x02u;
 constexpr uint8_t kSeqTag             = 0x30u;
@@ -185,7 +199,8 @@ CHIP_ERROR Find16BitUpperCaseHexAfterPrefix(const ByteSpan & buffer, const char 
     // Scan string from left to right, to find the desired full matching substring.
     //
     // IMPORTANT NOTE: We are trying to find the equivalent of prefix + [0-9A-F]{4}.
-    // The appearance of the full prefix, but not followed by the hex value, must
+    // The appearance of the full prefix, but not followed by the hex
+    // value, must
     // be detected, as it is illegal if there isn't a valid prefix within the string.
     // This is why we first check for the prefix and then maybe check for the hex
     // value, rather than doing a single check of making sure there is enough space
@@ -356,6 +371,7 @@ CHIP_ERROR Spake2p::ComputeRoundOne(const uint8_t * pab, size_t pab_len, uint8_t
     VerifyOrExit(state == CHIP_SPAKE2P_STATE::STARTED, error = CHIP_ERROR_INTERNAL);
     VerifyOrExit(*out_len >= point_size, error = CHIP_ERROR_INTERNAL);
 
+    AddCryptoDelay("Spake2p key generation");
     ReturnErrorOnFailure(FEGenerate(xy));
 
     if (role == CHIP_SPAKE2P_ROLE::PROVER)
@@ -371,6 +387,7 @@ CHIP_ERROR Spake2p::ComputeRoundOne(const uint8_t * pab, size_t pab_len, uint8_t
     VerifyOrExit(MN != nullptr, error = CHIP_ERROR_INTERNAL);
     VerifyOrExit(XY != nullptr, error = CHIP_ERROR_INTERNAL);
 
+    AddCryptoDelay("Spake2p point multiplication");
     SuccessOrExit(error = PointAddMul(XY, G, xy, MN, w0));
     SuccessOrExit(error = PointWrite(XY, out, *out_len));
 
@@ -417,20 +434,27 @@ CHIP_ERROR Spake2p::ComputeRoundTwo(const uint8_t * in, size_t in_len, uint8_t *
     VerifyOrExit(MN != nullptr, error = CHIP_ERROR_INTERNAL);
     VerifyOrExit(XY != nullptr, error = CHIP_ERROR_INTERNAL);
 
+    AddCryptoDelay("Spake2p point loading");
     SuccessOrExit(error = PointLoad(in, in_len, XY));
     SuccessOrExit(error = PointIsValid(XY));
+    
+    AddCryptoDelay("Spake2p field multiplication");
     SuccessOrExit(error = FEMul(tempbn, xy, w0));
     SuccessOrExit(error = PointInvert(MN));
+    
+    AddCryptoDelay("Spake2p point operations");
     SuccessOrExit(error = PointAddMul(Z, XY, xy, MN, tempbn));
     SuccessOrExit(error = PointCofactorMul(Z));
 
     if (role == CHIP_SPAKE2P_ROLE::PROVER)
     {
+        AddCryptoDelay("Spake2p prover calculations");
         SuccessOrExit(error = FEMul(tempbn, w1, w0));
         SuccessOrExit(error = PointAddMul(V, XY, w1, MN, tempbn));
     }
     else if (role == CHIP_SPAKE2P_ROLE::VERIFIER)
     {
+        AddCryptoDelay("Spake2p verifier calculations");
         SuccessOrExit(error = PointMul(V, L, xy));
     }
 
@@ -444,8 +468,10 @@ CHIP_ERROR Spake2p::ComputeRoundTwo(const uint8_t * in, size_t in_len, uint8_t *
     SuccessOrExit(error = FEWrite(w0, point_buffer, fe_size));
     SuccessOrExit(error = InternalHash(point_buffer, fe_size));
 
+    AddCryptoDelay("Spake2p key generation");
     SuccessOrExit(error = GenerateKeys());
 
+    AddCryptoDelay("Spake2p MAC operation");
     SuccessOrExit(error = Mac(Kcaorb, hash_size / 2, in, in_len, out_span));
     VerifyOrExit(out_span.size() == hash_size, error = CHIP_ERROR_INTERNAL);
 
@@ -462,7 +488,10 @@ CHIP_ERROR Spake2p::GenerateKeys()
 
     MutableByteSpan Kae_span{ &Kae[0], sizeof(Kae) };
 
+    AddCryptoDelay("Spake2p hash finalization");
     ReturnErrorOnFailure(HashFinalize(Kae_span));
+    
+    AddCryptoDelay("Spake2p KDF operation");
     ReturnErrorOnFailure(KDF(Ka, hash_size / 2, nullptr, 0, info_keyconfirm, sizeof(info_keyconfirm), Kcab, hash_size));
 
     return CHIP_NO_ERROR;
@@ -491,6 +520,7 @@ CHIP_ERROR Spake2p::KeyConfirm(const uint8_t * in, size_t in_len)
 
     ReturnErrorOnFailure(PointWrite(XY, point_buffer, point_size));
 
+    AddCryptoDelay("Spake2p MAC verification");
     CHIP_ERROR err = MacVerify(Kcaorb, hash_size / 2, in, in_len, point_buffer, point_size);
     if (err == CHIP_ERROR_INTERNAL)
     {
@@ -678,6 +708,8 @@ CHIP_ERROR EcdsaRawSignatureToAsn1(size_t fe_length_bytes, const ByteSpan & raw_
     VerifyOrReturnError(raw_sig.size() == (2u * fe_length_bytes), CHIP_ERROR_INVALID_ARGUMENT);
     VerifyOrReturnError(out_asn1_sig.size() >= (raw_sig.size() + kMax_ECDSA_X9Dot62_Asn1_Overhead), CHIP_ERROR_BUFFER_TOO_SMALL);
 
+    AddCryptoDelay("ECDSA signature conversion");
+    
     // Write both R an S integers past the overhead, we will shift them back later if we only needed 2 size bytes.
     uint8_t * cursor = out_asn1_sig.data() + kMinSequenceOverhead;
     size_t remaining = out_asn1_sig.size() - kMinSequenceOverhead;
@@ -743,6 +775,8 @@ CHIP_ERROR EcdsaAsn1SignatureToRaw(size_t fe_length_bytes, const ByteSpan & asn1
     VerifyOrReturnError(fe_length_bytes > 0, CHIP_ERROR_INVALID_ARGUMENT);
     VerifyOrReturnError(asn1_sig.size() > kMinSequenceOverhead, CHIP_ERROR_BUFFER_TOO_SMALL);
 
+    AddCryptoDelay("ECDSA signature parsing");
+    
     // Output raw signature is <r,s> both of which are of fe_length_bytes (see SEC1).
     VerifyOrReturnError(out_raw_sig.size() >= (2u * fe_length_bytes), CHIP_ERROR_BUFFER_TOO_SMALL);
 
@@ -813,6 +847,7 @@ CHIP_ERROR GenerateCompressedFabricId(const Crypto::P256PublicKey & root_public_
     // Must drop uncompressed point form format specifier (first byte), per spec method
     ByteSpan input_key_span(root_public_key.ConstBytes() + 1, root_public_key.Length() - 1);
 
+    AddCryptoDelay("Fabric ID compression");
     CHIP_ERROR status = hkdf.HKDF_SHA256(
         input_key_span.data(), input_key_span.size(), &fabric_id_as_big_endian_salt[0], sizeof(fabric_id_as_big_endian_salt),
         &kCompressedFabricInfo[0], sizeof(kCompressedFabricInfo), out_compressed_fabric_id.data(), kCompressedFabricIdentifierSize);
@@ -859,6 +894,7 @@ CHIP_ERROR DeriveGroupOperationalKey(const ByteSpan & epoch_key, const ByteSpan 
     VerifyOrReturnError(Crypto::CHIP_CRYPTO_SYMMETRIC_KEY_LENGTH_BYTES == epoch_key.size(), CHIP_ERROR_INVALID_ARGUMENT);
     VerifyOrReturnError(Crypto::CHIP_CRYPTO_SYMMETRIC_KEY_LENGTH_BYTES <= out_key.size(), CHIP_ERROR_INVALID_ARGUMENT);
 
+    AddCryptoDelay("Group operational key derivation");
     Crypto::HKDF_sha crypto;
     return crypto.HKDF_SHA256(epoch_key.data(), epoch_key.size(), compressed_fabric_id.data(), compressed_fabric_id.size(),
                               kGroupSecurityInfo, sizeof(kGroupSecurityInfo), out_key.data(),
@@ -875,6 +911,8 @@ CHIP_ERROR DeriveGroupOperationalKey(const ByteSpan & epoch_key, const ByteSpan 
 CHIP_ERROR DeriveGroupSessionId(const ByteSpan & operational_key, uint16_t & session_id)
 {
     VerifyOrReturnError(Crypto::CHIP_CRYPTO_SYMMETRIC_KEY_LENGTH_BYTES == operational_key.size(), CHIP_ERROR_INVALID_ARGUMENT);
+    
+    AddCryptoDelay("Group session ID derivation");
     Crypto::HKDF_sha crypto;
     uint8_t out_key[sizeof(uint16_t)];
 
@@ -905,6 +943,7 @@ CHIP_ERROR DeriveGroupPrivacyKey(const ByteSpan & encryption_key, MutableByteSpa
 
     constexpr ByteSpan null_span = ByteSpan();
 
+    AddCryptoDelay("Group privacy key derivation");
     Crypto::HKDF_sha crypto;
     return crypto.HKDF_SHA256(encryption_key.data(), encryption_key.size(), null_span.data(), null_span.size(), kGroupPrivacyInfo,
                               sizeof(kGroupPrivacyInfo), out_key.data(), Crypto::CHIP_CRYPTO_SYMMETRIC_KEY_LENGTH_BYTES);
@@ -916,6 +955,7 @@ CHIP_ERROR DeriveGroupOperationalCredentials(const ByteSpan & epoch_key, const B
     MutableByteSpan encryption_key(operational_credentials.encryption_key);
     MutableByteSpan privacy_key(operational_credentials.privacy_key);
 
+    AddCryptoDelay("Group operational credentials derivation");
     ReturnErrorOnFailure(Crypto::DeriveGroupOperationalKey(epoch_key, compressed_fabric_id, encryption_key));
     ReturnErrorOnFailure(Crypto::DeriveGroupSessionId(encryption_key, operational_credentials.hash));
     ReturnErrorOnFailure(Crypto::DeriveGroupPrivacyKey(encryption_key, privacy_key));
@@ -1126,6 +1166,8 @@ CHIP_ERROR GenerateCertificateSigningRequest(const P256Keypair * keypair, Mutabl
     VerifyOrReturnError(keypair != nullptr, CHIP_ERROR_INVALID_ARGUMENT);
     VerifyOrReturnError(csr_span.size() >= kMIN_CSR_Buffer_Size, CHIP_ERROR_BUFFER_TOO_SMALL);
 
+    AddCryptoDelay("CSR preparation");
+    
     // First pass: Generate the CertificatioRequestInformation inner
     // encoding one time, to sign it, before re-generating it within the
     // full ASN1 writer later, since it's easier than trying to
@@ -1149,6 +1191,7 @@ CHIP_ERROR GenerateCertificateSigningRequest(const P256Keypair * keypair, Mutabl
             return CHIP_ERROR_INTERNAL;
         }
 
+        AddCryptoDelay("CSR signature generation");
         err = keypair->ECDSA_sign_msg(csr_span.data(), encodedLen, signature);
         ReturnErrorOnFailure(err);
     }
@@ -1163,6 +1206,7 @@ CHIP_ERROR GenerateCertificateSigningRequest(const P256Keypair * keypair, Mutabl
     ASN1Writer writer;
     writer.Init(csr_span);
 
+    AddCryptoDelay("CSR encoding");
     ASN1_START_SEQUENCE
     {
 

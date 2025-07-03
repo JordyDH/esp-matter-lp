@@ -159,12 +159,12 @@ void UDP::OnUdpReceive(Inet::UDPEndPoint * endPoint, System::PacketBufferHandle 
     bool bleConnectionActive = ConnectionManager::GetInstance().IsBLEConnectionActive();
     
     // Define delay times based on BLE connection status
-    uint32_t kMessageProcessingDelayMs;
+    uint32_t kMessageProcessingDelayMs = 10; // Default delay
     
     if (bleConnectionActive)
     {
         // Longer delay when BLE is active to reduce power consumption
-        kMessageProcessingDelayMs = 500; // Adjust value as needed
+        kMessageProcessingDelayMs = 1000; // Adjust value as needed
         ChipLogProgress(Inet, "UDP: BLE connection active - Adding delay before processing message");
     }
     else

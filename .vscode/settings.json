@@ -1,0 +1,14 @@
+{
+    "files.associations": {
+        "limits": "cpp",
+        "string": "cpp",
+        "*.ipp": "cpp",
+        "barrier": "cpp",
+        "chrono": "cpp",
+        "random": "cpp",
+        "latch": "cpp",
+        "semaphore": "cpp",
+        "ratio": "cpp",
+        "valarray": "cpp"
+    }
+}

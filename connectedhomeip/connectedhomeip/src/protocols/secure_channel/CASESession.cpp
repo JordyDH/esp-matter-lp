@@ -49,7 +49,29 @@
 #include <tracing/metric_event.h>
 #include <transport/SessionManager.h>
 
+// Add necessary header for FreeRTOS
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
+// Define delay time for crypto operations
+#define CASE_CRYPTO_DELAY_MS 250
+
 namespace {
+
+// Helper function to add delays in cryptographic operations
+void AddCryptoDelay(const char* operation)
+{
+    ChipLogProgress(SecureChannel, "Adding delay before crypto operation: %s", operation);
+    vTaskDelay(pdMS_TO_TICKS(CASE_CRYPTO_DELAY_MS));
+}
+
+// Helper function to add delays between protocol steps
+void AddProtocolDelay(const char* step)
+{
+    ChipLogProgress(SecureChannel, "Adding delay between protocol steps: %s", step);
+    vTaskDelay(pdMS_TO_TICKS(CASE_CRYPTO_DELAY_MS));
+}
+
 // TBEDataTags works for both sigma-2-tbedata and sigma-3-tbedata as they have the same tag numbers for the elements common between
 // them.
 enum class TBEDataTags : uint8_t
@@ -771,13 +793,17 @@ CHIP_ERROR CASESession::SendSigma1()
     encodeSigma1Inputs.initiatorSessionId = GetLocalSessionId().Value();
 
     // Generate an ephemeral keypair
+    AddCryptoDelay("ephemeral key generation in SendSigma1");
     mEphemeralKey = mFabricsTable->AllocateEphemeralKeypairForCASE();
     VerifyOrReturnError(mEphemeralKey != nullptr, CHIP_ERROR_NO_MEMORY);
     ReturnErrorOnFailure(mEphemeralKey->Initialize(ECPKeyTarget::ECDH));
+    ChipLogProgress(SecureChannel, "Completed ephemeral key generation in SendSigma1");
     encodeSigma1Inputs.initiatorEphPubKey = &mEphemeralKey->Pubkey();
 
     // Fill in the random value
+    AddCryptoDelay("random value generation in SendSigma1");
     ReturnErrorOnFailure(DRBG_get_bytes(mInitiatorRandom, sizeof(mInitiatorRandom)));
+    ChipLogProgress(SecureChannel, "Completed random value generation in SendSigma1");
     encodeSigma1Inputs.initiatorRandom = ByteSpan(mInitiatorRandom);
 
     // Generate a Destination Identifier based on the node we are attempting to reach
@@ -791,9 +817,11 @@ CHIP_ERROR CASESession::SendSigma1()
         ReturnErrorOnFailure(mFabricsTable->FetchRootPubkey(mFabricIndex, rootPubKey));
         Credentials::P256PublicKeySpan rootPubKeySpan{ rootPubKey.ConstBytes() };
 
+        AddCryptoDelay("destination ID generation");
         MutableByteSpan destinationIdSpan(destinationIdentifier);
         ReturnErrorOnFailure(GenerateCaseDestinationId(ByteSpan(mIPK), encodeSigma1Inputs.initiatorRandom, rootPubKeySpan, fabricId,
                                                        mPeerNodeId, destinationIdSpan));
+        ChipLogProgress(SecureChannel, "Completed destination ID generation");
         encodeSigma1Inputs.destinationId = destinationIdSpan;
     }
 
@@ -909,6 +937,9 @@ CHIP_ERROR CASESession::HandleSigma1_and_SendSigma2(System::PacketBufferHandle &
     NextStep nextStep = HandleSigma1(std::move(msg));
     VerifyOrExit(nextStep.Is<Step>(), err = nextStep.Get<CHIP_ERROR>());
 
+    // Add delay after processing Sigma1 before preparing for Sigma2
+    AddProtocolDelay("between processing Sigma1 and preparing Sigma2");
+
     switch (nextStep.Get<Step>())
     {
     case Step::kSendSigma2: {
@@ -917,9 +948,17 @@ CHIP_ERROR CASESession::HandleSigma1_and_SendSigma2(System::PacketBufferHandle &
         EncodeSigma2Inputs encodeSigma2;
 
         SuccessOrExit(err = PrepareSigma2(encodeSigma2));
+        
+        // Add delay between preparing and encoding Sigma2
+        AddProtocolDelay("between preparing and encoding Sigma2");
+        
         SuccessOrExit(err = EncodeSigma2(msgR2, encodeSigma2));
 
         MATTER_LOG_METRIC_BEGIN(kMetricDeviceCASESessionSigma2);
+        
+        // Add delay before sending Sigma2
+        AddProtocolDelay("before sending Sigma2");
+        
         SuccessOrExitAction(err = SendSigma2(std::move(msgR2)), MATTER_LOG_METRIC_END(kMetricDeviceCASESessionSigma2, err));
 
         mDelegate->OnSessionEstablishmentStarted();
@@ -931,9 +970,17 @@ CHIP_ERROR CASESession::HandleSigma1_and_SendSigma2(System::PacketBufferHandle &
         EncodeSigma2ResumeInputs encodeSigma2Resume;
 
         SuccessOrExit(err = PrepareSigma2Resume(encodeSigma2Resume));
+        
+        // Add delay between preparing and encoding Sigma2Resume
+        AddProtocolDelay("between preparing and encoding Sigma2Resume");
+        
         SuccessOrExit(err = EncodeSigma2Resume(msgR2Resume, encodeSigma2Resume));
 
         MATTER_LOG_METRIC_BEGIN(kMetricDeviceCASESessionSigma2Resume);
+        
+        // Add delay before sending Sigma2Resume
+        AddProtocolDelay("before sending Sigma2Resume");
+        
         SuccessOrExitAction(err = SendSigma2Resume(std::move(msgR2Resume)),
                             MATTER_LOG_METRIC_END(kMetricDeviceCASESessionSigma2Resume, err));
 
@@ -947,11 +994,15 @@ CHIP_ERROR CASESession::HandleSigma1_and_SendSigma2(System::PacketBufferHandle &
 exit:
     if (err == CHIP_ERROR_KEY_NOT_FOUND)
     {
+        // Add delay before sending error status
+        AddProtocolDelay("before sending NoSharedRoot error status");
         SendStatusReport(mExchangeCtxt, kProtocolCodeNoSharedRoot);
         mState = State::kInitialized;
     }
     else if (err != CHIP_NO_ERROR)
     {
+        // Add delay before sending error status
+        AddProtocolDelay("before sending InvalidParam error status");
         SendStatusReport(mExchangeCtxt, kProtocolCodeInvalidParam);
         mState = State::kInitialized;
     }
@@ -1201,16 +1252,22 @@ CHIP_ERROR CASESession::PrepareSigma2(EncodeSigma2Inputs & outSigma2Data)
     ReturnErrorOnFailure(mFabricsTable->FetchNOCCert(mFabricIndex, nocCert));
 
     // Fill in the random value
+    AddCryptoDelay("random value generation in PrepareSigma2");
     ReturnErrorOnFailure(DRBG_get_bytes(&outSigma2Data.responderRandom[0], sizeof(outSigma2Data.responderRandom)));
+    ChipLogProgress(SecureChannel, "Completed random value generation in PrepareSigma2");
 
     // Generate an ephemeral keypair
+    AddCryptoDelay("ephemeral key generation in PrepareSigma2");
     mEphemeralKey = mFabricsTable->AllocateEphemeralKeypairForCASE();
     VerifyOrReturnError(mEphemeralKey != nullptr, CHIP_ERROR_NO_MEMORY);
     ReturnErrorOnFailure(mEphemeralKey->Initialize(ECPKeyTarget::ECDH));
+    ChipLogProgress(SecureChannel, "Completed ephemeral key generation in PrepareSigma2");
     outSigma2Data.responderEphPubKey = &mEphemeralKey->Pubkey();
 
     // Generate a Shared Secret
+    AddCryptoDelay("ECDH shared secret derivation in PrepareSigma2");
     ReturnErrorOnFailure(mEphemeralKey->ECDH_derive_secret(mRemotePubKey, mSharedSecret));
+    ChipLogProgress(SecureChannel, "Completed ECDH shared secret derivation in PrepareSigma2");
 
     uint8_t msgSalt[kIPKSize + kSigmaParamRandomNumberSize + kP256_PublicKey_Length + kSHA256_Hash_Length];
 
@@ -1455,6 +1512,9 @@ CHIP_ERROR CASESession::HandleSigma2_and_SendSigma3(System::PacketBufferHandle &
     MATTER_LOG_METRIC_END(kMetricDeviceCASESessionSigma1, err);
     SuccessOrExit(err);
 
+    // Add delay between handling Sigma2 and preparing to send Sigma3
+    AddProtocolDelay("between handling Sigma2 and preparing Sigma3");
+
     MATTER_LOG_METRIC_BEGIN(kMetricDeviceCASESessionSigma3);
     err = SendSigma3a();
     if (CHIP_NO_ERROR != err)
@@ -1465,6 +1525,8 @@ CHIP_ERROR CASESession::HandleSigma2_and_SendSigma3(System::PacketBufferHandle &
 exit:
     if (CHIP_NO_ERROR != err)
     {
+        // Add delay before sending error status
+        AddProtocolDelay("before sending error status in HandleSigma2_and_SendSigma3");
         SendStatusReport(mExchangeCtxt, kProtocolCodeInvalidParam);
         mState = State::kInitialized;
     }
@@ -1500,7 +1562,9 @@ CHIP_ERROR CASESession::HandleSigma2(System::PacketBufferHandle && msg)
     memcpy(mRemotePubKey.Bytes(), parsedSigma2.responderEphPubKey.data(), mRemotePubKey.Length());
 
     // Generate a Shared Secret
+    AddCryptoDelay("ECDH shared secret derivation in HandleSigma2");
     ReturnErrorOnFailure(mEphemeralKey->ECDH_derive_secret(mRemotePubKey, mSharedSecret));
+    ChipLogProgress(SecureChannel, "Completed ECDH shared secret derivation in HandleSigma2");
 
     // Generate the S2K key
     AutoReleaseSessionKey sr2k(*mSessionManager->GetSessionKeystore());
@@ -1765,6 +1829,7 @@ CHIP_ERROR CASESession::SendSigma3a()
 CHIP_ERROR CASESession::SendSigma3b(SendSigma3Data & data, bool & cancel)
 {
     // Generate a signature
+    AddCryptoDelay("signature generation in SendSigma3b");
     if (data.keystore != nullptr)
     {
         // Recommended case: delegate to operational keystore
@@ -1775,6 +1840,7 @@ CHIP_ERROR CASESession::SendSigma3b(SendSigma3Data & data, bool & cancel)
         // Legacy case: delegate to fabric table fabric info
         ReturnErrorOnFailure(data.fabricTable->SignWithOpKeypair(data.fabricIndex, data.msgR3SignedSpan, data.tbsData3Signature));
     }
+    ChipLogProgress(SecureChannel, "Completed signature generation in SendSigma3b");
 
     // Prepare Sigma3 TBE Data Blob
     data.msg_r3_encrypted_len =
@@ -1833,14 +1899,19 @@ CHIP_ERROR CASESession::SendSigma3c(SendSigma3Data & data, CHIP_ERROR status)
     {
         MutableByteSpan saltSpan(msg_salt);
         SuccessOrExit(err = ConstructSaltSigma3(ByteSpan(mIPK), saltSpan));
+        
+        AddCryptoDelay("sigma key derivation in SendSigma3c");
         SuccessOrExit(err = DeriveSigmaKey(saltSpan, ByteSpan(kKDFSR3Info), sr3k));
+        ChipLogProgress(SecureChannel, "Completed sigma key derivation in SendSigma3c");
     }
 
     // Generated Encrypted data blob
+    AddCryptoDelay("AES-CCM encryption in SendSigma3c");
     SuccessOrExit(err =
                       AES_CCM_encrypt(data.msg_R3_Encrypted.Get(), data.msg_r3_encrypted_len, nullptr, 0, sr3k.KeyHandle(),
                                       kTBEData3_Nonce, kTBEDataNonceLength, data.msg_R3_Encrypted.Get(),
                                       data.msg_R3_Encrypted.Get() + data.msg_r3_encrypted_len, CHIP_CRYPTO_AEAD_MIC_LENGTH_BYTES));
+    ChipLogProgress(SecureChannel, "Completed AES-CCM encryption in SendSigma3c");
 
     // Generate Sigma3 Msg
     data_len = TLV::EstimateStructOverhead(CHIP_CRYPTO_AEAD_MIC_LENGTH_BYTES, data.msg_r3_encrypted_len);
@@ -1949,9 +2020,11 @@ CHIP_ERROR CASESession::HandleSigma3a(System::PacketBufferHandle && msg)
             SuccessOrExit(err = mCommissioningHash.AddData(ByteSpan{ buf, bufLen }));
         }
         // Step 2 - Decrypt data blob
+        AddCryptoDelay("AES-CCM decryption in HandleSigma3a");
         SuccessOrExit(err = AES_CCM_decrypt(msgR3EncryptedPayload.data(), msgR3EncryptedPayload.size(), nullptr, 0, msgR3MIC.data(),
                                             msgR3MIC.size(), sr3k.KeyHandle(), kTBEData3_Nonce, kTBEDataNonceLength,
                                             msgR3EncryptedPayload.data()));
+        ChipLogProgress(SecureChannel, "Completed AES-CCM decryption in HandleSigma3a");
 
         decryptedDataTlvReader.Init(msgR3EncryptedPayload.data(), msgR3EncryptedPayload.size());
         SuccessOrExit(err = ParseSigma3TBEData(decryptedDataTlvReader, data));
@@ -2093,13 +2166,19 @@ CHIP_ERROR CASESession::HandleSigma3b(HandleSigma3Data & data, bool & cancel)
     CompressedFabricId unused;
     FabricId initiatorFabricId;
     P256PublicKey initiatorPublicKey;
+    
+    AddCryptoDelay("certificate verification in HandleSigma3b");
     ReturnErrorOnFailure(FabricTable::VerifyCredentials(data.initiatorNOC, data.initiatorICAC, data.fabricRCAC, data.validContext,
-                                                        unused, initiatorFabricId, data.initiatorNodeId, initiatorPublicKey));
+                                                      unused, initiatorFabricId, data.initiatorNodeId, initiatorPublicKey));
+    ChipLogProgress(SecureChannel, "Completed certificate verification in HandleSigma3b");
+    
     VerifyOrReturnError(data.fabricId == initiatorFabricId, CHIP_ERROR_INVALID_CASE_PARAMETER);
 
     // Step 7 - Validate Signature
+    AddCryptoDelay("signature verification in HandleSigma3b");
     ReturnErrorOnFailure(initiatorPublicKey.ECDSA_validate_msg_signature(data.msgR3SignedSpan.data(), data.msgR3SignedSpan.size(),
-                                                                         data.tbsData3Signature));
+                                                                       data.tbsData3Signature));
+    ChipLogProgress(SecureChannel, "Completed signature verification in HandleSigma3b");
 
     return CHIP_NO_ERROR;
 }
@@ -2307,6 +2386,9 @@ void CASESession::OnSuccessStatusReport()
 {
     ChipLogProgress(SecureChannel, "Success status report received. Session was established");
 
+    // Add delay after receiving success status report
+    AddProtocolDelay("after receiving success status");
+
     if (mSessionResumptionStorage != nullptr)
     {
         CHIP_ERROR err2 = mSessionResumptionStorage->Save(GetPeer(), mNewResumptionId, mSharedSecret, mPeerCATs);
@@ -2326,6 +2408,9 @@ void CASESession::OnSuccessStatusReport()
         VerifyOrDie(false && "Reached invalid internal state keeping in CASE session");
         break;
     }
+
+    // Add delay before finalizing session
+    AddProtocolDelay("before finalizing session");
 
     Finish();
 }
@@ -2474,6 +2559,9 @@ CHIP_ERROR CASESession::OnMessageReceived(ExchangeContext * ec, const PayloadHea
     Protocols::SecureChannel::MsgType msgType = static_cast<Protocols::SecureChannel::MsgType>(payloadHeader.GetMessageType());
     SuccessOrExit(err);
 
+    // Add delay before processing new message
+    AddProtocolDelay("before processing incoming message");
+
 #if CONFIG_BUILD_FOR_HOST_UNIT_TEST
     if (mStopHandshakeAtState.HasValue() && mState == mStopHandshakeAtState.Value())
     {
@@ -2514,6 +2602,7 @@ CHIP_ERROR CASESession::OnMessageReceived(ExchangeContext * ec, const PayloadHea
     case State::kInitialized:
         if (msgType == Protocols::SecureChannel::MsgType::CASE_Sigma1)
         {
+            AddProtocolDelay("before handling Sigma1");
             err = HandleSigma1_and_SendSigma2(std::move(msg));
         }
         break;
@@ -2521,10 +2610,12 @@ CHIP_ERROR CASESession::OnMessageReceived(ExchangeContext * ec, const PayloadHea
         switch (static_cast<Protocols::SecureChannel::MsgType>(payloadHeader.GetMessageType()))
         {
         case Protocols::SecureChannel::MsgType::CASE_Sigma2:
+            AddProtocolDelay("before handling Sigma2");
             err = HandleSigma2_and_SendSigma3(std::move(msg));
             break;
 
         case MsgType::StatusReport:
+            AddProtocolDelay("before handling StatusReport in kSentSigma1");
             err = HandleStatusReport(std::move(msg), /* successExpected*/ false);
             MATTER_LOG_METRIC_END(kMetricDeviceCASESessionSigma1, err);
             break;
@@ -2538,14 +2629,17 @@ CHIP_ERROR CASESession::OnMessageReceived(ExchangeContext * ec, const PayloadHea
         switch (static_cast<Protocols::SecureChannel::MsgType>(payloadHeader.GetMessageType()))
         {
         case Protocols::SecureChannel::MsgType::CASE_Sigma2:
+            AddProtocolDelay("before handling Sigma2");
             err = HandleSigma2_and_SendSigma3(std::move(msg));
             break;
 
         case Protocols::SecureChannel::MsgType::CASE_Sigma2Resume:
+            AddProtocolDelay("before handling Sigma2Resume");
             err = HandleSigma2Resume(std::move(msg));
             break;
 
         case MsgType::StatusReport:
+            AddProtocolDelay("before handling StatusReport in kSentSigma1Resume");
             err = HandleStatusReport(std::move(msg), /* successExpected*/ false);
             MATTER_LOG_METRIC_END(kMetricDeviceCASESessionSigma1, err);
             break;
@@ -2559,10 +2653,12 @@ CHIP_ERROR CASESession::OnMessageReceived(ExchangeContext * ec, const PayloadHea
         switch (static_cast<Protocols::SecureChannel::MsgType>(payloadHeader.GetMessageType()))
         {
         case Protocols::SecureChannel::MsgType::CASE_Sigma3:
+            AddProtocolDelay("before handling Sigma3");
             err = HandleSigma3a(std::move(msg));
             break;
 
         case MsgType::StatusReport:
+            AddProtocolDelay("before handling StatusReport in kSentSigma2");
             err = HandleStatusReport(std::move(msg), /* successExpected*/ false);
             MATTER_LOG_METRIC_END(kMetricDeviceCASESessionSigma2, err);
             break;
@@ -2579,6 +2675,7 @@ CHIP_ERROR CASESession::OnMessageReceived(ExchangeContext * ec, const PayloadHea
             // Need to capture before invoking status report since 'this' might be deallocated on successful completion of
             // sigma3
             MetricKey key = (mState == State::kSentSigma3) ? kMetricDeviceCASESessionSigma3 : kMetricDeviceCASESessionSigma2Resume;
+            AddProtocolDelay("before handling StatusReport in kSentSigma3 or kSentSigma2Resume");
             err           = HandleStatusReport(std::move(msg), /* successExpected*/ true);
             MATTER_LOG_METRIC_END(key, err);
             IgnoreUnusedVariable(key);
@@ -2590,12 +2687,6 @@ CHIP_ERROR CASESession::OnMessageReceived(ExchangeContext * ec, const PayloadHea
     };
 
 exit:
-
-    if (err == CHIP_ERROR_INVALID_MESSAGE_TYPE)
-    {
-        ChipLogError(SecureChannel, "Received message (type %d) cannot be handled in %d state.", to_underlying(msgType),
-                     to_underlying(mState));
-    }
 
     // Call delegate to indicate session establishment failure.
     if (err != CHIP_NO_ERROR)

@@ -451,8 +451,8 @@ void DnssdServer::StopServer()
 void DnssdServer::StartServer(Dnssd::CommissioningMode mode)
 {
     // Add configurable delay before starting DNS-SD server to reduce power consumption
-    uint32_t kDnssdStartDelayMs = 5000; // Adjust value as needed
-    ChipLogProgress(Discovery, "DNS-SD: Adding delay of 5000ms before starting server");
+    uint32_t kDnssdStartDelayMs = 10000; // Adjust value as needed
+    ChipLogProgress(Discovery, "DNS-SD: Adding delay of 10000ms before starting server");
 
     // Create info for the delayed start
     DnssdDelayedStartInfo * startInfo = new DnssdDelayedStartInfo(mode);
